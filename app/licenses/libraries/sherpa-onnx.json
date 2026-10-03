@@ -1,0 +1,11 @@
+{
+    "uniqueId": "k2-fsa/sherpa-onnx",
+    "artifactVersion": "1.13.8",
+    "description": "Speech recognition and voice activity detection runtime, running entirely on the device",
+    "name": "k2-fsa/sherpa-onnx",
+    "website": "https://github.com/k2-fsa/sherpa-onnx",
+    "tag": "native",
+    "licenses": [
+        "Apache-2.0"
+    ]
+}

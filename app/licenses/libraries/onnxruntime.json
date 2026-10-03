@@ -1,0 +1,11 @@
+{
+    "uniqueId": "microsoft/onnxruntime",
+    "artifactVersion": "1.28.2",
+    "description": "ONNX Runtime: cross-platform machine learning inference (bundled with sherpa-onnx)",
+    "name": "microsoft/onnxruntime",
+    "website": "https://github.com/microsoft/onnxruntime",
+    "tag": "native",
+    "licenses": [
+        "MIT"
+    ]
+}

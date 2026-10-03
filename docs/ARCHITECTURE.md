@@ -74,6 +74,12 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
+| `app/src/main/java/.../utils/Const.kt` | repository and privacy policy URLs |
+| `app/src/main/res/drawable/ic_launcher_*`, `mipmap-*/ic_launcher*` | own launcher icon |
+| `app/src/main/res/values-*/strings.xml` | removed translated app names; `values-zh-rCN` has ours |
+| `app/licenses/libraries/` | entries for sherpa-onnx, ONNX Runtime, SenseVoice, Silero VAD |
+| `README.md` | replaced; the original is `docs/UPSTREAM_README.md` |
+| `app/src/main/play/`, `app/org.fcitx.fcitx5.android.yml` | removed (upstream's store listings) |
 
 ## Assets
 

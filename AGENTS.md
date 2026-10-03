@@ -27,6 +27,10 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
    upstream file we touch.
 4. **Don't commit large binaries.** The speech runtime and models live in `voice/` (git-ignored)
    and are fetched by `scripts/fetch-voice-assets.sh` with pinned checksums.
+5. **License hygiene.** The project is LGPL-2.1-or-later, like upstream. Keep upstream copyright
+   headers; when you add a dependency, model or asset, check that its license allows
+   redistribution, then record it in `NOTICE.md` and `app/licenses/libraries/`. When you change
+   an upstream file that is not yet listed in `docs/ARCHITECTURE.md`, add it there.
 
 ## Repository map
 

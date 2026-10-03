@@ -80,9 +80,14 @@ for signing.
 - [docs/MODELS.md](docs/MODELS.md) — model choice, benchmark numbers, how to evaluate another model
 - [docs/TESTING.md](docs/TESTING.md) — unit tests, automated end-to-end test, release builds
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
+- [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original fcitx5-android README
 
 ## Credits and license
+
+Local Voice IME is a fork of fcitx5-android. It is an independent project, not affiliated with
+or endorsed by the Fcitx project. What was changed, and the licenses of everything bundled, are
+listed in [NOTICE.md](NOTICE.md).
 
 - [fcitx5-android](https://github.com/fcitx5-android/fcitx5-android) and the Fcitx5 project —
   the keyboard and input method engines

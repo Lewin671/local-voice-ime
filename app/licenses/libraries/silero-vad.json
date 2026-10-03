@@ -1,0 +1,11 @@
+{
+    "uniqueId": "snakers4/silero-vad",
+    "artifactVersion": "v5",
+    "description": "Silero VAD: voice activity detection model",
+    "name": "snakers4/silero-vad",
+    "website": "https://github.com/snakers4/silero-vad",
+    "tag": "native",
+    "licenses": [
+        "MIT"
+    ]
+}
