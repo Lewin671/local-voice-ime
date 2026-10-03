@@ -56,12 +56,12 @@ also looks right with the other built-in themes, Monet, and user themes.
 
 | Component | Code | States |
 |---|---|---|
-| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Undo (8 s after push-to-talk inserted text) / hidden (password field, model missing) |
+| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy build, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field, model missing) |
 | Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
 | Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs permission, unavailable |
 | Waveform | `WaveformView` | live (follows level), idle (dots), cancel (flat, error colour) |
-| Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
+| Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 
 Behaviour rules that are easy to get wrong:
@@ -70,6 +70,11 @@ Behaviour rules that are easy to get wrong:
   stop, which would flicker. Punctuation appears with the final text.
 - If the user moves the cursor while a preview is showing, the editor keeps the preview as
   ordinary text and dictation stops; writing more would duplicate it at the new position.
+- **Refinement** (high-accuracy build): the fast model's text is inserted immediately; the large
+  model's transcript of the same audio is merged into it (`VoiceText.refine`: its words, the fast
+  model's punctuation, digits and casing) and written over the inserted text. It only ever
+  replaces text that is still exactly what dictation inserted, directly before the cursor
+  (followed at most by later dictated text); otherwise it is dropped without a trace.
 - The preview is composing text. A final result replaces it; cancelling or stopping with nothing
   recognized removes it. It must never be left behind in the field.
 - Releasing space always ends push-to-talk, wherever the finger is. Above the cancel line

@@ -173,6 +173,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
     <tr><td>Tap ⌫ in the panel</td><td>Deletes one character, always. Hold to repeat.</td><td></td></tr>
     <tr><td>Tap ， 。 ？ or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
+    <tr><td>(High-accuracy build) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. The pill reads "Refining…" until this is done, the panel's status row likewise once listening has stopped.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
     <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
   </table></div>
@@ -223,6 +224,8 @@ const S = [
     e: '周五下午把<u>bao gao</u><span class="caret"></span>', k: `<div class="bar"><div class="cands"><span>报告</span><span>报稿</span><span>包</span><span>宝</span></div><span class="icon">${I.down}</span></div>` + keys('拼音') },
   { t: 'Hold space: listening', d: 'Keys give way to the waveform. The held key stays under the finger and says what releasing does. Words land in the text field, underlined.',
     e: '周五下午把报告发我，<u>我周末 review 一下</u><span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone">${I.close}Slide up to cancel</div>${wave()}${held}</div>` + keys('') },
+  { t: 'High-accuracy build: refining', d: 'The text is inserted at once, exactly as in the standard build. While a larger model re-checks it, the pill says so; corrected words then replace the wrong ones in place, punctuation and numbers untouched. Tapping the pill takes the text back.',
+    e: '周五下午把报告发我，我周末 <span style="text-decoration:underline dotted var(--text2)">revue</span> 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', '<span class="dot"></span>Refining…') + keys('拼音') },
   { t: 'After hold-to-talk: undo', d: 'For eight seconds the pill offers to take back what was just inserted. It removes the text only if nothing else has changed since.',
     e: '周五下午把报告发我，我周末 review 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', I.undo + 'Undo') + keys('拼音') },
   { t: 'Hold space: about to cancel', d: 'Above the cancel line everything that was teal turns red and the waveform goes flat. Releasing here inserts nothing.',
