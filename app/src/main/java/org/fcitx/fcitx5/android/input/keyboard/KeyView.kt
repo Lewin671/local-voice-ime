@@ -385,13 +385,18 @@ class AltTextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.AltText)
                 else -> applyBottomAltTextPosition()
             }
             PunctuationPosition.TopRight -> applyTopRightAltTextPosition()
+            PunctuationPosition.NumbersTopRight ->
+                if (altText.text.singleOrNull()?.isDigit() == true) applyTopRightAltTextPosition()
+                else applyNoAltTextPosition()
             PunctuationPosition.None -> applyNoAltTextPosition()
         }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
-        if (ThemeManager.prefs.punctuationPosition.getValue() == PunctuationPosition.TopRight) {
-            return
+        when (ThemeManager.prefs.punctuationPosition.getValue()) {
+            // these don't depend on the orientation
+            PunctuationPosition.TopRight, PunctuationPosition.NumbersTopRight -> return
+            else -> {}
         }
         applyLayout(newConfig.orientation)
     }

@@ -58,10 +58,20 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
 
     private var cancelling = false
 
+    private var failed = false
+
+    private var pill: VoicePillButton? = null
+
+    private val hideSurface = Runnable { hide() }
+
+    private val endUndo = Runnable { pill?.mode = VoicePillButton.Mode.Speak }
+
     private var isPasswordField = false
 
     override fun onStartInput(info: EditorInfo, capFlags: CapabilityFlags) {
         isPasswordField = capFlags.has(CapabilityFlag.Password)
+        // an undo offer does not carry over to another text field
+        endUndoOffer()
         if (isAvailable) VoiceInput.warmUp(service)
     }
 
@@ -75,6 +85,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         TextView(context).apply {
             textSize = 12f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
     }
 
@@ -201,8 +212,9 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
     }
 
     private fun show() {
+        view.removeCallbacks(hideSurface)
         cancelling = false
-        status.listening()
+        failed = false
         waveform.level = 0f
         render()
         alignToSpaceBar()
@@ -229,6 +241,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
     private val listener = object : VoiceSession.Listener {
         override fun onState(state: VoiceSession.State) {
             when (state) {
+                VoiceSession.State.Preparing -> status.preparing()
                 VoiceSession.State.Listening -> status.listening()
                 VoiceSession.State.Finishing -> {
                     status.recognizing()
@@ -236,7 +249,14 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
                 }
                 VoiceSession.State.Stopped -> {
                     session = null
-                    hide()
+                    if (failed) {
+                        // leave the reason on screen long enough to be read
+                        waveform.mode = WaveformView.Mode.Idle
+                        view.postDelayed(hideSurface, ERROR_VISIBLE_MS)
+                    } else {
+                        hide()
+                        if (VoiceInput.canUndoLastSession) offerUndo()
+                    }
                 }
             }
         }
@@ -250,7 +270,8 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         }
 
         override fun onError(e: Throwable) {
-            status.error(R.string.voice_microphone_unavailable)
+            failed = true
+            status.error(e)
         }
     }
 
@@ -265,6 +286,8 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
             showWindow()
             return
         }
+        endUndoOffer()
+        VoiceHints.onPushToTalkUsed(context)
         show()
         session = VoiceInput.start(service, VoiceInput.SILENCE_PUSH_TO_TALK, 0, listener)
     }
@@ -288,6 +311,35 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         s.stop(discard = cancel)
     }
 
+    /**
+     * The toolbar's microphone pill. It normally opens the dictation panel; for a few seconds
+     * after push-to-talk inserted text, it offers to undo that instead.
+     */
+    fun bindPill(pill: VoicePillButton) {
+        this.pill = pill
+        pill.setOnClickListener {
+            if (pill.mode == VoicePillButton.Mode.Undo) {
+                InputFeedbacks.hapticFeedback(pill)
+                VoiceInput.undoLastSession(service)
+                endUndoOffer()
+            } else {
+                showWindow()
+            }
+        }
+    }
+
+    private fun offerUndo() {
+        val pill = pill ?: return
+        pill.mode = VoicePillButton.Mode.Undo
+        pill.removeCallbacks(endUndo)
+        pill.postDelayed(endUndo, UNDO_OFFER_MS)
+    }
+
+    private fun endUndoOffer() {
+        pill?.removeCallbacks(endUndo)
+        pill?.mode = VoicePillButton.Mode.Speak
+    }
+
     /** Open the hands-free dictation panel. */
     fun showWindow() {
         windowManager.attachWindow(VoiceInputWindow())
@@ -295,5 +347,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
 
     companion object {
         const val FADE_MS = 140L
+        const val ERROR_VISIBLE_MS = 2500L
+        const val UNDO_OFFER_MS = 8000L
     }
 }

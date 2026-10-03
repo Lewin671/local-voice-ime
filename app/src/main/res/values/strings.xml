@@ -224,7 +224,7 @@
     <string name="path_conflict">Path \"%1$s\" is already owned by %2$s</string>
     <string name="main_program">main program</string>
     <string name="edit_theme">Edit Theme</string>
-    <string name="show_voice_input_button">Show voice input button</string>
+    <string name="show_voice_input_button">Show a button for another voice input app</string>
     <string name="fcitx_daemon">Fcitx Daemon</string>
     <string name="restarting_fcitx">Restarting Fcitx</string>
     <string name="plugin_needs_reload">Plugin changes detected, click here to reload</string>
@@ -341,4 +341,11 @@
     <string name="voice_permission_body">Audio stays on this phone. It is never stored or sent.</string>
     <string name="voice_allow_microphone">Allow microphone</string>
     <string name="voice_permission_denied">Voice input needs the microphone. Allow it under Permissions in the system settings of this app.</string>
+    <string name="voice_preparing">Getting ready. Keep talking</string>
+    <string name="voice_microphone_busy">Another app is using the microphone</string>
+    <string name="voice_model_load_failed">Could not load the speech model</string>
+    <string name="voice_off_after_silence">Off after 10 s of silence</string>
+    <string name="voice_hold_to_talk">Hold to talk</string>
+    <string name="voice_undo">Undo dictation</string>
+    <string name="punctuation_pos_numbers_top_right">Top Right (numbers only)</string>
 </resources>

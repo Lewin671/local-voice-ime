@@ -15,6 +15,22 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
+ * A failure the user can be told about in plain words.
+ */
+class VoiceException(val kind: Kind, cause: Throwable? = null) : Exception(kind.name, cause) {
+    enum class Kind {
+        /** The microphone could not be opened at all. */
+        MicrophoneUnavailable,
+
+        /** The microphone is being used by something else. */
+        MicrophoneBusy,
+
+        /** The speech model could not be loaded (e.g. not enough memory). */
+        ModelLoadFailed
+    }
+}
+
+/**
  * Source of 16 kHz mono audio, as float samples in [-1, 1].
  */
 interface AudioSource {
@@ -49,10 +65,15 @@ class MicrophoneSource : AudioSource {
             AudioFormat.ENCODING_PCM_16BIT,
             bufferBytes
         )
-        check(r.state == AudioRecord.STATE_INITIALIZED) { "Failed to initialize AudioRecord" }
+        if (r.state != AudioRecord.STATE_INITIALIZED) {
+            r.release()
+            throw VoiceException(VoiceException.Kind.MicrophoneUnavailable)
+        }
         r.startRecording()
-        check(r.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-            "Microphone is unavailable (in use by another app?)"
+        if (r.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+            // typically: a call is in progress, or another app holds the microphone
+            r.release()
+            throw VoiceException(VoiceException.Kind.MicrophoneBusy)
         }
         record = r
     }

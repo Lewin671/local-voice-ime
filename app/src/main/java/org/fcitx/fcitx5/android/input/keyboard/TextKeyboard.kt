@@ -17,6 +17,7 @@ import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.input.voice.VoiceEngine
+import org.fcitx.fcitx5.android.input.voice.VoiceHints
 import org.fcitx.fcitx5.android.input.popup.PopupAction
 import splitties.views.imageResource
 
@@ -172,7 +173,10 @@ class TextKeyboard(
     }
 
     override fun onInputMethodUpdate(ime: InputMethodEntry) {
-        space.mainText.text = buildString {
+        space.mainText.text = if (VoiceHints.shouldShowHoldToTalk(context)) {
+            // teach push-to-talk until it has been used a few times
+            context.getString(R.string.voice_hold_to_talk)
+        } else buildString {
             append(ime.displayName)
             ime.subMode.run { label.ifEmpty { name.ifEmpty { null } } }?.let { append(" ($it)") }
         }

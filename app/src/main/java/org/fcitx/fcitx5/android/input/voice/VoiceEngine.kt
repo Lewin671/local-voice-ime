@@ -33,6 +33,9 @@ object VoiceEngine {
 
     const val SAMPLE_RATE = 16000
 
+    /** Longer utterances are cut at this length, even without a pause. */
+    const val MAX_SPEECH_SECONDS = 20f
+
     /** Window size (in samples) expected by the VAD model. */
     const val VAD_WINDOW = 512
 
@@ -63,7 +66,11 @@ object VoiceEngine {
         recognizer = null
     }
 
+    @Volatile
     private var recognizer: OfflineRecognizer? = null
+
+    /** Whether the model is in memory; if not, the next session has to wait for [ensureLoaded]. */
+    val isLoaded get() = recognizer != null
 
     private var available: Boolean? = null
 
@@ -138,7 +145,7 @@ object VoiceEngine {
                 minSilenceDuration = minSilence,
                 minSpeechDuration = 0.25f,
                 windowSize = VAD_WINDOW,
-                maxSpeechDuration = 20f
+                maxSpeechDuration = MAX_SPEECH_SECONDS
             ),
             sampleRate = SAMPLE_RATE,
             numThreads = 1

@@ -46,6 +46,24 @@ object VoiceText {
         return sb.toString().trim()
     }
 
+    private const val TRAILING_PUNCTUATION = "。．.，,、；;：:？?！!…"
+
+    /**
+     * The model punctuates every intermediate result as if it were a complete sentence.
+     * In a live preview that punctuation flickers, so it is only shown once the utterance is final.
+     */
+    fun stripTrailingPunctuation(text: String): String =
+        text.trimEnd { it in TRAILING_PUNCTUATION || it.isWhitespace() }
+
+    /**
+     * For an utterance that was cut off because it reached the maximum length: the model still
+     * ends it with a full stop, although the sentence goes on.
+     */
+    fun stripTrailingFullStop(text: String): String {
+        val s = text.trimEnd()
+        return if (s.endsWith('。') || s.endsWith('.')) s.dropLast(1) else s
+    }
+
     /**
      * Text to insert between [before] (text already in the editor, left of the cursor) and a newly
      * recognized segment: a space is only needed between two Latin words/sentences.

@@ -44,4 +44,23 @@ class VoiceTextTest {
         assertEquals("", VoiceText.joiner("", "Hello"))
         assertEquals("", VoiceText.joiner(null, "Hello"))
     }
+
+    @Test
+    fun previewHasNoTrailingPunctuation() {
+        assertEquals("开饭时间早上9点", VoiceText.stripTrailingPunctuation("开饭时间早上9点。"))
+        assertEquals("你觉得怎么样", VoiceText.stripTrailingPunctuation("你觉得怎么样？"))
+        assertEquals("Hello world", VoiceText.stripTrailingPunctuation("Hello world. "))
+        // punctuation inside the text stays
+        assertEquals("好的，我知道了", VoiceText.stripTrailingPunctuation("好的，我知道了。"))
+        assertEquals("", VoiceText.stripTrailingPunctuation("。"))
+        assertEquals("3.5", VoiceText.stripTrailingPunctuation("3.5"))
+    }
+
+    @Test
+    fun cutOffUtteranceLosesOnlyItsFullStop() {
+        assertEquals("然后我们就", VoiceText.stripTrailingFullStop("然后我们就。"))
+        assertEquals("and then we", VoiceText.stripTrailingFullStop("and then we."))
+        assertEquals("真的吗？", VoiceText.stripTrailingFullStop("真的吗？"))
+        assertEquals("好的，", VoiceText.stripTrailingFullStop("好的，"))
+    }
 }

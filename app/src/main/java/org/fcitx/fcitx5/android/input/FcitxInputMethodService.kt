@@ -973,6 +973,9 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         ic.endBatchEdit()
     }
 
+    /** Whether there is composing text in the editor right now. */
+    val hasComposingText get() = composing.isNotEmpty()
+
     /**
      * Show [text] as composing text at the cursor: the live preview of the utterance being
      * dictated. It is replaced by the next preview or by [commitText]; an empty string removes it.

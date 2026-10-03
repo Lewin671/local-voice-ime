@@ -57,6 +57,7 @@ git submodule update --init --recursive   # once after cloning
 ./scripts/build.sh release                # release APK (see docs/TESTING.md for signing)
 ./scripts/check.sh                        # unit tests + debug build + privacy check (what CI runs)
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
+./scripts/e2e-scenarios.sh                # behaviour rules: preview, undo, cancel, cursor moves, timeout
 ./scripts/ui-shots.sh                     # screenshot every UI state, light and dark
 ```
 
@@ -67,7 +68,9 @@ are listed in `README.md`.
 ## How to verify a change
 
 1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
-2. `./scripts/e2e-voice.sh` with an emulator or phone attached. It feeds WAV files through the
+2. `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` with an emulator or phone attached.
+   The first compares transcripts; the second checks the behaviour rules of the design
+   (add a scenario there whenever you fix or add a behaviour). It feeds WAV files through the
    real recognition pipeline inside the IME and compares what lands in a text field. This is the
    test that matters for anything under `input/voice/`.
 

@@ -35,6 +35,22 @@ WAV files must be 16 kHz, mono, 16-bit PCM. To add a case, append a line to `cas
 (or pass your own file: `scripts/e2e-voice.sh my-cases.tsv`).
 On macOS, `say -o x.wav --data-format=LEI16@16000 "text"` generates suitable audio.
 
+## Behaviour scenarios
+
+```sh
+./scripts/e2e-scenarios.sh
+```
+
+Checks the rules of `docs/design/DESIGN.md` on a device: the live preview appears and carries no
+trailing punctuation, releasing inserts the punctuated text, the pill offers Undo and Undo
+removes it, sliding up cancels cleanly, backspace in the panel deletes exactly one character,
+moving the cursor mid-utterance does not duplicate text, silence turns the microphone off with
+the reason shown, and the "Hold to talk" hint goes away after three uses.
+
+It reinstalls the debug build from scratch (its data is reset) and needs a microphone that
+delivers silence for the timeout scenario, e.g. an emulator started with `-no-audio`.
+When you fix a behaviour bug or add a rule, add a scenario for it.
+
 ## UI screenshots
 
 ```sh

@@ -5,7 +5,7 @@
 ## How it was verified
 
 - [ ] `./scripts/check.sh` passes
-- [ ] `./scripts/e2e-voice.sh` passes on a device or emulator (required for changes under `input/voice/`)
+- [ ] `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` pass on a device or emulator (required for changes under `input/voice/`)
 
 ## UI changes
 

@@ -47,7 +47,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Key radius | 9 dp | `ThemePrefs.keyRadius` default |
 | Key gap | 6 dp × 8 dp | `ThemePrefs.keyHorizontalMargin` 3, `keyVerticalMargin` 4 |
 | Key caps | on, shadow style | `ThemePrefs.keyBorder` default `true` |
-| Hints | top right | `ThemePrefs.punctuationPosition` default |
+| Hints | top right, digits only | `ThemePrefs.punctuationPosition` default (`NumbersTopRight`) |
 | Toolbar height | 40 dp | `KawaiiBarComponent.HEIGHT` |
 | Waveform | 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall | `WaveformView` |
 | Surface change | 140 ms fade | `VoiceInputComponent`, `InputWindowManager` |
@@ -56,22 +56,26 @@ also looks right with the other built-in themes, Monet, and user themes.
 
 | Component | Code | States |
 |---|---|---|
-| Microphone pill (toolbar) | `IdleUi.voiceButton` | visible / hidden (password field, model missing) |
-| Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name |
+| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Undo (8 s after push-to-talk inserted text) / hidden (password field, model missing) |
+| Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
 | Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs permission, unavailable |
 | Waveform | `WaveformView` | live (follows level), idle (dots), cancel (flat, error colour) |
-| Status row | `VoiceStatusUi` | "Listening" / "Recognizing…" / "Microphone off", always with lock + "On-device" |
+| Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 
 Behaviour rules that are easy to get wrong:
 
+- The preview never ends in punctuation: the model closes every intermediate result with a full
+  stop, which would flicker. Punctuation appears with the final text.
+- If the user moves the cursor while a preview is showing, the editor keeps the preview as
+  ordinary text and dictation stops; writing more would duplicate it at the new position.
 - The preview is composing text. A final result replaces it; cancelling or stopping with nothing
   recognized removes it. It must never be left behind in the field.
 - Releasing space always ends push-to-talk, wherever the finger is. Above the cancel line
   (one key height above the space bar) it discards.
-- The panel's ⌫ removes the whole last utterance only if nothing else changed the text since it
-  was inserted; otherwise it deletes one character.
+- ⌫ deletes exactly one character, everywhere. Removing a whole utterance is only ever done by
+  an explicit Undo (a first version made ⌫ do it in the panel; users read that as a bug).
 - Haptics: tick on start, tick on insert, double tick on cancel — through `InputFeedbacks`, so the
   user's haptic settings apply.
 - Every string on screen comes from `values/strings.xml`; wording in `mockup.html` is the source.

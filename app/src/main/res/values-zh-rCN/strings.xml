@@ -222,7 +222,7 @@
     <string name="path_conflict">路径 \"%1$s\" 已被%2$s占用</string>
     <string name="main_program">主程序</string>
     <string name="edit_theme">编辑主题</string>
-    <string name="show_voice_input_button">显示语音输入按钮</string>
+    <string name="show_voice_input_button">显示其他语音输入应用的按钮</string>
     <string name="fcitx_daemon">Fcitx 守护程序</string>
     <string name="restarting_fcitx">正在重新启动 Fcitx</string>
     <string name="plugin_needs_reload">检测到插件更改，点此重新加载</string>
@@ -341,4 +341,11 @@
     <string name="voice_permission_body">音频只留在本机，不会被保存或上传。</string>
     <string name="voice_allow_microphone">允许使用麦克风</string>
     <string name="voice_permission_denied">语音输入需要麦克风权限，可在系统设置的应用权限中开启。</string>
+    <string name="voice_preparing">准备中，可以直接说</string>
+    <string name="voice_microphone_busy">麦克风正被其他应用占用</string>
+    <string name="voice_model_load_failed">语音模型加载失败</string>
+    <string name="voice_off_after_silence">静音 10 秒，已关闭</string>
+    <string name="voice_hold_to_talk">按住说话</string>
+    <string name="voice_undo">撤销语音输入</string>
+    <string name="punctuation_pos_numbers_top_right">右上（仅数字）</string>
 </resources>

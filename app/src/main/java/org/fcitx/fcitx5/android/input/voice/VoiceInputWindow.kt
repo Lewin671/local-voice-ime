@@ -59,8 +59,11 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
     private val ui by lazy {
         // full-width punctuation while a Chinese input method is active
         val chinese = fcitx.runImmediately { inputMethodEntryCached }.languageCode.startsWith("zh")
-        Ui(context, palette, if (chinese) listOf("，", "。", "？") else listOf(",", ".", "?"))
+        Ui(context, palette, punctuationFor(chinese))
     }
+
+    private fun punctuationFor(chinese: Boolean) =
+        if (chinese) listOf("，", "。", "？") else listOf(",", ".", "?")
 
     // the status row takes the place of the toolbar
     override val showTitle = false
@@ -70,6 +73,10 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
     private val listener = object : VoiceSession.Listener {
         override fun onState(state: VoiceSession.State) {
             when (state) {
+                VoiceSession.State.Preparing -> {
+                    status.preparing()
+                    ui.showListening()
+                }
                 VoiceSession.State.Listening -> {
                     status.listening()
                     ui.showListening()
@@ -79,9 +86,15 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
                     ui.waveform.mode = WaveformView.Mode.Idle
                 }
                 VoiceSession.State.Stopped -> {
+                    val timedOut = session?.endedByIdleTimeout == true
                     session = null
-                    // an error message stays until the next attempt
-                    if (!failed) status.off()
+                    when {
+                        // an error message stays until the next attempt
+                        failed -> {}
+                        // say why the microphone went off by itself
+                        timedOut -> status.set(R.string.voice_off_after_silence, palette.secondaryText)
+                        else -> status.off()
+                    }
                     ui.showPaused()
                 }
             }
@@ -89,6 +102,8 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         override fun onFinal(text: String) {
             InputFeedbacks.hapticFeedback(ui.root)
+            // offer the punctuation of the language that was just spoken
+            ui.setPunctuation(punctuationFor(text.any { it in '\u4e00'..'\u9fff' }))
         }
 
         override fun onLevel(level: Float) {
@@ -97,7 +112,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         override fun onError(e: Throwable) {
             failed = true
-            status.error(R.string.voice_microphone_unavailable)
+            status.error(e)
         }
     }
 
@@ -144,7 +159,8 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             key.setOnClickListener { VoiceInput.type(service, key.tag as String) }
         }
         ui.backspaceKey.apply {
-            setOnClickListener { VoiceInput.backspace(service) }
+            // always exactly one character; removing a whole utterance must be an explicit undo
+            setOnClickListener { service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL) }
             repeatEnabled = true
             onRepeatListener = {
                 service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
@@ -260,14 +276,23 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         private fun textKey(text: String) = CustomGestureView(ctx).apply {
             styleAsKey(palette.key)
-            tag = text
-            contentDescription = text
             addView(TextView(ctx).apply {
-                this.text = text
                 setTextColor(palette.text)
                 textSize = 20f
                 gravity = Gravity.CENTER
             }, FrameLayout.LayoutParams(-1, -1))
+            setKeyText(text)
+        }
+
+        // the text a key types is kept in its tag
+        private fun CustomGestureView.setKeyText(text: String) {
+            tag = text
+            contentDescription = text
+            (getChildAt(0) as TextView).text = text
+        }
+
+        fun setPunctuation(punctuation: List<String>) {
+            punctuationKeys.zip(punctuation).forEach { (key, text) -> key.setKeyText(text) }
         }
 
         val keyboardKey =

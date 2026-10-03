@@ -168,14 +168,15 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <h2>Interaction</h2>
   <div class="tablewrap"><table>
     <tr><th>You do</th><th>The keyboard does</th><th>Ends when</th></tr>
-    <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field.</td><td>You release: remaining speech is recognized and inserted. Keys return.</td></tr>
+    <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field, without closing punctuation until it is final. If the speech model is not in memory yet, the status reads "Getting ready. Keep talking" and nothing said meanwhile is lost.</td><td>You release: remaining speech is recognized and inserted. Keys return.</td></tr>
     <tr><td>Slide up while holding</td><td>Crossing the cancel line turns the hint and waveform red: "Release to cancel".</td><td>Release above the line: nothing is inserted, the preview is removed. Slide back down to keep talking.</td></tr>
-    <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech.</td></tr>
-    <tr><td>Tap ⌫ in the panel</td><td>Right after an utterance: removes that whole utterance. Otherwise one character. Hold to repeat.</td><td></td></tr>
+    <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
+    <tr><td>Tap ⌫ in the panel</td><td>Deletes one character, always. Hold to repeat.</td><td></td></tr>
     <tr><td>Tap ， 。 ？ or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
+    <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
   </table></div>
-  <p class="note">The microphone pill and hold-to-talk are absent on password fields. If microphone access is missing, the panel explains why it is needed and offers one button to grant it.</p>
+  <p class="note">The microphone pill and hold-to-talk are absent on password fields. If microphone access is missing, the panel explains why it is needed and offers one button to grant it. Errors name their cause: "Another app is using the microphone", "Could not load the speech model".</p>
 </section>
 
 <section>
@@ -195,6 +196,7 @@ const I = {
   shift: '<svg viewBox="0 0 24 24"><path d="M12 4 3 13h5v6h8v-6h5zm0 2.800 4.200 4.200H14v6h-4v-6H7.800z"/></svg>',
   globe: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.900 6h-2.900a15.600 15.600 0 0 0-1.400-3.600A8 8 0 0 1 18.900 8zM12 4c.800 1.200 1.500 2.500 1.900 4h-3.800c.400-1.500 1.100-2.800 1.900-4zM4.300 14a8.200 8.200 0 0 1 0-4h3.400a16.500 16.500 0 0 0 0 4zm.8 2h2.900c.300 1.300.800 2.500 1.400 3.600A8 8 0 0 1 5.100 16zm2.900-8H5.100a8 8 0 0 1 4.300-3.600C8.800 5.500 8.300 6.700 8 8zm4 12c-.800-1.200-1.500-2.500-1.900-4h3.800c-.400 1.500-1.100 2.800-1.900 4zm2.300-6H9.700a14.700 14.700 0 0 1 0-4h4.600a14.700 14.700 0 0 1 0 4zm.300 5.600c.600-1.100 1.100-2.300 1.400-3.600h2.900a8 8 0 0 1-4.300 3.600zm1.800-5.600a16.500 16.500 0 0 0 0-4h3.400a8.200 8.200 0 0 1 0 4z"/></svg>',
   kb: '<svg viewBox="0 0 24 24"><path d="M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-9 3h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zm-1 2H5v-2h2zm0-3H5V8h2zm9 7H8v-2h8zm0-4h-2v-2h2zm0-3h-2V8h2zm3 3h-2v-2h2zm0-3h-2V8h2z"/></svg>',
+  undo: '<svg viewBox="0 0 24 24"><path d="M12.5 8c-2.650 0-5.050.990-6.900 2.600L2 7v9h9l-3.620-3.620c1.390-1.160 3.160-1.880 5.120-1.880 3.540 0 6.550 2.310 7.600 5.500l2.370-.780C21.080 11.030 17.150 8 12.500 8z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M19 6.400 17.600 5 12 10.600 6.400 5 5 6.400 10.600 12 5 17.600 6.400 19 12 13.400 17.600 19 19 17.600 13.400 12z"/></svg>',
 };
@@ -215,12 +217,14 @@ const held = `<div class="spacebar"><div class="ghost w15"></div><div class="gho
 const util = `<div class="util">${key(I.kb, 'alt w15')}${key('，')}${key('。')}${key('？')}${key(I.back, 'alt w15')}${key(I.enter, 'accent w15')}</div>`;
 
 const S = [
-  { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key. The pill opens hands-free dictation.',
+  { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill opens hands-free dictation.',
     e: '周五下午把报告发我<span class="caret"></span>', k: idleBar + keys('拼音') },
   { t: 'Typing pinyin', d: 'Candidates replace the toolbar; the first one is in the accent colour and is what space commits.',
     e: '周五下午把<u>bao gao</u><span class="caret"></span>', k: `<div class="bar"><div class="cands"><span>报告</span><span>报稿</span><span>包</span><span>宝</span></div><span class="icon">${I.down}</span></div>` + keys('拼音') },
   { t: 'Hold space: listening', d: 'Keys give way to the waveform. The held key stays under the finger and says what releasing does. Words land in the text field, underlined.',
     e: '周五下午把报告发我，<u>我周末 review 一下</u><span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone">${I.close}Slide up to cancel</div>${wave()}${held}</div>` + keys('') },
+  { t: 'After hold-to-talk: undo', d: 'For eight seconds the pill offers to take back what was just inserted. It removes the text only if nothing else has changed since.',
+    e: '周五下午把报告发我，我周末 review 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', I.undo + 'Undo') + keys('拼音') },
   { t: 'Hold space: about to cancel', d: 'Above the cancel line everything that was teal turns red and the waveform goes flat. Releasing here inserts nothing.',
     e: '周五下午把报告发我，<span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone hot">${I.close}Release to cancel</div>${wave('flat')}${held.replace('Release to insert', 'Slide down to keep')}</div>` + keys('') },
   { t: 'Hands-free dictation', d: 'Tap the pill. Stop is the one large control; punctuation, delete and enter stay within reach so a whole message can be finished without the keyboard.',

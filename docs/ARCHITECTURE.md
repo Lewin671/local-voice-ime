@@ -36,6 +36,7 @@ Everything runs inside the IME process. There is no service, no IPC and no netwo
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
 | `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
+| `VoiceHints` | One-time teaching hints ("Hold to talk" on the space bar). |
 | `VoicePermissionActivity` | Transparent activity that shows the microphone permission dialog (a service cannot). |
 
 ### Simulated streaming
@@ -44,13 +45,15 @@ SenseVoice is a non-streaming (whole-utterance) model, but it is fast enough to 
 times per second. `VoiceSession` therefore:
 
 1. feeds audio to the VAD in 32 ms windows;
-2. once speech starts, re-decodes the utterance so far every ≥300 ms (backing off if the device is
+2. while the model is still loading (cold start), keeps recording and reports `Preparing`;
+   everything said meanwhile is queued and transcribed as soon as the model is ready;
+3. once speech starts, re-decodes the utterance so far every ≥300 ms (backing off if the device is
    slow) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
    (underlined) text;
-3. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
+4. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
    utterance reaches 20 s, decodes the segment once more and reports a **final**, which
    `VoiceInput` commits to the editor in place of the preview;
-4. on stop, flushes the VAD so that speech in progress is not lost.
+5. on stop, flushes the VAD so that speech in progress is not lost.
 
 The reader coroutine never waits for decoding, so audio is not dropped on slow devices.
 
@@ -69,12 +72,12 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `VoicePermissionActivity` |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()` |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText` |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
-| `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph on the space bar (`setLeadingIcon`) |
+| `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
 | `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |

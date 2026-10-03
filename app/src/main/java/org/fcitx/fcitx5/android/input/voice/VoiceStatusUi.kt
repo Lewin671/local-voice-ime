@@ -32,6 +32,8 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
     }
 
     private val label = TextView(ctx).apply {
+        // screen readers announce every change of the status
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         setTextColor(palette.secondaryText)
         textSize = 12f
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -68,6 +70,9 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
         (dot.background as GradientDrawable).setColor(dotColor)
     }
 
+    /** Recording, while the speech model is still loading: nothing said now is lost. */
+    fun preparing() = set(R.string.voice_preparing, palette.primary)
+
     fun listening() = set(R.string.voice_listening, palette.primary)
 
     fun recognizing() = set(R.string.voice_recognizing, palette.primary)
@@ -75,4 +80,12 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
     fun off() = set(R.string.voice_microphone_off, palette.secondaryText)
 
     fun error(@StringRes text: Int) = set(text, palette.error)
+
+    fun error(e: Throwable) = error(
+        when ((e as? VoiceException)?.kind) {
+            VoiceException.Kind.MicrophoneBusy -> R.string.voice_microphone_busy
+            VoiceException.Kind.ModelLoadFailed -> R.string.voice_model_load_failed
+            else -> R.string.voice_microphone_unavailable
+        }
+    )
 }

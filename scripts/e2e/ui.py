@@ -4,6 +4,7 @@
   ui.py center <ui.xml> <name>     print "x y" of the node's center
   ui.py bounds <ui.xml> <name>     print "left top right bottom" of the node
   ui.py text <ui.xml> <name>       print the node's text
+  ui.py has-text <ui.xml> <text>   succeed if some node shows exactly <text>
                                    <name> is a content description or a resource id name
   ui.py score <expected> <actual>          print the character error rate (0..1), ignoring
                                            punctuation, whitespace and case
@@ -40,6 +41,10 @@ if cmd == "center":
     print((x1 + x2) // 2, (y1 + y2) // 2)
 elif cmd == "bounds":
     print(*re.findall(r"\d+", find(sys.argv[2], sys.argv[3]).get("bounds")))
+elif cmd == "has-text":
+    # exit status 0 if any node shows exactly this text
+    wanted = sys.argv[3]
+    sys.exit(0 if any(n.get("text") == wanted for n in ET.parse(sys.argv[2]).iter("node")) else 1)
 elif cmd == "text":
     print(find(sys.argv[2], sys.argv[3]).get("text"))
 elif cmd == "score":

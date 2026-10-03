@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.SystemClock
-import android.view.KeyEvent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -44,8 +43,8 @@ object VoiceInput {
 
     private var lastUsedAt = 0L
 
-    /** What the last finished utterance put into the editor, for [backspace]. */
-    private var lastInserted = ""
+    /** Everything the last session put into the editor, for [undoLastSession]. */
+    private var sessionInserted = ""
 
     fun hasPermission(context: Context) = ContextCompat.checkSelfPermission(
         context, Manifest.permission.RECORD_AUDIO
@@ -84,12 +83,26 @@ object VoiceInput {
         lastUsedAt = SystemClock.elapsedRealtime()
         // drop unfinished pinyin composition, so that it doesn't interleave with dictated text
         service.postFcitxJob { reset() }
-        lastInserted = ""
+        sessionInserted = ""
         lateinit var session: VoiceSession
         // separator between the text already in the editor and the utterance in progress;
         // decided when its first preview arrives, as the preview itself hides the text before it
         var joiner: String? = null
         var previewShown = false
+        // Set when the user moved the cursor while an utterance was being previewed: the editor
+        // then keeps the preview as ordinary text where it was, and writing anything more would
+        // put the same words a second time at the new cursor position.
+        var abandoned = false
+
+        fun previewWasDetached(): Boolean {
+            if (abandoned) return true
+            if (previewShown && !service.hasComposingText) {
+                abandoned = true
+                previewShown = false
+                session.stop(discard = true)
+            }
+            return abandoned
+        }
 
         fun joinerFor(text: String): String = joiner ?: VoiceText.joiner(
             service.currentInputConnection?.getTextBeforeCursor(1, 0), text
@@ -111,22 +124,25 @@ object VoiceInput {
             idleTimeoutMs,
             object : VoiceSession.Listener by listener {
                 override fun onPartial(text: String) {
-                    if (text.isEmpty()) {
+                    if (previewWasDetached()) return
+                    val shown = VoiceText.stripTrailingPunctuation(text)
+                    if (shown.isEmpty()) {
                         clearPreview()
                     } else {
-                        service.setVoicePreview(joinerFor(text) + text)
+                        service.setVoicePreview(joinerFor(shown) + shown)
                         previewShown = true
                     }
-                    listener.onPartial(text)
+                    listener.onPartial(shown)
                 }
 
                 override fun onFinal(text: String) {
+                    if (previewWasDetached()) return
                     val inserted = joinerFor(text) + text
                     // replaces the composing preview, if there is one
                     service.commitText(inserted)
                     previewShown = false
                     joiner = null
-                    lastInserted = inserted
+                    sessionInserted += inserted
                     listener.onFinal(text)
                 }
 
@@ -162,27 +178,29 @@ object VoiceInput {
         current?.stop(discard)
     }
 
+    /** Whether [undoLastSession] has something to remove. */
+    val canUndoLastSession get() = sessionInserted.isNotEmpty()
+
     /**
-     * Backspace for the dictation panel: right after an utterance was inserted (and nothing else
-     * touched the text since) it removes that whole utterance; otherwise a single character.
+     * Remove everything the last session inserted, provided it is still right before the cursor
+     * (i.e. nothing else has edited the text since).
+     * @return whether the text was removed
      */
-    fun backspace(service: FcitxInputMethodService) {
-        val ic = service.currentInputConnection ?: return
-        val last = lastInserted
-        lastInserted = ""
-        if (last.isNotEmpty() &&
-            ic.getSelectedText(0).isNullOrEmpty() &&
-            ic.getTextBeforeCursor(last.length, 0)?.toString() == last
-        ) {
-            ic.deleteSurroundingText(last.length, 0)
-        } else {
-            service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
-        }
+    fun undoLastSession(service: FcitxInputMethodService): Boolean {
+        val ic = service.currentInputConnection ?: return false
+        val inserted = sessionInserted
+        sessionInserted = ""
+        if (inserted.isEmpty() ||
+            !ic.getSelectedText(0).isNullOrEmpty() ||
+            ic.getTextBeforeCursor(inserted.length, 0)?.toString() != inserted
+        ) return false
+        ic.deleteSurroundingText(inserted.length, 0)
+        return true
     }
 
-    /** Text typed from the dictation panel (punctuation); ends the "undo last utterance" window. */
+    /** Text typed from the dictation panel (punctuation); after it, undo no longer applies. */
     fun type(service: FcitxInputMethodService, text: String) {
-        lastInserted = ""
+        sessionInserted = ""
         service.commitText(text)
     }
 }

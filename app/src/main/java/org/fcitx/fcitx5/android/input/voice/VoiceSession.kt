@@ -7,6 +7,7 @@ package org.fcitx.fcitx5.android.input.voice
 import android.content.Context
 import android.os.SystemClock
 import com.k2fsa.sherpa.onnx.Vad
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,7 +42,15 @@ class VoiceSession(
     private val listener: Listener
 ) {
 
-    enum class State { Listening, Finishing, Stopped }
+    enum class State {
+        /** Recording already, but the speech model is still being loaded. */
+        Preparing,
+        Listening,
+
+        /** Recording has stopped; what was said last is being transcribed. */
+        Finishing,
+        Stopped
+    }
 
     interface Listener {
         fun onState(state: State) {}
@@ -67,6 +76,11 @@ class VoiceSession(
     private var discard = false
 
     val isRunning get() = job?.isActive == true
+
+    /** Whether the session ended by itself because nobody spoke for the idle timeout. */
+    @Volatile
+    var endedByIdleTimeout = false
+        private set
 
     fun start() {
         if (job != null) return
@@ -102,7 +116,8 @@ class VoiceSession(
         // Start capturing right away: loading the model can take seconds after a cold start,
         // and whatever is said meanwhile is queued in `chunks` instead of being lost.
         source.start()
-        emit { onState(State.Listening) }
+        val cold = !VoiceEngine.isLoaded
+        emit { onState(if (cold) State.Preparing else State.Listening) }
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
         // reader: never waits for decoding, so no audio is dropped on slow devices
         val reader = launch(Dispatchers.IO) {
@@ -111,13 +126,26 @@ class VoiceSession(
                 val buf = FloatArray(chunkSize)
                 val n = source.read(buf)
                 if (n < 0) break
-                if (n > 0) chunks.send(if (n == buf.size) buf else buf.copyOf(n))
+                if (n == 0) continue
+                val chunk = if (n == buf.size) buf else buf.copyOf(n)
+                chunks.send(chunk)
+                // reported from here, so that the level is live even while the model loads
+                val level = levelOf(chunk)
+                emit { onLevel(level) }
             }
             chunks.close()
         }
 
-        VoiceEngine.ensureLoaded(context)
-        val vad = VoiceEngine.createVad(context, minSilence)
+        val vad = try {
+            VoiceEngine.ensureLoaded(context)
+            VoiceEngine.createVad(context, minSilence)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            reader.cancel()
+            throw VoiceException(VoiceException.Kind.ModelLoadFailed, e)
+        }
+        if (cold) emit { onState(State.Listening) }
         try {
             consume(chunks, vad)
             reader.join()
@@ -153,7 +181,11 @@ class VoiceSession(
             // keep what was recorded after this utterance: it may be the start of the next one
             dropFromBuffer((segment.start + segment.samples.size - bufferStart).toInt())
             speaking = vad.isSpeechDetected()
-            val text = if (discard) "" else VoiceEngine.transcribe(segment.samples)
+            var text = if (discard) "" else VoiceEngine.transcribe(segment.samples)
+            if (segment.samples.size >= FORCED_SPLIT_SAMPLES) {
+                // cut off by the length limit, not by a pause: the sentence goes on
+                text = VoiceText.stripTrailingFullStop(text)
+            }
             lastPartial = ""
             if (text.isNotEmpty()) emit { onFinal(text) } else emit { onPartial("") }
         }
@@ -168,18 +200,10 @@ class VoiceSession(
         for (first in chunks) {
             // take everything that queued up while we were decoding
             var chunk: FloatArray? = first
-            var sumSquares = 0.0
-            var count = 0
             while (chunk != null) {
                 buffer.append(chunk)
-                for (v in chunk) sumSquares += v * v
-                count += chunk.size
                 chunk = chunks.tryReceive().getOrNull()
             }
-            val rms = sqrt(sumSquares / count.coerceAtLeast(1)).toFloat()
-            // -55 dB .. -10 dB mapped to 0 .. 1
-            val db = 20f * log10(rms.coerceAtLeast(1e-6f))
-            emit { onLevel(((db + 55f) / 45f).coerceIn(0f, 1f)) }
 
             while (fed + window <= buffer.size) {
                 vad.acceptWaveform(buffer.copyOfRange(fed, fed + window))
@@ -196,6 +220,7 @@ class VoiceSession(
                 dropFromBuffer(buffer.size - 10 * window)
                 if (idleTimeoutMs > 0 && now - lastSpeechAt > idleTimeoutMs) {
                     // don't keep the microphone open when nobody is talking
+                    endedByIdleTimeout = true
                     stopRequested = true
                 }
                 continue
@@ -212,6 +237,21 @@ class VoiceSession(
                 }
             }
         }
+    }
+
+    /** Input level in [0, 1]: -55 dB .. -10 dB RMS mapped linearly. */
+    private fun levelOf(samples: FloatArray): Float {
+        var sumSquares = 0.0
+        for (v in samples) sumSquares += v * v
+        val rms = sqrt(sumSquares / samples.size.coerceAtLeast(1)).toFloat()
+        val db = 20f * log10(rms.coerceAtLeast(1e-6f))
+        return ((db + 55f) / 45f).coerceIn(0f, 1f)
+    }
+
+    private companion object {
+        // the VAD cuts slightly before the limit; anything this long was not ended by a pause
+        const val FORCED_SPLIT_SAMPLES =
+            ((VoiceEngine.MAX_SPEECH_SECONDS - 1f) * VoiceEngine.SAMPLE_RATE).toInt()
     }
 
     /** Minimal growable float array. */
