@@ -61,7 +61,11 @@ dump_ui() {
 
 # wait until the keyboard is up, then print the position of its microphone button
 find_mic() {
-    for _ in $(seq 15); do
+    for i in $(seq 20); do
+        # right after (re)installing, the system may need a moment before it binds the keyboard
+        if ((i % 7 == 0)); then
+            adb shell am start -W --activity-clear-task -n "$activity" >/dev/null </dev/null
+        fi
         sleep 1
         dump_ui
         python3 scripts/e2e/ui.py center "$work/ui.xml" "Voice input" 2>/dev/null && return

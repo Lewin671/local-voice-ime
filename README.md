@@ -64,6 +64,15 @@ adb install -r <path printed by build.sh>
 `./scripts/build.sh release` produces an optimized build; see [docs/TESTING.md](docs/TESTING.md)
 for signing.
 
+## Roadmap
+
+- Benchmarks on real phones (load time, real-time factor, memory); see `docs/MODELS.md`.
+- User-defined corrections / hot words for names and technical terms
+  (the model tends to mis-spell English jargon inside Chinese sentences).
+- Optional higher-accuracy model as a second pass for the final text.
+- Showing the live preview inline in the text field.
+- Enable Pinyin by default regardless of the system language.
+
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — start here if you (or your AI coding agent) want to work on the code
