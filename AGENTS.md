@@ -59,6 +59,7 @@ git submodule update --init --recursive   # once after cloning
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
 ./scripts/e2e-scenarios.sh                # behaviour rules: preview, undo, cancel, cursor moves, timeout
 ./scripts/ui-shots.sh                     # screenshot every UI state, light and dark
+./scripts/bench/device-bench.sh           # load time, speed and memory of a model on a device
 ```
 
 First build compiles the native libraries and takes 10-20 minutes; later builds are incremental.

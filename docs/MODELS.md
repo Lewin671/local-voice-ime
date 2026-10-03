@@ -94,8 +94,68 @@ What this says:
 - SenseVoice's ASCEND and LibriSpeech numbers are about 2 and 0.4 points worse here than in the
   first table because ITN was on: part of that is ITN rewriting words, i.e. a scoring artifact.
 
-Not measured: speed and memory of the large models on a phone. That decides whether a second
-pass is practical, and is the next thing to do.
+### Accents and consumer microphones
+
+300 utterances each, common subset without digits. KeSpeech is read Mandarin recorded on phones
+by speakers from eight Mandarin dialect regions; Common Voice zh-CN is read speech recorded by
+volunteers on their own devices.
+
+| Model | KeSpeech, all | …standard Mandarin (n=56) | …regional accents (n=194) | Common Voice zh-CN |
+|---|---|---|---|---|
+| SenseVoice Small int8 (current) | 12.24 | 3.11 | 14.92 | 13.94 |
+| X-ASR zipformer int8 | 16.69 | 2.24 | **20.94** | 12.21 |
+| Fun-ASR-nano int8 | 10.24 | 4.97 | 11.78 | 10.18 |
+| Qwen3-ASR 0.6B int8 | 10.38 | 3.23 | 12.48 | 10.74 |
+| FireRedASR2 AED int8 | **5.47** | **1.37** | **6.68** | **6.18** |
+
+X-ASR, slightly ahead of SenseVoice on the standard sets, is clearly worse with regional accents.
+That rules it out as a like-for-like replacement of the default model.
+
+By utterance length (Mandarin sets pooled): all models are much worse on utterances under 3 s
+(SenseVoice 15.1 %, X-ASR 13.9 %, Fun-ASR-nano 13.3 %, FireRedASR2 10.7 %) than on 3–6 s ones
+(8.1 / 6.6 / 6.4 / 5.0 %). Short phrases are the weak spot of every model, and keyboards get a
+lot of them.
+
+### On a device
+
+`scripts/bench/device-bench.sh`, arm64 emulator on an Apple M1 Pro with 4 cores and 6 GB RAM,
+4 threads. The emulator runs at nearly the speed of the host, so a phone will be slower: expect
+roughly 1.5–2× for a current flagship and 3× or more for a mid-range phone (an estimate from
+single-core benchmark ratios, **not measured**).
+
+| Model | Load | Memory after load / peak | 3 s audio | 6 s | 15 s | 21 s |
+|---|---|---|---|---|---|---|
+| SenseVoice Small int8 | 1.3 s | 390 / 466 MB | 0.06 s | 0.09 s | 0.25 s | 0.33 s |
+| X-ASR zipformer int8 | 2.9 s | 385 / 634 MB | 0.15 s | 0.11 s | 0.23 s | 0.33 s |
+| Fun-ASR-nano int8 | 5.0 s | 1154 / 1414 MB | 0.33 s | 0.53 s | 1.6 s | 2.1 s |
+| Qwen3-ASR 0.6B int8 | 3.5 s | 1134 / 2516 MB | 0.50 s | 0.67 s | 1.8 s | 3.0 s |
+| FireRedASR2 AED int8 | 3.4 s | 1367 / 1834 MB | 0.73 s | 1.1 s | 3.8 s | 5.8 s |
+
+Other things learned while testing:
+
+- X-ASR is Apache-2.0, trained on about a million hours, actively maintained, and supports
+  hot words (contextual biasing) with beam search. Beam search alone fixed "GitHub" in our
+  code-switching sample; the hot word list did not fix "pull request". It has no ITN, and
+  sherpa-onnx's rule-based `itn_zh_number.fst` is not a substitute (it turns "一下" into "1下").
+- Fun-ASR-nano's `itn` option did not produce digits in our samples ("九点", "fifty").
+- Qwen3-ASR occasionally answers in Traditional Chinese.
+
+### Conclusions
+
+1. **Keep SenseVoice Small as the default.** It is the only model that is fast, small, robust to
+   accents, and formats numbers. Nothing of the same size beats it across the board.
+2. **X-ASR is not a drop-in upgrade**: better on clean and code-switched speech, clearly worse
+   with accents, no number formatting.
+3. **The large models are more accurate but cost 1.1–1.8 GB of memory inside the keyboard
+   process**, a ~1 GB APK, and seconds of latency. FireRedASR2 AED is the most accurate by a wide
+   margin and the most expensive; Fun-ASR-nano gains about 2–3 points for 0.3–2 s of extra
+   latency on this emulator.
+4. A second pass with a large model is only worth building as an opt-in for phones with plenty
+   of memory, and only after `device-bench.sh` has been run on real phones.
+
+Still not measured: any real phone. Run
+`WAVS=<dir> scripts/bench/device-bench.sh <key> <model dir> <kind>` with a phone attached and
+record the numbers here.
 
 ## Reproducing / evaluating another model
 

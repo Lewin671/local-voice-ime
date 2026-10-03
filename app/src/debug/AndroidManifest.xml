@@ -8,6 +8,11 @@
             android:exported="true"
             android:label="IME test field"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+        <!-- Debug builds only: on-device speech model benchmark, see scripts/bench/device-bench.sh -->
+        <activity
+            android:name=".debug.VoiceBenchActivity"
+            android:exported="true"
+            android:label="Voice model benchmark" />
     </application>
 
 </manifest>
