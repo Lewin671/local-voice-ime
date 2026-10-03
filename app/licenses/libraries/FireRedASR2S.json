@@ -1,0 +1,11 @@
+{
+    "uniqueId": "FireRedTeam/FireRedASR2S",
+    "artifactVersion": "FireRedASR2-AED (int8, 2026-02-26)",
+    "description": "FireRedASR2 AED speech recognition model by FireRedTeam (Xiaohongshu), converted to ONNX by the sherpa-onnx project. Bundled in the high-accuracy build only, where it re-checks dictated text.",
+    "name": "FireRedASR2 (speech model)",
+    "website": "https://github.com/FireRedTeam/FireRedASR2S",
+    "tag": "native",
+    "licenses": [
+        "Apache-2.0"
+    ]
+}

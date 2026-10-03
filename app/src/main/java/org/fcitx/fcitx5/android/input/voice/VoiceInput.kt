@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.input.FcitxInputMethodService
+import timber.log.Timber
 
 /**
  * Entry points shared by the voice UIs (hands-free [VoiceInputWindow] and push-to-talk
@@ -43,8 +44,44 @@ object VoiceInput {
 
     private var lastUsedAt = 0L
 
-    /** Everything the last session put into the editor, for [undoLastSession]. */
-    private var sessionInserted = ""
+    /** What dictation wrote into the text field, see [VoiceEdits]. */
+    private var edits: VoiceEdits? = null
+    private var editsService: FcitxInputMethodService? = null
+
+    private fun editsFor(service: FcitxInputMethodService): VoiceEdits {
+        edits?.takeIf { editsService === service }?.let { return it }
+        return VoiceEdits(object : VoiceEdits.Editor {
+            override fun textBeforeCursor(n: Int) =
+                service.currentInputConnection?.getTextBeforeCursor(n, 0)?.toString()
+
+            override val hasSelection
+                get() = !service.currentInputConnection?.getSelectedText(0).isNullOrEmpty()
+
+            override val hasPreview get() = service.hasComposingText
+
+            override fun deleteBeforeCursor(n: Int) {
+                service.currentInputConnection?.deleteSurroundingText(n, 0)
+            }
+
+            override fun insert(text: String) = service.commitText(text)
+        }).also {
+            edits = it
+            editsService = service
+        }
+    }
+
+    private var refiningJobs = 0
+
+    /** Whether inserted text is still being re-checked by the large model. */
+    val isRefining get() = refiningJobs > 0 || edits?.hasPendingRefinements == true
+
+    /**
+     * Called on the main thread whenever [isRefining] may have changed. Keyed by owner, so that
+     * a UI that is created again (e.g. after a theme change) replaces its previous listener.
+     */
+    val refiningListeners = LinkedHashMap<Any, () -> Unit>()
+
+    private fun notifyRefining() = refiningListeners.values.toList().forEach { it() }
 
     fun hasPermission(context: Context) = ContextCompat.checkSelfPermission(
         context, Manifest.permission.RECORD_AUDIO
@@ -57,13 +94,12 @@ object VoiceInput {
         )
     }
 
-    private fun createSource(context: Context): AudioSource {
-        if (BuildConfig.DEBUG) {
-            val wav = context.getExternalFilesDir(null)?.resolve(TEST_WAV)
-            if (wav?.exists() == true) return WavFileSource(wav)
-        }
-        return MicrophoneSource()
-    }
+    private fun testFile(context: Context, name: String) =
+        if (BuildConfig.DEBUG) context.getExternalFilesDir(null)?.resolve(name)?.takeIf { it.exists() }
+        else null
+
+    private fun createSource(context: Context): AudioSource =
+        testFile(context, TEST_WAV)?.let { WavFileSource(it) } ?: MicrophoneSource()
 
     /**
      * Start a new session (stopping the previous one, if any).
@@ -83,7 +119,13 @@ object VoiceInput {
         lastUsedAt = SystemClock.elapsedRealtime()
         // drop unfinished pinyin composition, so that it doesn't interleave with dictated text
         service.postFcitxJob { reset() }
-        sessionInserted = ""
+        val edits = editsFor(service)
+        edits.startSession()
+        val refine = VoiceRefiner.isActive(service)
+        if (refine) {
+            // have the large model ready by the time the first utterance is complete
+            service.lifecycleScope.launch { runCatching { VoiceRefiner.ensureLoaded(service) } }
+        }
         lateinit var session: VoiceSession
         // separator between the text already in the editor and the utterance in progress;
         // decided when its first preview arrives, as the preview itself hides the text before it
@@ -128,6 +170,7 @@ object VoiceInput {
                     val shown = VoiceText.stripTrailingPunctuation(text)
                     if (shown.isEmpty()) {
                         clearPreview()
+                        applyRefinements(service)
                     } else {
                         service.setVoicePreview(joinerFor(shown) + shown)
                         previewShown = true
@@ -135,21 +178,24 @@ object VoiceInput {
                     listener.onPartial(shown)
                 }
 
-                override fun onFinal(text: String) {
+                override fun onFinal(text: String, samples: FloatArray) {
                     if (previewWasDetached()) return
-                    val inserted = joinerFor(text) + text
+                    val separator = joinerFor(text)
                     // replaces the composing preview, if there is one
-                    service.commitText(inserted)
+                    val entry = edits.insert(separator + text)
                     previewShown = false
                     joiner = null
-                    sessionInserted += inserted
-                    listener.onFinal(text)
+                    Timber.d("Voice final inserted")
+                    applyRefinements(service)
+                    if (refine) refine(service, entry, separator, text, samples)
+                    listener.onFinal(text, samples)
                 }
 
                 override fun onState(state: VoiceSession.State) {
                     if (state == VoiceSession.State.Stopped) {
                         // never leave a preview behind, e.g. after cancelling
                         clearPreview()
+                        applyRefinements(service)
                         if (current === session) current = null
                     }
                     listener.onState(state)
@@ -159,6 +205,48 @@ object VoiceInput {
         current = session
         session.start()
         return session
+    }
+
+    /**
+     * High-accuracy build: transcribe [samples] again with the large model and, if it heard
+     * different words, write the merged text over what was inserted for this utterance.
+     */
+    private fun refine(
+        service: FcitxInputMethodService,
+        entry: VoiceEdits.Entry,
+        separator: String,
+        fast: String,
+        samples: FloatArray
+    ) {
+        refiningJobs++
+        notifyRefining()
+        service.lifecycleScope.launch {
+            val accurate = runCatching { VoiceRefiner.transcribe(service, samples) }
+                .onFailure { Timber.w(it, "Voice refinement failed") }
+                .getOrNull()
+            refiningJobs--
+            if (!accurate.isNullOrEmpty()) {
+                editsFor(service).refine(entry, separator + VoiceRefine.refine(fast, accurate))
+            }
+            applyRefinements(service)
+            notifyRefining()
+        }
+    }
+
+    /**
+     * Write finished refinements into the editor; those whose text is no longer as dictation
+     * left it are dropped (see [VoiceEdits]).
+     */
+    private fun applyRefinements(service: FcitxInputMethodService) {
+        val edits = edits ?: return
+        if (!edits.hasPendingRefinements) return
+        val ic = service.currentInputConnection
+        ic?.beginBatchEdit()
+        val (applied, dropped) = edits.applyRefinements()
+        ic?.endBatchEdit()
+        if (applied > 0) Timber.d("Voice refinement applied")
+        if (dropped > 0) Timber.d("Voice refinement skipped: the text is no longer as inserted")
+        if (applied + dropped > 0) notifyRefining()
     }
 
     /**
@@ -179,28 +267,15 @@ object VoiceInput {
     }
 
     /** Whether [undoLastSession] has something to remove. */
-    val canUndoLastSession get() = sessionInserted.isNotEmpty()
+    val canUndoLastSession get() = edits?.canUndoSession == true
 
     /**
      * Remove everything the last session inserted, provided it is still right before the cursor
      * (i.e. nothing else has edited the text since).
      * @return whether the text was removed
      */
-    fun undoLastSession(service: FcitxInputMethodService): Boolean {
-        val ic = service.currentInputConnection ?: return false
-        val inserted = sessionInserted
-        sessionInserted = ""
-        if (inserted.isEmpty() ||
-            !ic.getSelectedText(0).isNullOrEmpty() ||
-            ic.getTextBeforeCursor(inserted.length, 0)?.toString() != inserted
-        ) return false
-        ic.deleteSurroundingText(inserted.length, 0)
-        return true
-    }
+    fun undoLastSession(service: FcitxInputMethodService) = editsFor(service).undoSession()
 
-    /** Text typed from the dictation panel (punctuation); after it, undo no longer applies. */
-    fun type(service: FcitxInputMethodService, text: String) {
-        sessionInserted = ""
-        service.commitText(text)
-    }
+    /** Text typed from the dictation panel (punctuation). */
+    fun type(service: FcitxInputMethodService, text: String) = editsFor(service).insertTyped(text)
 }

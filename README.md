@@ -24,12 +24,26 @@ with spell check, clipboard history, symbol/emoji pickers and themes — all inh
 - Fully offline. No account, no telemetry, no cloud API, no cost.
 - Dictation is disabled on password fields.
 
+## Two builds
+
+| | Standard | High-accuracy (`-hq`) |
+|---|---|---|
+| APK size | about 300 MB | about 1.5 GB (plus 1.2 GB unpacked on first use) |
+| Memory while dictating | about 0.4 GB | about 1.8 GB |
+| Speech model | SenseVoice Small | SenseVoice Small, then FireRedASR2 re-checks every utterance |
+| Errors (see [docs/MODELS.md](docs/MODELS.md)) | baseline | about 40–70 % fewer wrong words |
+
+In the high-accuracy build the text still appears at once. A few seconds later, words the larger
+model heard differently are corrected in place, keeping punctuation and numbers as they were.
+Text you have edited in the meantime is never touched. It needs a phone with plenty of memory
+(12 GB recommended) and can be switched off in *Virtual Keyboard → High-accuracy refinement*.
+
 ## How it stays private
 
 | Guarantee | How it is enforced |
 |---|---|
 | No network access | The manifest has no `INTERNET` permission; `scripts/check-privacy.sh` verifies every APK |
-| Speech is recognized on the device | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) runs on the CPU via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx); the model ships inside the APK |
+| Speech is recognized on the device | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) (and [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) in the high-accuracy build) run on the CPU via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx); the models ship inside the APK |
 | Audio is not stored | Samples live in memory for the utterance in progress only |
 
 Details: [docs/PRIVACY.md](docs/PRIVACY.md).
@@ -59,6 +73,7 @@ Prerequisites:
 git clone --recurse-submodules https://github.com/Lewin671/local-voice-ime.git
 cd local-voice-ime
 ./scripts/build.sh            # downloads the speech model (~290 MB) on first run, prints the APK path
+# REFINER=1 ./scripts/build.sh  # the high-accuracy build (downloads another 800 MB)
 ./scripts/check-privacy.sh    # verifies that the APK has no network permission
 adb install -r <path printed by build.sh>
 ```
@@ -71,7 +86,6 @@ for signing.
 - Benchmarks on real phones (load time, real-time factor, memory); see `docs/MODELS.md`.
 - User-defined corrections / hot words for names and technical terms
   (the model tends to mis-spell English jargon inside Chinese sentences).
-- Optional higher-accuracy model as a second pass for the final text.
 - Enable Pinyin by default regardless of the system language.
 
 ## Documentation
@@ -96,6 +110,7 @@ listed in [NOTICE.md](NOTICE.md).
   the keyboard and input method engines
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0) — speech inference runtime
 - [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) — speech recognition model
+- [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) (Apache-2.0) — the large model of the high-accuracy build
 - [Silero VAD](https://github.com/snakers4/silero-vad) (MIT) — voice activity detection
 
 Licensed under [LGPL-2.1-or-later](LICENSE), like upstream. The bundled models are distributed

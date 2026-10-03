@@ -28,6 +28,10 @@ written by a person or by an AI agent. `AGENTS.md` is the orientation guide; rea
 Every change: `./scripts/check.sh` must pass (unit tests, build, privacy check). CI runs it on
 each push and pull request.
 
+Keep the feedback loop on your computer: write behaviour as pure Kotlin behind small interfaces
+and cover it with JVM unit tests. The device scripts in the table are slow; run them before a
+release (both build variants), not after every edit.
+
 ## Commits and pull requests
 
 - Branch from `main`; one topic per pull request.

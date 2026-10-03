@@ -343,4 +343,7 @@
     <string name="voice_hold_to_talk">按住說話</string>
     <string name="voice_undo">復原語音輸入</string>
     <string name="punctuation_pos_numbers_top_right">右上（僅數字）</string>
+    <string name="voice_refining">精修中…</string>
+    <string name="voice_refine">高精度精修</string>
+    <string name="voice_refine_summary">用更大的模型複核語音輸入的文字並原地修正。僅高精度版可用，語音輸入時約佔用 1.5 GB 記憶體。</string>
 </resources>

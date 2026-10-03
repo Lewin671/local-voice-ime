@@ -31,7 +31,7 @@ The exact changes, with dates, are recorded in the git history: `git log e6199a2
 
 ## Third-party components added by this fork
 
-These are downloaded by `scripts/fetch-voice-assets.sh` and bundled into the APK. They are
+These are downloaded by `scripts/fetch-voice-assets.sh` (FireRedASR2 with `--refiner`) and bundled into the APK. They are
 separate works under their own licenses.
 
 | Component | Author | License |
@@ -39,6 +39,7 @@ separate works under their own licenses.
 | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8 — speech inference runtime | Xiaomi Corporation / k2-fsa contributors | [Apache-2.0](https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE) |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) — bundled in sherpa-onnx | Microsoft Corporation | [MIT](https://github.com/microsoft/onnxruntime/blob/main/LICENSE) |
 | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) (model name: `SenseVoiceSmall`) — speech recognition model, ONNX conversion from the sherpa-onnx project | FunAudioLLM, Alibaba Group | [FunASR Model Open Source License Agreement 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE) |
+| [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) AED (model name: `FireRedASR2-AED`) — second speech recognition model, **high-accuracy build only**; ONNX conversion from the sherpa-onnx project | FireRedTeam | [Apache-2.0](https://github.com/FireRedTeam/FireRedASR2S/blob/main/LICENSE) |
 | [Silero VAD](https://github.com/snakers4/silero-vad) v5 — voice activity detection model | Silero Team | [MIT](https://github.com/snakers4/silero-vad/blob/master/LICENSE) |
 
 The launcher icon uses the "keyboard voice" glyph from

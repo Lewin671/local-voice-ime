@@ -1,5 +1,16 @@
 # Testing
 
+## Where to test what
+
+| What | Where | How long |
+|---|---|---|
+| Text post-processing, merging two transcripts, what may be edited in the text field | JVM unit tests (`app/src/test/.../voice/`) | seconds |
+| Which model, how accurate, how fast | desktop benchmark (`scripts/bench/`, results in `MODELS.md`) | minutes |
+| That it is all wired together on Android | device scripts below | 5–10 minutes each |
+
+Day-to-day development should only need the first row. The device scripts are the confirmation
+before a release.
+
 ## Everything that needs no device
 
 ```sh
@@ -69,6 +80,18 @@ Compare them with the mockup as described in `docs/design/DESIGN.md`.
 
 Useful while debugging: `adb logcat | grep -i voice` shows model load time and the real-time
 factor of every decode (debug builds).
+
+## High-accuracy build
+
+```sh
+REFINER=1 ./scripts/build.sh        # debug "-hq" APK, 1.5 GB
+./scripts/e2e-scenarios.sh          # detects the build and adds the refinement scenarios
+```
+
+The scripts always use the newest debug APK, so run them right after building the variant you
+want to test. The APK needs about 4 GB of free storage on the device to install and unpack its
+model; an emulator with the default 6 GB data partition is too small (set
+`disk.dataPartition.size` to 10G or more in the AVD's `config.ini`).
 
 ## Release builds
 

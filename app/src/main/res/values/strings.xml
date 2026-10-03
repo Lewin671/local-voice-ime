@@ -348,4 +348,7 @@
     <string name="voice_hold_to_talk">Hold to talk</string>
     <string name="voice_undo">Undo dictation</string>
     <string name="punctuation_pos_numbers_top_right">Top Right (numbers only)</string>
+    <string name="voice_refining">Refining…</string>
+    <string name="voice_refine">High-accuracy refinement</string>
+    <string name="voice_refine_summary">Re-check dictated text with a larger model and correct it in place. Only in the high-accuracy build; uses about 1.5 GB of memory while dictating.</string>
 </resources>

@@ -55,6 +55,7 @@ git submodule update --init --recursive   # once after cloning
 ./scripts/fetch-voice-assets.sh           # once: speech runtime + models (~290 MB)
 ./scripts/build.sh                        # debug APK for arm64-v8a -> prints the APK path
 ./scripts/build.sh release                # release APK (see docs/TESTING.md for signing)
+REFINER=1 ./scripts/build.sh              # high-accuracy variant ("-hq" APK, bundles the large model)
 ./scripts/check.sh                        # unit tests + debug build + privacy check (what CI runs)
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
 ./scripts/e2e-scenarios.sh                # behaviour rules: preview, undo, cancel, cursor moves, timeout
@@ -67,6 +68,20 @@ System prerequisites (macOS: `brew install extra-cmake-modules gettext`) and the
 are listed in `README.md`.
 
 ## How to verify a change
+
+**Test on the Mac first; devices are for the final check before a release.** Device runs take
+minutes and are timing-sensitive; unit tests take seconds. So:
+
+- Put logic where it can be unit-tested on the JVM: pure Kotlin without Android classes, with
+  the editor / clock / model behind a small interface (see `VoiceText`, `VoiceRefine`,
+  `VoiceEdits` and their tests). If a behaviour can only be checked on a device, that is a
+  reason to restructure the code, not to write another device scenario.
+- Model questions (accuracy, speed, merging two transcripts) are answered on the desktop with
+  `scripts/bench/` and recorded in `docs/MODELS.md`.
+- The device scripts (`e2e-voice.sh`, `e2e-scenarios.sh`, `ui-shots.sh`) run once before a
+  release, on both build variants, as a confirmation that the pieces are wired together.
+
+In order:
 
 1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
 2. `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` with an emulator or phone attached.

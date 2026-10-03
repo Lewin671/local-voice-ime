@@ -175,6 +175,9 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             "space_long_press_behavior",
             SpaceLongPressBehavior.VoiceInput
         )
+        val voiceRefine = switch(
+            R.string.voice_refine, "voice_refine", true, R.string.voice_refine_summary
+        )
         val spaceSwipeMoveCursor =
             switch(R.string.space_swipe_move_cursor, "space_swipe_move_cursor", true)
         val showLangSwitchKey =

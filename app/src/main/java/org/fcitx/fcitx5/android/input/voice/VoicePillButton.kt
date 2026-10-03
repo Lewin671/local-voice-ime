@@ -29,6 +29,9 @@ class VoicePillButton(context: Context, theme: Theme) : LinearLayout(context) {
         /** Opens hands-free dictation. */
         Speak,
 
+        /** High-accuracy build: the inserted text is being re-checked. Tapping takes it back. */
+        Refining,
+
         /** Shown for a few seconds after push-to-talk inserted text: removes it again. */
         Undo
     }
@@ -48,6 +51,11 @@ class VoicePillButton(context: Context, theme: Theme) : LinearLayout(context) {
                     icon.setImageResource(R.drawable.ic_baseline_keyboard_voice_24)
                     label.setText(R.string.voice_speak)
                     contentDescription = context.getString(R.string.voice_input)
+                }
+                Mode.Refining -> {
+                    icon.setImageResource(R.drawable.ic_baseline_spellcheck_24)
+                    label.setText(R.string.voice_refining)
+                    contentDescription = context.getString(R.string.voice_undo)
                 }
                 Mode.Undo -> {
                     icon.setImageResource(R.drawable.ic_baseline_undo_24)

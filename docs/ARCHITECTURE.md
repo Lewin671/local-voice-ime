@@ -32,7 +32,10 @@ Everything runs inside the IME process. There is no service, no IPC and no netwo
 | `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
-| `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, commits final text into the editor. |
+| `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
+| `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
+| `VoiceRefiner` | High-accuracy build: the large model (FireRedASR2 AED) on its own thread; unpacked from the APK to private storage on first use, freed after 3 idle minutes. |
+| `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
 | `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
@@ -61,13 +64,36 @@ Why not a true streaming model: the non-streaming model is markedly more accurat
 includes punctuation and inverse text normalization, and only one model has to be kept in memory.
 See `docs/MODELS.md` for the numbers.
 
+### Refinement (high-accuracy build)
+
+The standard build is the pipeline above. With `-PvoiceRefiner=true` (`REFINER=1 scripts/build.sh`)
+the APK also contains FireRedASR2 AED, and every final goes through a second stage:
+
+```
+final (SenseVoice text + audio) ──► inserted immediately            (VoiceEdits.insert)
+        │
+        └─► VoiceRefiner.transcribe(audio)      seconds later, on its own thread
+                 │
+                 ▼
+            VoiceRefine.refine(fast, accurate)  words of the large model,
+                 │                              punctuation / digits / casing of the fast one
+                 ▼
+            VoiceEdits.refine + applyRefinements: replaces the inserted text if, and only if,
+            it is still exactly as dictated, directly before the cursor
+```
+
+The large model is roughly twice as accurate but returns bare text and takes seconds; merging
+keeps its accuracy and SenseVoice's formatting (numbers in `docs/MODELS.md`). Utterances are
+transcribed with 0.3 s of audio before and after what the VAD cut out: the large model in
+particular mishears a clipped first syllable.
+
 ## Hooks in upstream files
 
 Keep this list complete; it is what must be re-applied when merging upstream.
 
 | Upstream file | Change |
 |---|---|
-| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir, `noCompress onnx`, own `applicationId` |
+| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` (and, with `-PvoiceRefiner=true`, `voice/assets-refiner`) as extra asset dirs, `noCompress onnx`, own `applicationId` |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `VoicePermissionActivity` |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
@@ -79,7 +105,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
-| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `voiceRefine` switch |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |

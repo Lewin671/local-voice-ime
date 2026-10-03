@@ -348,4 +348,7 @@
     <string name="voice_hold_to_talk">按住说话</string>
     <string name="voice_undo">撤销语音输入</string>
     <string name="punctuation_pos_numbers_top_right">右上（仅数字）</string>
+    <string name="voice_refining">精修中…</string>
+    <string name="voice_refine">高精度精修</string>
+    <string name="voice_refine_summary">用更大的模型复核语音输入的文字并原地纠正。仅高精度版可用，语音输入时约占用 1.5 GB 内存。</string>
 </resources>

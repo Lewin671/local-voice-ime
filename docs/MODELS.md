@@ -2,6 +2,10 @@
 
 ## Current choice
 
+The standard build uses the models in the table below. The high-accuracy build adds
+**FireRedASR2 AED int8** (1.2 GB) as a second stage that re-checks every utterance; see
+"Refinement" further down for why and how well that works.
+
 | Role | Model | Size in APK | Source |
 |---|---|---|---|
 | Recognition | SenseVoice Small, int8 (`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17`) | 229 MB | [sherpa-onnx asr-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |

@@ -77,6 +77,9 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
 
     fun recognizing() = set(R.string.voice_recognizing, palette.primary)
 
+    /** High-accuracy build: the microphone is off, inserted text is still being re-checked. */
+    fun refining() = set(R.string.voice_refining, palette.primary)
+
     fun off() = set(R.string.voice_microphone_off, palette.secondaryText)
 
     fun error(@StringRes text: Int) = set(text, palette.error)

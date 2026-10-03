@@ -255,13 +255,13 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
                         view.postDelayed(hideSurface, ERROR_VISIBLE_MS)
                     } else {
                         hide()
-                        if (VoiceInput.canUndoLastSession) offerUndo()
+                        showAfterSession()
                     }
                 }
             }
         }
 
-        override fun onFinal(text: String) {
+        override fun onFinal(text: String, samples: FloatArray) {
             InputFeedbacks.hapticFeedback(view)
         }
 
@@ -317,14 +317,31 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
      */
     fun bindPill(pill: VoicePillButton) {
         this.pill = pill
+        VoiceInput.refiningListeners["toolbar"] = {
+            // refinement finished: the undo offer starts counting now
+            if (pill.mode == VoicePillButton.Mode.Refining && !VoiceInput.isRefining) {
+                if (VoiceInput.canUndoLastSession) offerUndo() else endUndoOffer()
+            }
+        }
         pill.setOnClickListener {
-            if (pill.mode == VoicePillButton.Mode.Undo) {
+            if (pill.mode != VoicePillButton.Mode.Speak) {
                 InputFeedbacks.hapticFeedback(pill)
                 VoiceInput.undoLastSession(service)
                 endUndoOffer()
             } else {
                 showWindow()
             }
+        }
+    }
+
+    /** What the pill shows once push-to-talk is over. */
+    private fun showAfterSession() {
+        if (!VoiceInput.canUndoLastSession) return
+        if (VoiceInput.isRefining) {
+            pill?.removeCallbacks(endUndo)
+            pill?.mode = VoicePillButton.Mode.Refining
+        } else {
+            offerUndo()
         }
     }
 

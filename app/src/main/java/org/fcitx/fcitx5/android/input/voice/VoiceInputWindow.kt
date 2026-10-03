@@ -91,6 +91,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
                     when {
                         // an error message stays until the next attempt
                         failed -> {}
+                        VoiceInput.isRefining -> status.refining()
                         // say why the microphone went off by itself
                         timedOut -> status.set(R.string.voice_off_after_silence, palette.secondaryText)
                         else -> status.off()
@@ -100,7 +101,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             }
         }
 
-        override fun onFinal(text: String) {
+        override fun onFinal(text: String, samples: FloatArray) {
             InputFeedbacks.hapticFeedback(ui.root)
             // offer the punctuation of the language that was just spoken
             ui.setPunctuation(punctuationFor(text.any { it in '\u4e00'..'\u9fff' }))
@@ -172,11 +173,20 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
         }
     }
 
+    // refinement can outlast listening; say so until it is done
+    private val onRefiningChanged: () -> Unit = {
+        if (session == null && !failed) {
+            if (VoiceInput.isRefining) status.refining() else status.off()
+        }
+    }
+
     override fun onAttached() {
+        VoiceInput.refiningListeners[this] = onRefiningChanged
         start()
     }
 
     override fun onDetached() {
+        VoiceInput.refiningListeners.remove(this)
         // what has been said is still transcribed and inserted
         session?.stop()
     }

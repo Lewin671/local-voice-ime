@@ -58,8 +58,8 @@ class VoiceSession(
         /** Preview of the utterance being spoken; replaced by the next partial or final. */
         fun onPartial(text: String) {}
 
-        /** A finished utterance. */
-        fun onFinal(text: String) {}
+        /** A finished utterance and the audio it was recognized from. */
+        fun onFinal(text: String, samples: FloatArray) {}
 
         /** Input level in [0, 1], for visual feedback. */
         fun onLevel(level: Float) {}
@@ -178,16 +178,23 @@ class VoiceSession(
         while (!vad.empty()) {
             val segment = vad.front()
             vad.pop()
+            // The VAD cuts tightly around the speech. Recognition is more reliable with a little
+            // audio before the first and after the last sound, which is still in the buffer.
+            val start = (segment.start - bufferStart).toInt()
+            val end = start + segment.samples.size
+            val samples = if (start >= 0 && end <= buffer.size) {
+                buffer.copyOfRange(maxOf(0, start - MARGIN_SAMPLES), minOf(buffer.size, end + MARGIN_SAMPLES))
+            } else segment.samples
             // keep what was recorded after this utterance: it may be the start of the next one
-            dropFromBuffer((segment.start + segment.samples.size - bufferStart).toInt())
+            dropFromBuffer(end)
             speaking = vad.isSpeechDetected()
-            var text = if (discard) "" else VoiceEngine.transcribe(segment.samples)
+            var text = if (discard) "" else VoiceEngine.transcribe(samples)
             if (segment.samples.size >= FORCED_SPLIT_SAMPLES) {
                 // cut off by the length limit, not by a pause: the sentence goes on
                 text = VoiceText.stripTrailingFullStop(text)
             }
             lastPartial = ""
-            if (text.isNotEmpty()) emit { onFinal(text) } else emit { onPartial("") }
+            if (text.isNotEmpty()) emit { onFinal(text, samples) } else emit { onPartial("") }
         }
     }
 
@@ -250,6 +257,8 @@ class VoiceSession(
 
     private companion object {
         // the VAD cuts slightly before the limit; anything this long was not ended by a pause
+        const val MARGIN_SAMPLES = VoiceEngine.SAMPLE_RATE * 3 / 10
+
         const val FORCED_SPLIT_SAMPLES =
             ((VoiceEngine.MAX_SPEECH_SECONDS - 1f) * VoiceEngine.SAMPLE_RATE).toInt()
     }

@@ -5,6 +5,8 @@
 #   voice/assets/voice/sense-voice/            speech recognition model (SenseVoice Small, int8)
 #   voice/assets/voice/silero_vad.onnx         voice activity detection model
 #   voice/test-wavs/                           sample recordings for the end-to-end test
+#   voice/assets-refiner/voice/refiner/        only with --refiner: the large model of the
+#                                              high-accuracy build (FireRedASR2 AED, 1.2 GB)
 #
 # voice/libs and voice/assets are bundled into the APK at build time; the app itself has no
 # INTERNET permission and never downloads anything at runtime.
@@ -63,4 +65,31 @@ else
     mkdir -p "$wavs_dir"
     cp "$tmp/$ASR_MODEL/test_wavs/zh.wav" "$tmp/$ASR_MODEL/test_wavs/en.wav" "$wavs_dir/"
     echo "ok       $model_dir"
+fi
+
+# ---- high-accuracy build only
+if [[ ${1:-} == --refiner ]]; then
+    REFINER_MODEL=sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26
+    refiner_dir=voice/assets-refiner/voice/refiner
+    ok() {
+        [[ -f $refiner_dir/encoder.int8.onnx && -f $refiner_dir/decoder.int8.onnx && -f $refiner_dir/tokens.txt ]] &&
+            [[ $(sha256 "$refiner_dir/encoder.int8.onnx") == 54048d66b6e8f3c80ea7ce95efe794587b0fd81d7271651d0decd3803852ae82 ]] &&
+            [[ $(sha256 "$refiner_dir/decoder.int8.onnx") == b840ce7196ae4a14d05ae84bbf56082b6b61ccec5610fda907dddbcea37354ff ]] &&
+            [[ $(sha256 "$refiner_dir/tokens.txt") == 1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b ]]
+    }
+    if ok; then
+        echo "ok       $refiner_dir"
+    else
+        echo "download $refiner_dir (800 MB)"
+        rtmp=$(mktemp -d)
+        curl -fL --retry 3 --progress-bar -o "$rtmp/model.tar.bz2" "$RELEASES/asr-models/$REFINER_MODEL.tar.bz2"
+        tar -xjf "$rtmp/model.tar.bz2" -C "$rtmp"
+        mkdir -p "$refiner_dir"
+        cp "$rtmp/$REFINER_MODEL/encoder.int8.onnx" "$rtmp/$REFINER_MODEL/decoder.int8.onnx" \
+            "$rtmp/$REFINER_MODEL/tokens.txt" "$refiner_dir/"
+        rm -rf "$rtmp"
+        # the archive itself has no pinned checksum; the files that end up in the APK do
+        ok || { echo "checksum mismatch in $refiner_dir" >&2; exit 1; }
+        echo "ok       $refiner_dir"
+    fi
 fi
