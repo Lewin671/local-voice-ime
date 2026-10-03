@@ -153,6 +153,29 @@ Other things learned while testing:
 4. A second pass with a large model is only worth building as an opt-in for phones with plenty
    of memory, and only after `device-bench.sh` has been run on real phones.
 
+### Refinement: fast model for format, accurate model for words
+
+FireRedASR2 AED halves the error rate but returns bare text (no punctuation, upper-case English,
+numbers spelled out). `scripts/bench/merge_prototype.py` aligns its output with SenseVoice's for
+the same audio and replaces only the words that differ, keeping SenseVoice's punctuation, digits
+and casing. Measured on the saved transcripts of both models:
+
+| Test set | SenseVoice | FireRedASR2 | Merged | Punctuation kept | Digits kept |
+|---|---|---|---|---|---|
+| AISHELL-1 | 2.84 | 0.85 | 0.85 | 357 / 358 | 48 / 57 |
+| WenetSpeech net | 9.58 | 5.79 | 5.79 | 598 / 600 | 15 / 16 |
+| WenetSpeech meeting | 9.68 | 6.29 | 6.29 | 778 / 781 | 19 / 28 |
+| ASCEND mixed | 14.85 | 11.24 | 11.38 | 508 / 512 | 9 / 11 |
+| LibriSpeech | 3.41 | 1.86 | 1.95 | 766 / 774 | 14 / 21 |
+| KeSpeech (accents) | 12.24 | 5.47 | 5.47 | 351 / 358 | 51 / 66 |
+| Common Voice zh-CN | 13.94 | 6.18 | 6.18 | 337 / 340 | 17 / 23 |
+
+The merged text has FireRedASR2's accuracy and SenseVoice's formatting. This makes a two-stage
+design possible: insert SenseVoice's result immediately, then replace it in place with the merged
+text when the large model has finished. Known flaws of the prototype: a word inserted at a clause
+boundary lands after the comma, and English words that only the large model heard come out in
+lower case.
+
 Still not measured: any real phone. Run
 `WAVS=<dir> scripts/bench/device-bench.sh <key> <model dir> <kind>` with a phone attached and
 record the numbers here.
