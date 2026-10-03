@@ -40,4 +40,7 @@ sealed class KeyAction {
     data class PickerSwitchAction(val key: PickerWindow.Key? = null) : KeyAction()
 
     data object SpaceLongPressAction : KeyAction()
+
+    /** Space bar released; ends push-to-talk dictation if it was started by long press */
+    data class SpaceReleaseAction(val cancel: Boolean) : KeyAction()
 }

@@ -9,11 +9,16 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// populated by scripts/fetch-voice-assets.sh
+val voiceDir: File = rootProject.file("voice")
+val voiceRuntime: File = voiceDir.resolve("libs/sherpa-onnx.aar")
+
 android {
     namespace = "org.fcitx.fcitx5.android"
 
     defaultConfig {
-        applicationId = "org.fcitx.fcitx5.android"
+        // the Kotlin namespace is kept as upstream's to keep the diff small; only the id differs
+        applicationId = "io.github.lewin671.localvoiceime"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         @Suppress("UnstableApiUsage")
@@ -55,6 +60,24 @@ android {
     androidResources {
         @Suppress("UnstableApiUsage")
         generateLocaleConfig = true
+        // speech models are read straight from the APK
+        noCompress += "onnx"
+    }
+
+    // Speech models live outside of src/main/assets, because everything in there is
+    // listed in descriptor.json and copied to the app's data directory on first run.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(voiceDir.resolve("assets"))
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    doFirst {
+        check(voiceRuntime.exists() && voiceDir.resolve("assets/voice/sense-voice/model.int8.onnx").exists()) {
+            "Speech runtime/models are missing. Run ./scripts/fetch-voice-assets.sh first."
+        }
     }
 }
 
@@ -83,6 +106,8 @@ dependencies {
     implementation(project(":lib:libime"))
     implementation(project(":lib:fcitx5-chinese-addons"))
     implementation(project(":lib:common"))
+    // on-device speech recognition (sherpa-onnx + onnxruntime)
+    implementation(files(voiceRuntime))
     implementation(libs.kotlinx.coroutines)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.activity)

@@ -64,6 +64,7 @@ import org.fcitx.fcitx5.android.input.keyboard.CustomGestureView
 import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
 import org.fcitx.fcitx5.android.input.status.StatusAreaWindow
+import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
 import org.fcitx.fcitx5.android.input.wm.InputWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
 import org.fcitx.fcitx5.android.utils.AppUtil
@@ -94,6 +95,7 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     private val horizontalCandidate: HorizontalCandidateComponent by manager.must()
     private val commonKeyActionListener: CommonKeyActionListener by manager.must()
     private val popup: PopupComponent by manager.must()
+    private val voiceInput: VoiceInputComponent by manager.must()
 
     private val prefs = AppPrefs.getInstance()
 
@@ -290,6 +292,9 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
                 swipeThresholdX = swipeThresholdY
                 onGestureListener = swipeHideKeyboardCallback
             }
+            voiceButton.setOnClickListener {
+                voiceInput.showWindow()
+            }
             buttonsUi.apply {
                 undoButton.setOnClickListener {
                     service.sendCombinationKeyEvents(KeyEvent.KEYCODE_Z, ctrl = true)
@@ -441,6 +446,9 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             idleUi.inlineSuggestionsBar.clear()
         }
+        // built-in on-device dictation; never offered on password fields
+        idleUi.voiceButton.visibility =
+            if (voiceInput.isAvailable && !capFlags.has(CapabilityFlag.Password)) View.VISIBLE else View.GONE
         voiceInputSubtype = InputMethodUtil.findVoiceSubtype(preferredVoiceInput)
         val shouldShowVoiceInput =
             showVoiceInputButton && voiceInputSubtype != null && !capFlags.has(CapabilityFlag.Password)

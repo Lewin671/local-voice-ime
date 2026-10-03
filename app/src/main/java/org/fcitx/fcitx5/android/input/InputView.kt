@@ -40,6 +40,7 @@ import org.fcitx.fcitx5.android.input.picker.emoticonPicker
 import org.fcitx.fcitx5.android.input.picker.symbolPicker
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
 import org.fcitx.fcitx5.android.input.preedit.PreeditComponent
+import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
 import org.fcitx.fcitx5.android.utils.unset
 import org.fcitx.fcitx5.android.utils.windowManager
@@ -105,6 +106,7 @@ class InputView(
     private val commonKeyActionListener = CommonKeyActionListener()
     private val windowManager = InputWindowManager()
     private val kawaiiBar = KawaiiBarComponent()
+    private val voiceInput = VoiceInputComponent()
     private val horizontalCandidate = HorizontalCandidateComponent()
     private val keyboardWindow = KeyboardWindow()
     private val symbolPicker = symbolPicker()
@@ -125,6 +127,7 @@ class InputView(
         scope += preedit
         scope += commonKeyActionListener
         scope += windowManager
+        scope += voiceInput
         scope += kawaiiBar
         scope += horizontalCandidate
         broadcaster.onScopeSetupFinished(scope)
@@ -272,6 +275,10 @@ class InputView(
             bottomOfParent()
         })
         add(popup.root, lParams(matchParent, matchParent) {
+            centerVertically()
+            centerHorizontally()
+        })
+        add(voiceInput.view, lParams(matchParent, matchParent) {
             centerVertically()
             centerHorizontally()
         })

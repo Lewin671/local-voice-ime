@@ -30,3 +30,6 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# sherpa-onnx: config classes and results are accessed by name from JNI
+-keep class com.k2fsa.sherpa.onnx.** { *; }

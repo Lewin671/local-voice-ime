@@ -63,6 +63,7 @@ import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
+import org.fcitx.fcitx5.android.input.voice.VoiceInput
 import org.fcitx.fcitx5.android.input.cursor.CursorRange
 import org.fcitx.fcitx5.android.input.cursor.CursorTracker
 import org.fcitx.fcitx5.android.utils.InputMethodUtil
@@ -1050,6 +1051,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         Timber.d("onFinishInputView: finishingInput=$finishingInput")
         decorLocationUpdated = false
+        VoiceInput.stopCurrent()
         inputDeviceMgr.onFinishInputView()
         currentInputConnection?.apply {
             finishComposingText()

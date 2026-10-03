@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Debug builds only: a plain text field for automated end-to-end tests, see docs/TESTING.md -->
+        <activity
+            android:name=".debug.TestInputActivity"
+            android:exported="true"
+            android:label="IME test field"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+    </application>
+
+</manifest>

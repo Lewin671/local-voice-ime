@@ -13,6 +13,11 @@
 
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      On-device dictation. Note that this app deliberately does NOT request
+      android.permission.INTERNET: audio and text cannot leave the device.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- remove intent queries merged from library manifest (namely Android-Image-Cropper) -->
     <queries tools:node="removeAll" />
@@ -120,6 +125,13 @@
             android:taskAffinity=".ui.main.ClipboardEditActivity"
             android:theme="@style/Theme.DialogTheme"
             android:windowSoftInputMode="stateAlwaysVisible|adjustPan" />
+
+        <activity
+            android:name=".input.voice.VoicePermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=".input.voice.VoicePermissionActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".input.FcitxInputMethodService"

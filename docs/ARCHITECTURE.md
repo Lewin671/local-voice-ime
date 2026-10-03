@@ -1,0 +1,91 @@
+# Architecture
+
+## Overview
+
+```
+┌──────────────────────────── FcitxInputMethodService (upstream) ───────────────────────────┐
+│                                                                                            │
+│  InputView                                                                                 │
+│   ├─ KawaiiBar (toolbar)  ── mic button ──────────────┐                                    │
+│   ├─ InputWindowManager                               ▼                                    │
+│   │    ├─ KeyboardWindow ── hold space ──► VoiceInputComponent  (push-to-talk overlay)     │
+│   │    └─ VoiceInputWindow  (hands-free dictation, replaces the keyboard)                  │
+│   └─ …                                                │                                    │
+│                                                       ▼                                    │
+│                                   VoiceInput.start()  ── commits finals to the editor      │
+│                                                       │                                    │
+│                                                 VoiceSession                               │
+│                              AudioSource ─► VAD (Silero) ─► VoiceEngine.transcribe()       │
+│                              (microphone)                    (SenseVoice via sherpa-onnx)  │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+Everything runs inside the IME process. There is no service, no IPC and no network.
+
+## Voice package
+
+`app/src/main/java/org/fcitx/fcitx5/android/input/voice/`
+
+| File | Responsibility |
+|---|---|
+| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from APK assets, confines all native calls to one thread, frees the model after 5 idle minutes. |
+| `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
+| `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
+| `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
+| `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, commits final text into the editor. |
+| `VoiceInputWindow` | Hands-free UI: an `InputWindow` that replaces the keyboard. |
+| `VoiceInputComponent` | Push-to-talk UI: an overlay shown while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
+| `VoicePermissionActivity` | Transparent activity that shows the microphone permission dialog (a service cannot). |
+
+### Simulated streaming
+
+SenseVoice is a non-streaming (whole-utterance) model, but it is fast enough to be re-run several
+times per second. `VoiceSession` therefore:
+
+1. feeds audio to the VAD in 32 ms windows;
+2. once speech starts, re-decodes the utterance so far every ≥300 ms (backing off if the device is
+   slow) and reports it as a **partial** — shown in the voice UI, never written to the editor;
+3. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
+   utterance reaches 20 s, decodes the segment once more and reports a **final**, which
+   `VoiceInput` commits to the editor;
+4. on stop, flushes the VAD so that speech in progress is not lost.
+
+The reader coroutine never waits for decoding, so audio is not dropped on slow devices.
+
+Why not a true streaming model: the non-streaming model is markedly more accurate, already
+includes punctuation and inverse text normalization, and only one model has to be kept in memory.
+See `docs/MODELS.md` for the numbers.
+
+## Hooks in upstream files
+
+Keep this list complete; it is what must be re-applied when merging upstream.
+
+| Upstream file | Change |
+|---|---|
+| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir, `noCompress onnx`, own `applicationId` |
+| `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
+| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `VoicePermissionActivity` |
+| `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
+| `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView` |
+| `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone button in the toolbar |
+| `input/keyboard/KeyAction.kt` | `SpaceReleaseAction` |
+| `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceReleaseAction` on touch up |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default |
+| `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
+| `.gitignore` | ignore `voice/` |
+
+## Assets
+
+Upstream copies everything under `app/src/main/assets/` to the app's data directory on first run
+(tracked by `descriptor.json`). Speech models must not go through that mechanism (they are large
+and are read directly from the APK), so they live in a separate asset source directory, `voice/assets/`,
+and are stored uncompressed.
+
+## Privacy model
+
+- No `INTERNET` permission: the OS guarantees the process cannot open sockets.
+  `scripts/check-privacy.sh` fails the build check if that ever changes.
+- Audio is held in memory only for the utterance in progress and is never written to disk.
+- Dictated text is committed to the focused editor and is not logged or stored by the voice code.
+- The microphone button and push-to-talk are disabled on password fields.

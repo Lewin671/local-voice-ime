@@ -172,6 +172,11 @@ abstract class BaseKeyboard(
                                 true
                             }
                         }
+                        GestureType.Up -> {
+                            // sliding up and away from the key cancels push-to-talk dictation
+                            onAction(KeyAction.SpaceReleaseAction(cancel = event.y < -view.height))
+                            false
+                        }
                         else -> false
                     }
                 }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name_release">Fcitx5</string>
-    <string name="app_name_debug">Fcitx5 (Debug)</string>
+    <string name="app_name_release">Local Voice IME</string>
+    <string name="app_name_debug">Local Voice IME (Debug)</string>
     <string name="save">Save</string>
     <string name="input_methods">Input Methods</string>
     <string name="add_input_method">Add Input Method</string>
@@ -321,4 +321,14 @@
     <string name="keyboard_height_percent_base">Keyboard height percent base</string>
     <string name="display_metrics">Display metrics (Resources.getDisplayMetrics)</string>
     <string name="real_size">Real size (Display.getRealSize)</string>
+    <string name="space_behavior_voice_input">Hold to dictate (on-device)</string>
+    <string name="voice_input">Voice input</string>
+    <string name="voice_listening">Listening… tap to stop</string>
+    <string name="voice_recognizing">Recognizing…</string>
+    <string name="voice_tap_to_speak">Tap to speak</string>
+    <string name="voice_release_to_finish">Release to finish · slide up to cancel</string>
+    <string name="voice_enter">Enter</string>
+    <string name="voice_model_missing">This build does not include a speech model</string>
+    <string name="voice_permission_required">Microphone permission is required</string>
+    <string name="voice_permission_denied">Voice input needs the microphone permission. Audio is processed on this device only.</string>
 </resources>

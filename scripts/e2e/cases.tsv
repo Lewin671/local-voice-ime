@@ -1,0 +1,3 @@
+# wav file (relative to the repo root)	expected text
+voice/test-wavs/zh.wav	开放时间早上9点至下午5点。
+voice/test-wavs/en.wav	The tribal chieftain called for the boy and presented him with 50 pieces of gold.

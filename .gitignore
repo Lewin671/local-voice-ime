@@ -1,3 +1,6 @@
+# Speech runtime and models, downloaded by scripts/fetch-voice-assets.sh
+/voice/
+
 # Module :app
 # Installed data
 /app/src/main/assets/usr/
