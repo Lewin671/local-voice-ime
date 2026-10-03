@@ -39,6 +39,8 @@ class VoiceSession(
     private val minSilence: Float,
     /** Stop by itself after this long without speech; 0 to keep listening. */
     private val idleTimeoutMs: Long,
+    /** Shortest time between two previews, see [PartialPacer]. */
+    private val previewIntervalMs: Long,
     private val listener: Listener
 ) {
 
@@ -165,6 +167,7 @@ class VoiceSession(
     private var fed = 0
     private var speaking = false
     private var lastPartial = ""
+    private val pacer = PartialPacer(previewIntervalMs)
 
     private fun dropFromBuffer(n: Int) {
         val drop = n.coerceIn(0, buffer.size)
@@ -188,6 +191,8 @@ class VoiceSession(
             // keep what was recorded after this utterance: it may be the start of the next one
             dropFromBuffer(end)
             speaking = vad.isSpeechDetected()
+            // what is left in the buffer belongs to the next utterance
+            pacer.speechStarted(SystemClock.elapsedRealtime())
             var text = if (discard) "" else VoiceEngine.transcribe(samples)
             if (segment.samples.size >= FORCED_SPLIT_SAMPLES) {
                 // cut off by the length limit, not by a pause: the sentence goes on
@@ -200,8 +205,6 @@ class VoiceSession(
 
     private suspend fun consume(chunks: Channel<FloatArray>, vad: Vad) {
         val window = VoiceEngine.VAD_WINDOW
-        var lastPartialAt = 0L
-        var lastDecodeCost = 0L
         var lastSpeechAt = SystemClock.elapsedRealtime()
 
         for (first in chunks) {
@@ -217,7 +220,7 @@ class VoiceSession(
                 fed += window
                 if (!speaking && vad.isSpeechDetected()) {
                     speaking = true
-                    lastPartialAt = SystemClock.elapsedRealtime()
+                    pacer.speechStarted(SystemClock.elapsedRealtime())
                 }
             }
             drain(vad)
@@ -233,12 +236,11 @@ class VoiceSession(
                 continue
             }
             lastSpeechAt = now
-            // re-decode at most ~3 times per second, and back off when decoding is slow
-            if (now - lastPartialAt >= maxOf(300L, lastDecodeCost * 2)) {
+            if (pacer.isDue(now)) {
                 val text = VoiceEngine.transcribe(buffer.toArray())
-                lastPartialAt = SystemClock.elapsedRealtime()
-                lastDecodeCost = lastPartialAt - now
-                if (text != lastPartial) {
+                val changed = text != lastPartial
+                pacer.decoded(now, SystemClock.elapsedRealtime(), changed)
+                if (changed) {
                     lastPartial = text
                     emit { onPartial(text) }
                 }

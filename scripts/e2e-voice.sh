@@ -74,7 +74,17 @@ find_mic() {
     return 1
 }
 
+# CPU time of the keyboard process so far (user + system, in ticks of 10 ms). What the run adds
+# to it is a proxy for the energy dictation costs: compare it before and after a change to the
+# pipeline (docs/TESTING.md).
+cpu_ticks() {
+    local pid
+    pid=$(adb shell pidof "$pkg" </dev/null | tr -d '\r' || true)
+    [[ -n $pid ]] && adb shell cat "/proc/$pid/stat" </dev/null | awk '{ print $14 + $15 }'
+}
+
 failed=0
+cpu_before=
 while IFS=$'\t' read -r wav expected; do
     [[ -z $wav || $wav == \#* ]] && continue
     duration=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate())+1)" "$wav")
@@ -83,6 +93,7 @@ while IFS=$'\t' read -r wav expected; do
     # a fresh, empty text field with the keyboard showing
     adb shell am start -W --activity-clear-task -n "$activity" >/dev/null </dev/null
     read -r x y < <(find_mic)
+    [[ -n $cpu_before ]] || cpu_before=$(cpu_ticks)
     adb shell input tap "$x" "$y" </dev/null
     # cold model load + playback + trailing silence + final decode
     sleep $((duration + 12))
@@ -98,6 +109,12 @@ while IFS=$'\t' read -r wav expected; do
     fi
     printf '%s  %s  (error rate %s)\n    expected: %s\n    actual:   %s\n' "$status" "$wav" "$rate" "$expected" "$actual"
 done <"$cases"
+
+cpu_after=$(cpu_ticks)
+if [[ -n $cpu_before && -n $cpu_after ]]; then
+    awk -v a="$cpu_before" -v b="$cpu_after" \
+        'BEGIN { printf "CPU time used by the keyboard process: %.1f s\n", (b - a) / 100 }'
+fi
 
 if ((failed > 0)); then
     echo "$failed case(s) failed" >&2

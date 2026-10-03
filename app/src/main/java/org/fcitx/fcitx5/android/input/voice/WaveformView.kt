@@ -63,8 +63,29 @@ class WaveformView(context: Context) : View(context) {
     var level = 0f
         set(value) {
             field = value.coerceIn(0f, 1f)
-            if (mode == Mode.Live) postInvalidateOnAnimation()
+            if (mode == Mode.Live) scheduleFrame()
         }
+
+    // The bars are redrawn about 30 times per second, not at the refresh rate of the display:
+    // animating at 120 Hz for as long as the microphone is on costs energy for a difference
+    // nobody sees in bars that ease over 80-250 ms, and keeps the panel from slowing down.
+    private var frameScheduled = false
+    private val frame = Runnable {
+        frameScheduled = false
+        invalidate()
+    }
+
+    private fun scheduleFrame() {
+        if (frameScheduled) return
+        frameScheduled = true
+        postDelayed(frame, FRAME_INTERVAL_MS)
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(frame)
+        frameScheduled = false
+        super.onDetachedFromWindow()
+    }
 
     // what is drawn: follows `level` quickly on the way up and slowly on the way down
     private var shown = 0f
@@ -109,10 +130,13 @@ class WaveformView(context: Context) : View(context) {
             )
             x += barWidth + barGap
         }
-        if (mode == Mode.Live && (shown > 0.01f || level > 0.01f)) postInvalidateOnAnimation()
+        if (mode == Mode.Live && (shown > 0.01f || level > 0.01f)) scheduleFrame()
     }
 
     companion object {
         private const val BARS = 27
+
+        // just under two frames at 60 Hz (three at 90 Hz, four at 120 Hz)
+        private const val FRAME_INTERVAL_MS = 30L
     }
 }

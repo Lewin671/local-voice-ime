@@ -350,5 +350,5 @@
     <string name="punctuation_pos_numbers_top_right">Top Right (numbers only)</string>
     <string name="voice_refining">Refining…</string>
     <string name="voice_refine">High-accuracy refinement</string>
-    <string name="voice_refine_summary">Re-check dictated text with a larger model and correct it in place. Only in the high-accuracy build; uses about 1.5 GB of memory while dictating.</string>
+    <string name="voice_refine_summary">Re-check dictated text with a larger model and correct it in place. Only in the high-accuracy build; uses about 1.5 GB of memory while dictating. Paused while Battery Saver is on or the device is hot.</string>
 </resources>

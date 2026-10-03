@@ -121,11 +121,12 @@ object VoiceInput {
         service.postFcitxJob { reset() }
         val edits = editsFor(service)
         edits.startSession()
-        val refine = VoiceRefiner.isActive(service)
-        if (refine) {
-            // have the large model ready by the time the first utterance is complete
-            service.lifecycleScope.launch { runCatching { VoiceRefiner.ensureLoaded(service) } }
-        }
+        val saving = VoicePower.isSaving(service)
+        val refine = VoiceRefiner.isActive(service) && !saving
+        // The large model is loaded when the first words are heard rather than when the session
+        // starts: a session in which nothing is said (the space bar held by accident) must not
+        // cost reading more than a gigabyte.
+        var refinerRequested = false
         lateinit var session: VoiceSession
         // separator between the text already in the editor and the utterance in progress;
         // decided when its first preview arrives, as the preview itself hides the text before it
@@ -164,6 +165,7 @@ object VoiceInput {
             createSource(service),
             minSilence,
             idleTimeoutMs,
+            if (saving) PartialPacer.SAVING_INTERVAL_MS else PartialPacer.INTERVAL_MS,
             object : VoiceSession.Listener by listener {
                 override fun onPartial(text: String) {
                     if (previewWasDetached()) return
@@ -174,6 +176,12 @@ object VoiceInput {
                     } else {
                         service.setVoicePreview(joinerFor(shown) + shown)
                         previewShown = true
+                        if (refine && !refinerRequested) {
+                            refinerRequested = true
+                            service.lifecycleScope.launch {
+                                runCatching { VoiceRefiner.ensureLoaded(service) }
+                            }
+                        }
                     }
                     listener.onPartial(shown)
                 }
@@ -256,6 +264,7 @@ object VoiceInput {
      */
     fun warmUp(service: FcitxInputMethodService) {
         if (lastUsedAt == 0L || SystemClock.elapsedRealtime() - lastUsedAt > WARM_UP_WINDOW_MS) return
+        if (VoicePower.isSaving(service)) return
         service.lifecycleScope.launch {
             runCatching { VoiceEngine.ensureLoaded(service) }
         }

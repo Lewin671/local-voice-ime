@@ -46,6 +46,10 @@ WAV files must be 16 kHz, mono, 16-bit PCM. To add a case, append a line to `cas
 (or pass your own file: `scripts/e2e-voice.sh my-cases.tsv`).
 On macOS, `say -o x.wav --data-format=LEI16@16000 "text"` generates suitable audio.
 
+At the end the script prints the CPU time the keyboard process used during the run. It is a proxy
+for the energy dictation costs: when changing the recognition pipeline, run the script a few
+times before and after (the first run after an install is noisy) and compare the numbers.
+
 ## Behaviour scenarios
 
 ```sh

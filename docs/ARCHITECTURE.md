@@ -36,6 +36,8 @@ Everything runs inside the IME process. There is no service, no IPC and no netwo
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
 | `VoiceRefiner` | High-accuracy build: the large model (FireRedASR2 AED) on its own thread; unpacked from the APK to private storage on first use, freed after 3 idle minutes. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
+| `VoicePacing` | `PartialPacer`: when the utterance in progress is decoded again for a preview. Pure Kotlin, unit-tested. |
+| `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
 | `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
@@ -50,8 +52,8 @@ times per second. `VoiceSession` therefore:
 1. feeds audio to the VAD in 32 ms windows;
 2. while the model is still loading (cold start), keeps recording and reports `Preparing`;
    everything said meanwhile is queued and transcribed as soon as the model is ready;
-3. once speech starts, re-decodes the utterance so far every ≥300 ms (backing off if the device is
-   slow) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
+3. once speech starts, re-decodes the utterance so far every ≥300 ms (less often when decoding is
+   slow or the text did not change, see `PartialPacer`) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
    (underlined) text;
 4. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
    utterance reaches 20 s, decodes the segment once more and reports a **final**, which
@@ -86,6 +88,29 @@ The large model is roughly twice as accurate but returns bare text and takes sec
 keeps its accuracy and SenseVoice's formatting (numbers in `docs/MODELS.md`). Utterances are
 transcribed with 0.3 s of audio before and after what the VAD cut out: the large model in
 particular mishears a clipped first syllable.
+
+## Energy
+
+Recognition runs on the CPU, so dictation is by far the most expensive thing the keyboard does.
+What keeps it in check, and what to preserve when changing the pipeline:
+
+| Cost | Measure | Where |
+|---|---|---|
+| Previews: each one decodes the whole utterance so far | at most a third of the time is spent decoding, however long the utterance; half as often during a pause (unchanged text) | `PartialPacer` |
+| Large model (high-accuracy build): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
+| Open microphone and VAD | hands-free listening turns itself off after 10 s without speech; the session stops when the keyboard is hidden | `VoiceSession`, `VoiceInput.stopCurrent` |
+| Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off | `WaveformView` |
+| Loading the model ahead of time | only within 30 minutes after dictation was used | `VoiceInput.warmUp` |
+
+When Battery Saver is on or the device reports severe thermal throttling (`VoicePower`), previews
+come half as often, the large model is not used and nothing is loaded ahead of time. Accuracy
+of the inserted text is that of the standard build then.
+
+Nothing runs while the keyboard is hidden: there is no service, wake lock, alarm or background
+work, and both model threads sleep until the next request.
+
+`scripts/e2e-voice.sh` prints the CPU time the keyboard process used for the run; compare it
+before and after a change to the pipeline (`docs/TESTING.md`).
 
 ## Hooks in upstream files
 
