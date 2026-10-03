@@ -99,7 +99,7 @@ What keeps it in check, and what to preserve when changing the pipeline:
 | Previews: each one decodes the whole utterance so far | at most a third of the time is spent decoding, however long the utterance; half as often during a pause (unchanged text) | `PartialPacer` |
 | Large model (high-accuracy build): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
 | Open microphone and VAD | hands-free listening turns itself off after 10 s without speech; the session stops when the keyboard is hidden | `VoiceSession`, `VoiceInput.stopCurrent` |
-| Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off | `WaveformView` |
+| Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off, or while nobody speaks and the room is quiet | `WaveformView` |
 | Loading the model ahead of time | only within 30 minutes after dictation was used | `VoiceInput.warmUp` |
 
 When Battery Saver is on or the device reports severe thermal throttling (`VoicePower`), previews

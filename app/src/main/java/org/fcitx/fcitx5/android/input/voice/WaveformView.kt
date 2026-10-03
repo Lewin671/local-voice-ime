@@ -63,7 +63,7 @@ class WaveformView(context: Context) : View(context) {
     var level = 0f
         set(value) {
             field = value.coerceIn(0f, 1f)
-            if (mode == Mode.Live) scheduleFrame()
+            if (mode == Mode.Live && (field > 0.01f || shown > 0.01f)) scheduleFrame()
         }
 
     // The bars are redrawn about 30 times per second, not at the refresh rate of the display:

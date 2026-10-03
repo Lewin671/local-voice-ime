@@ -124,6 +124,7 @@ class VoiceSession(
         // reader: never waits for decoding, so no audio is dropped on slow devices
         val reader = launch(Dispatchers.IO) {
             val chunkSize = VoiceEngine.SAMPLE_RATE / 10
+            var lastLevel = 0f
             while (isActive && !stopRequested) {
                 val buf = FloatArray(chunkSize)
                 val n = source.read(buf)
@@ -132,8 +133,10 @@ class VoiceSession(
                 val chunk = if (n == buf.size) buf else buf.copyOf(n)
                 chunks.send(chunk)
                 // reported from here, so that the level is live even while the model loads
-                val level = levelOf(chunk)
-                emit { onLevel(level) }
+                val level = levelOf(chunk).let { if (it < QUIET_LEVEL && !speaking) 0f else it }
+                // nothing to report while it stays silent: the UI has nothing to redraw then
+                if (level > 0f || lastLevel > 0f) emit { onLevel(level) }
+                lastLevel = level
             }
             chunks.close()
         }
@@ -165,6 +168,9 @@ class VoiceSession(
     private val buffer = FloatBuffer()
     private var bufferStart = 0L
     private var fed = 0
+
+    // read by the reader coroutine
+    @Volatile
     private var speaking = false
     private var lastPartial = ""
     private val pacer = PartialPacer(previewIntervalMs)
@@ -258,6 +264,13 @@ class VoiceSession(
     }
 
     private companion object {
+        /**
+         * Below this level (about -46 dB) and without speech, the input counts as silence and is
+         * reported as 0: the waveform then rests instead of animating the noise of a quiet room
+         * for as long as the speaker pauses.
+         */
+        const val QUIET_LEVEL = 0.2f
+
         // the VAD cuts slightly before the limit; anything this long was not ended by a pause
         const val MARGIN_SAMPLES = VoiceEngine.SAMPLE_RATE * 3 / 10
 
