@@ -8,9 +8,11 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.input.FcitxInputMethodService
 
@@ -36,7 +38,11 @@ object VoiceInput {
      */
     private const val TEST_WAV = "voice-test.wav"
 
+    private const val WARM_UP_WINDOW_MS = 30 * 60_000L
+
     private var current: VoiceSession? = null
+
+    private var lastUsedAt = 0L
 
     /** What the last finished utterance put into the editor, for [backspace]. */
     private var lastInserted = ""
@@ -75,6 +81,7 @@ object VoiceInput {
         listener: VoiceSession.Listener
     ): VoiceSession {
         current?.stop()
+        lastUsedAt = SystemClock.elapsedRealtime()
         // drop unfinished pinyin composition, so that it doesn't interleave with dictated text
         service.postFcitxJob { reset() }
         lastInserted = ""
@@ -136,6 +143,18 @@ object VoiceInput {
         current = session
         session.start()
         return session
+    }
+
+    /**
+     * Called when the keyboard is shown for an editor. If dictation was used a short while ago,
+     * load the model again in the background (it is freed after a few idle minutes), so that the
+     * preview appears without delay when the user speaks.
+     */
+    fun warmUp(service: FcitxInputMethodService) {
+        if (lastUsedAt == 0L || SystemClock.elapsedRealtime() - lastUsedAt > WARM_UP_WINDOW_MS) return
+        service.lifecycleScope.launch {
+            runCatching { VoiceEngine.ensureLoaded(service) }
+        }
     }
 
     /** Called when the keyboard is hidden: stop listening, but keep what was already said. */

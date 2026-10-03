@@ -62,6 +62,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
 
     override fun onStartInput(info: EditorInfo, capFlags: CapabilityFlags) {
         isPasswordField = capFlags.has(CapabilityFlag.Password)
+        if (isAvailable) VoiceInput.warmUp(service)
     }
 
     private val status by lazy { VoiceStatusUi(context, palette) }
