@@ -92,7 +92,8 @@ minutes and are timing-sensitive; unit tests take seconds. So:
 In order:
 
 1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
-   The download code is covered here (`VoiceModelFetchTest`, against a local server).
+   The download code is covered here (`VoiceModelFetchTest`, against a local server, and
+   `VoiceModelStoreTest`).
 2. `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` with an emulator or phone attached.
    The first compares transcripts; the second checks the behaviour rules of the design
    (add a scenario there whenever you fix or add a behaviour). It feeds WAV files through the

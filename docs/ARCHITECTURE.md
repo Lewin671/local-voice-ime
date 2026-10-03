@@ -37,7 +37,8 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
 | `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded, freed after 3 idle minutes. |
-| `VoiceModels` | Catalogue of downloadable models (files pinned by size and SHA-256), what is installed, and the download: start, pause, resume, delete. State is a `StateFlow` per model. |
+| `VoiceModels` | Catalogue of downloadable models (files pinned by size and SHA-256) and the entry points the rest of the app uses. |
+| `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
 | `VoiceModelFetch` | Downloads one file, resumable, verified. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
 | `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |

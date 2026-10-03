@@ -5,20 +5,8 @@
 package org.fcitx.fcitx5.android.input.voice
 
 import android.content.Context
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.File
-import java.io.IOException
 import java.net.URL
 
 /**
@@ -44,8 +32,8 @@ class VoiceModel(
 
 /**
  * The catalogue of downloadable models and what is installed of it. To offer another model, add
- * it to [all] (after the steps in `docs/MODELS.md`); downloading, resuming, verifying, deleting
- * and the row in the settings come from here.
+ * it to [all] (after the steps in `docs/MODELS.md`); downloading, resuming, verifying and
+ * deleting come with it ([VoiceModelStore]), as does the row in the settings.
  */
 object VoiceModels {
 
@@ -87,118 +75,33 @@ object VoiceModels {
         data object Installed : State
     }
 
-    /** Written last, so a directory that has it holds every file, complete and verified. */
-    private const val MARKER = "installed"
-
-    /** Free space to leave on the device. */
-    private const val SPACE_MARGIN = 200L shl 20
-
-    /** Progress is reported in steps of this many bytes. */
-    private const val PROGRESS_STEP = 1L shl 20
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    private val states = HashMap<String, MutableStateFlow<State>>()
-
-    private val jobs = HashMap<String, Job>()
+    private val stores = HashMap<String, VoiceModelStore>()
 
     fun dir(context: Context, model: VoiceModel) =
         File(context.applicationContext.filesDir, "voice-models/${model.id}")
 
-    private fun marker(model: VoiceModel) = model.files.joinToString("\n") { it.sha256 }
-
-    private fun onDisk(context: Context, model: VoiceModel): State {
-        val dir = dir(context, model)
-        val installed = runCatching { File(dir, MARKER).readText() }.getOrNull() == marker(model) &&
-                model.files.all { File(dir, it.name).length() == it.size }
-        if (installed) return State.Installed
-        return State.Absent(model.files.sumOf {
-            minOf(it.size, File(dir, it.name).length() + File(dir, it.name + ".part").length())
-        })
-    }
-
-    private fun flow(context: Context, model: VoiceModel) = synchronized(states) {
-        states.getOrPut(model.id) {
+    private fun store(context: Context, model: VoiceModel) = synchronized(stores) {
+        stores.getOrPut(model.id) {
             // left behind by the builds that carried the large model inside the APK
             File(context.applicationContext.filesDir, "voice-refiner").deleteRecursively()
-            MutableStateFlow(onDisk(context, model))
+            VoiceModelStore(model, dir(context, model))
         }
     }
 
-    fun state(context: Context, model: VoiceModel): StateFlow<State> = flow(context, model)
+    fun state(context: Context, model: VoiceModel): StateFlow<State> = store(context, model).state
 
     fun isInstalled(context: Context, model: VoiceModel) =
-        flow(context, model).value == State.Installed
+        store(context, model).state.value == State.Installed
 
     /**
      * Start or continue downloading [model]. Runs until it is done, fails, or [pause] is called,
      * whether or not the settings are still open; a later call continues where this one stopped.
      */
-    fun download(context: Context, model: VoiceModel): Unit = synchronized(jobs) {
-        val state = flow(context, model)
-        val current = state.value
-        if (current !is State.Absent) return@synchronized
-        val dir = dir(context, model)
-        val previous = jobs[model.id]
-        state.value = State.Downloading(current.downloaded)
-        jobs[model.id] = scope.launch {
-            // a paused download may still be writing its last block
-            previous?.join()
-            val error = try {
-                dir.mkdirs()
-                if (dir.usableSpace < model.size - current.downloaded + SPACE_MARGIN) {
-                    Error.Storage
-                } else {
-                    var before = 0L
-                    var reported = current.downloaded
-                    for (file in model.files) {
-                        val dest = File(dir, file.name)
-                        VoiceModelFetch.fetch(model.url(file), dest, file.size, file.sha256) {
-                            ensureActive()
-                            val total = before + it
-                            if (total - reported >= PROGRESS_STEP) {
-                                reported = total
-                                state.value = State.Downloading(total)
-                            }
-                        }
-                        before += file.size
-                    }
-                    File(dir, MARKER).writeText(marker(model))
-                    null
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: VoiceModelFetch.WrongContentException) {
-                Timber.w(e, "Voice model download rejected")
-                Error.Content
-            } catch (e: IOException) {
-                Timber.w(e, "Voice model download failed")
-                if (dir.usableSpace < (1L shl 20)) Error.Storage else Error.Network
-            }
-            state.value = when (val now = onDisk(context, model)) {
-                is State.Absent -> now.copy(error = error ?: Error.Content)
-                else -> now
-            }
-        }
-    }
+    fun download(context: Context, model: VoiceModel) = store(context, model).download()
 
     /** Stop downloading and keep what has arrived. */
-    fun pause(context: Context, model: VoiceModel): Unit = synchronized(jobs) {
-        val state = flow(context, model)
-        val current = state.value as? State.Downloading ?: return@synchronized
-        jobs[model.id]?.cancel()
-        state.value = State.Absent(current.downloaded)
-    }
+    fun pause(context: Context, model: VoiceModel) = store(context, model).pause()
 
     /** Remove [model] from the device, whether it is installed or partly downloaded. */
-    suspend fun delete(context: Context, model: VoiceModel) {
-        val state = flow(context, model)
-        val job = synchronized(jobs) {
-            state.value = State.Absent(0)
-            jobs.remove(model.id)
-        }
-        job?.cancelAndJoin()
-        withContext(Dispatchers.IO) { dir(context, model).deleteRecursively() }
-        state.value = State.Absent(0)
-    }
+    suspend fun delete(context: Context, model: VoiceModel) = store(context, model).delete()
 }

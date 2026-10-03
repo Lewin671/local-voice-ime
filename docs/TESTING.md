@@ -97,8 +97,9 @@ REFINER=1 ./scripts/e2e-scenarios.sh      # installs the model, adds the refinem
 exactly as a finished download would leave it. This needs a debug build and about 1.5 GB of
 free storage on the device.
 
-The download itself is covered by `VoiceModelFetchTest` on the JVM (a local server that drops
-connections, ignores ranges, and serves wrong content). Before a release, do it once for real:
+The download itself is covered on the JVM: `VoiceModelFetchTest` (a local server that drops
+connections, ignores ranges, and serves wrong content) and `VoiceModelStoreTest` (pause, resume
+and delete in quick succession while a download hangs). Before a release, do it once for real:
 *Settings → Voice input → Download*, pause and resume it, switch to another app while it runs,
 and check that the row ends at "Installed" and that dictated text is refined afterwards.
 
