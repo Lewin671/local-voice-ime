@@ -6,6 +6,60 @@ package org.fcitx.fcitx5.android.data.theme
 
 object ThemePreset {
 
+    /** Default light theme; tokens are specified in docs/design/DESIGN.md */
+    val VoiceLight = Theme.Builtin(
+        name = "VoiceLight",
+        isDark = false,
+        backgroundColor = 0xffeef1f0,
+        barColor = 0xffeef1f0,
+        keyboardColor = 0xffeef1f0,
+        keyBackgroundColor = 0xffffffff,
+        keyTextColor = 0xff1b1f1e,
+        candidateTextColor = 0xff1b1f1e,
+        candidateLabelColor = 0xff5f6b68,
+        candidateCommentColor = 0xff5f6b68,
+        altKeyBackgroundColor = 0xffdce3e1,
+        altKeyTextColor = 0xff5f6b68,
+        accentKeyBackgroundColor = 0xff00695c,
+        accentKeyTextColor = 0xffffffff,
+        keyPressHighlightColor = 0x1f000000,
+        keyShadowColor = 0x24142824,
+        popupBackgroundColor = 0xffffffff,
+        popupTextColor = 0xff1b1f1e,
+        spaceBarColor = 0xffdce3e1,
+        dividerColor = 0x1f000000,
+        clipboardEntryColor = 0xffffffff,
+        genericActiveBackgroundColor = 0xff00695c,
+        genericActiveForegroundColor = 0xffffffff
+    )
+
+    /** Default dark theme; tokens are specified in docs/design/DESIGN.md */
+    val VoiceDark = Theme.Builtin(
+        name = "VoiceDark",
+        isDark = true,
+        backgroundColor = 0xff121615,
+        barColor = 0xff121615,
+        keyboardColor = 0xff121615,
+        keyBackgroundColor = 0xff2a302f,
+        keyTextColor = 0xffe6eae9,
+        candidateTextColor = 0xffe6eae9,
+        candidateLabelColor = 0xff9aa6a3,
+        candidateCommentColor = 0xff9aa6a3,
+        altKeyBackgroundColor = 0xff1e2423,
+        altKeyTextColor = 0xff9aa6a3,
+        accentKeyBackgroundColor = 0xff7fd8c8,
+        accentKeyTextColor = 0xff00382f,
+        keyPressHighlightColor = 0x33ffffff,
+        keyShadowColor = 0x80000000,
+        popupBackgroundColor = 0xff2a302f,
+        popupTextColor = 0xffe6eae9,
+        spaceBarColor = 0xff1e2423,
+        dividerColor = 0x1fffffff,
+        clipboardEntryColor = 0xff2a302f,
+        genericActiveBackgroundColor = 0xff7fd8c8,
+        genericActiveForegroundColor = 0xff00382f
+    )
+
     val MaterialLight = Theme.Builtin(
         name = "MaterialLight",
         isDark = false,

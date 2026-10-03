@@ -44,11 +44,4 @@ class VoiceTextTest {
         assertEquals("", VoiceText.joiner("", "Hello"))
         assertEquals("", VoiceText.joiner(null, "Hello"))
     }
-
-    @Test
-    fun tailKeepsTheEnd() {
-        assertEquals("abc", VoiceText.tail("abc", 3))
-        assertEquals("…cd", VoiceText.tail("abcd", 3))
-        assertEquals("abcd", VoiceText.tail("abcd", 0))
-    }
 }

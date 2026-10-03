@@ -42,8 +42,8 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 | `app/src/test/` | JVM unit tests |
 | `lib/`, `plugin/`, `codegen/`, `build-logic/` | Upstream native libraries, plugins and build logic; rarely touched |
 | `voice/` | Git-ignored: `libs/sherpa-onnx.aar` and `assets/voice/**` (models) |
-| `scripts/` | Setup, build, privacy check, end-to-end test, model benchmark |
-| `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md` |
+| `scripts/` | Setup, build, checks, end-to-end test, UI screenshots, model benchmark |
+| `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md`, `design/` (design spec and mockup) |
 
 ## Commands
 
@@ -55,9 +55,9 @@ git submodule update --init --recursive   # once after cloning
 ./scripts/fetch-voice-assets.sh           # once: speech runtime + models (~290 MB)
 ./scripts/build.sh                        # debug APK for arm64-v8a -> prints the APK path
 ./scripts/build.sh release                # release APK (see docs/TESTING.md for signing)
-./gradlew :app:testDebugUnitTest          # unit tests
-./scripts/check-privacy.sh                # assert the APK has no network permission
+./scripts/check.sh                        # unit tests + debug build + privacy check (what CI runs)
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
+./scripts/ui-shots.sh                     # screenshot every UI state, light and dark
 ```
 
 First build compiles the native libraries and takes 10-20 minutes; later builds are incremental.
@@ -66,13 +66,17 @@ are listed in `README.md`.
 
 ## How to verify a change
 
-1. `./gradlew :app:testDebugUnitTest` — pure logic (text post-processing).
-2. `./scripts/build.sh && ./scripts/check-privacy.sh`.
-3. `./scripts/e2e-voice.sh` with an emulator or phone attached. It feeds WAV files through the
+1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
+2. `./scripts/e2e-voice.sh` with an emulator or phone attached. It feeds WAV files through the
    real recognition pipeline inside the IME and compares what lands in a text field. This is the
    test that matters for anything under `input/voice/`.
 
-Do not claim a voice change works without step 3. Details and troubleshooting: `docs/TESTING.md`.
+3. For anything visible: `./scripts/ui-shots.sh`, then look at the PNGs in `build/ui-shots/`
+   and compare them with `docs/design/mockup.html`. UI work is design-first: change the design
+   documents before the code (`docs/design/DESIGN.md`).
+
+Do not claim a voice change works without step 2, or a UI change without step 3.
+Details and troubleshooting: `docs/TESTING.md`. The full workflow is in `CONTRIBUTING.md`.
 
 ## Conventions
 

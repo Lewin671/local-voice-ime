@@ -9,7 +9,6 @@ import android.content.SharedPreferences
 import android.os.Build
 import androidx.annotation.StringRes
 import androidx.core.content.edit
-import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceCategory
@@ -34,7 +33,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
         return pref
     }
 
-    val keyBorder = switch(R.string.key_border, "key_border", false)
+    val keyBorder = switch(R.string.key_border, "key_border", true)
 
     val keyBorderStroke = switch(
         R.string.key_border_stroke, "key_border_stroke", false,
@@ -71,7 +70,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
             R.string.key_vertical_margin,
             R.string.portrait,
             "key_vertical_margin",
-            7,
+            4,
             R.string.landscape,
             "key_vertical_margin_landscape",
             4,
@@ -83,7 +82,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
         keyVerticalMarginLandscape = secondary
     }
 
-    val keyRadius = int(R.string.key_radius, "key_radius", 4, 0, 48, "dp")
+    val keyRadius = int(R.string.key_radius, "key_radius", 9, 0, 48, "dp")
 
     val textEditingButtonRadius =
         int(R.string.text_editing_button_radius, "text_editing_button_radius", 8, 0, 48, "dp")
@@ -100,7 +99,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
     val punctuationPosition = enumList(
         R.string.punctuation_position,
         "punctuation_position",
-        PunctuationPosition.Bottom
+        PunctuationPosition.TopRight
     )
 
     enum class NavbarBackground(override val stringRes: Int) : ManagedPreferenceEnum {
@@ -143,7 +142,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
     val lightModeTheme = themePreference(
         R.string.light_mode_theme,
         "light_mode_theme",
-        if (BuildConfig.DEBUG) ThemePreset.MaterialLight else ThemePreset.PixelLight,
+        ThemePreset.VoiceLight,
         enableUiOn = {
             followSystemDayNightTheme.getValue()
         })
@@ -151,7 +150,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
     val darkModeTheme = themePreference(
         R.string.dark_mode_theme,
         "dark_mode_theme",
-        if (BuildConfig.DEBUG) ThemePreset.MaterialDark else ThemePreset.PixelDark,
+        ThemePreset.VoiceDark,
         enableUiOn = {
             followSystemDayNightTheme.getValue()
         })

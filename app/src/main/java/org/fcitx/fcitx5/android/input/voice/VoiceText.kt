@@ -47,14 +47,6 @@ object VoiceText {
     }
 
     /**
-     * Preview text can grow longer than the space reserved for it; show its end, which is the
-     * part that is still changing.
-     */
-    fun tail(text: String, maxChars: Int): String =
-        if (maxChars <= 1 || text.length <= maxChars) text
-        else "…" + text.substring(text.length - maxChars + 1)
-
-    /**
      * Text to insert between [before] (text already in the editor, left of the cursor) and a newly
      * recognized segment: a space is only needed between two Latin words/sentences.
      */

@@ -15,7 +15,9 @@ with spell check, clipboard history, symbol/emoji pickers and themes — all inh
 - **Hold the space bar to talk**, release to insert the text; slide up to cancel.
 - **Hands-free dictation**: tap the microphone in the toolbar and keep talking; each sentence is
   inserted when you pause.
-- Live preview while you speak.
+- What you say appears in the text field as you say it.
+- The microphone turns itself off after 10 seconds of silence; a lock and "On-device" are on
+  screen whenever it is on.
 - Automatic punctuation and number formatting ("三点" → "3点", "fifty" → "50").
 - Mandarin, English and Mandarin–English code-switching (Cantonese, Japanese and Korean are
   understood by the model as well).
@@ -70,7 +72,6 @@ for signing.
 - User-defined corrections / hot words for names and technical terms
   (the model tends to mis-spell English jargon inside Chinese sentences).
 - Optional higher-accuracy model as a second pass for the final text.
-- Showing the live preview inline in the text field.
 - Enable Pinyin by default regardless of the system language.
 
 ## Documentation
@@ -78,6 +79,8 @@ for signing.
 - [AGENTS.md](AGENTS.md) — start here if you (or your AI coding agent) want to work on the code
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how voice input is wired into the keyboard
 - [docs/MODELS.md](docs/MODELS.md) — model choice, benchmark numbers, how to evaluate another model
+- [CONTRIBUTING.md](CONTRIBUTING.md) — workflow and rules for changes
+- [docs/design/](docs/design/DESIGN.md) — design spec and mockup of the keyboard and dictation UI
 - [docs/TESTING.md](docs/TESTING.md) — unit tests, automated end-to-end test, release builds
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
 - [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses

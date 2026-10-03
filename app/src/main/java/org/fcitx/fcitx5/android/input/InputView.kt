@@ -51,15 +51,18 @@ import splitties.dimensions.dp
 import splitties.views.dsl.constraintlayout.above
 import splitties.views.dsl.constraintlayout.below
 import splitties.views.dsl.constraintlayout.bottomOfParent
+import splitties.views.dsl.constraintlayout.bottomToBottomOf
 import splitties.views.dsl.constraintlayout.centerHorizontally
 import splitties.views.dsl.constraintlayout.centerVertically
 import splitties.views.dsl.constraintlayout.constraintLayout
 import splitties.views.dsl.constraintlayout.endOfParent
 import splitties.views.dsl.constraintlayout.endToStartOf
 import splitties.views.dsl.constraintlayout.lParams
+import splitties.views.dsl.constraintlayout.matchConstraints
 import splitties.views.dsl.constraintlayout.startOfParent
 import splitties.views.dsl.constraintlayout.startToEndOf
 import splitties.views.dsl.constraintlayout.topOfParent
+import splitties.views.dsl.constraintlayout.topToTopOf
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.imageView
 import splitties.views.dsl.core.matchParent
@@ -278,8 +281,10 @@ class InputView(
             centerVertically()
             centerHorizontally()
         })
-        add(voiceInput.view, lParams(matchParent, matchParent) {
-            centerVertically()
+        // the listening surface covers the keyboard exactly
+        add(voiceInput.view, lParams(matchParent, matchConstraints) {
+            topToTopOf(keyboardView)
+            bottomToBottomOf(keyboardView)
             centerHorizontally()
         })
 

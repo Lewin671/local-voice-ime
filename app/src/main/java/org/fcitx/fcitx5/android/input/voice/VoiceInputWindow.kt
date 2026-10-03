@@ -6,7 +6,9 @@ package org.fcitx.fcitx5.android.input.voice
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -15,204 +17,346 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.DrawableRes
-import androidx.core.graphics.ColorUtils
+import androidx.annotation.StringRes
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.InputFeedbacks
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
-import org.fcitx.fcitx5.android.data.theme.Theme
+import org.fcitx.fcitx5.android.data.theme.ThemeManager
 import org.fcitx.fcitx5.android.input.FcitxInputMethodService
-import org.fcitx.fcitx5.android.input.bar.ui.ToolButton
+import org.fcitx.fcitx5.android.input.dependency.fcitx
 import org.fcitx.fcitx5.android.input.dependency.inputMethodService
 import org.fcitx.fcitx5.android.input.dependency.theme
+import org.fcitx.fcitx5.android.input.keyboard.CustomGestureView
+import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindow
+import org.fcitx.fcitx5.android.input.wm.InputWindowManager
+import org.mechdancer.dependency.manager.must
 import splitties.dimensions.dp
 
 /**
- * Hands-free dictation: replaces the keyboard with a big microphone button. Listening starts as
- * soon as the window is shown, every utterance is committed when the speaker pauses, and
- * listening goes on until the microphone button is tapped or the window is closed.
+ * Hands-free dictation panel: replaces the keyboard. Listening starts as soon as the panel is
+ * shown; every utterance is inserted when the speaker pauses; the microphone turns off when the
+ * stop button is tapped, the panel is left, or nobody has spoken for a while.
+ *
+ * See "Hands-free dictation", "Paused" and "Microphone access needed" in
+ * `docs/design/mockup.html`.
  */
 class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
     private val service: FcitxInputMethodService by manager.inputMethodService()
+    private val fcitx by manager.fcitx()
     private val theme by manager.theme()
+    private val windowManager: InputWindowManager by manager.must()
 
     private val hapticOnRepeat by AppPrefs.getInstance().keyboard.hapticOnRepeat
 
+    private val palette by lazy { VoicePalette(theme) }
+
     private var session: VoiceSession? = null
 
-    private val ui by lazy { Ui(context, theme) }
+    private val status by lazy { VoiceStatusUi(context, palette) }
+
+    private val ui by lazy {
+        // full-width punctuation while a Chinese input method is active
+        val chinese = fcitx.runImmediately { inputMethodEntryCached }.languageCode.startsWith("zh")
+        Ui(context, palette, if (chinese) listOf("，", "。", "？") else listOf(",", ".", "?"))
+    }
+
+    // the status row takes the place of the toolbar
+    override val showTitle = false
+
+    override fun onCreateBarExtension(): View = status.root
 
     private val listener = object : VoiceSession.Listener {
         override fun onState(state: VoiceSession.State) {
             when (state) {
-                VoiceSession.State.Listening -> ui.setStatus(R.string.voice_listening, active = true)
-                VoiceSession.State.Finishing -> ui.setStatus(R.string.voice_recognizing, active = false)
+                VoiceSession.State.Listening -> {
+                    status.listening()
+                    ui.showListening()
+                }
+                VoiceSession.State.Finishing -> {
+                    status.recognizing()
+                    ui.waveform.mode = WaveformView.Mode.Idle
+                }
                 VoiceSession.State.Stopped -> {
                     session = null
-                    ui.setLevel(0f)
-                    ui.setPartial("")
-                    ui.setStatus(R.string.voice_tap_to_speak, active = false)
+                    // an error message stays until the next attempt
+                    if (!failed) status.off()
+                    ui.showPaused()
                 }
             }
         }
 
-        override fun onPartial(text: String) = ui.setPartial(text)
+        override fun onFinal(text: String) {
+            InputFeedbacks.hapticFeedback(ui.root)
+        }
 
-        override fun onFinal(text: String) = ui.setPartial("")
-
-        override fun onLevel(level: Float) = ui.setLevel(level)
+        override fun onLevel(level: Float) {
+            ui.waveform.level = level
+        }
 
         override fun onError(e: Throwable) {
-            ui.setPartial(e.localizedMessage ?: e.toString())
+            failed = true
+            status.error(R.string.voice_microphone_unavailable)
         }
     }
 
+    private var failed = false
+
     private fun start() {
+        if (session != null) return
+        failed = false
         if (!VoiceEngine.isAvailable(context)) {
-            ui.setStatus(R.string.voice_model_missing, active = false)
+            status.error(R.string.voice_model_missing)
+            ui.showPaused()
             return
         }
         if (!VoiceInput.hasPermission(context)) {
-            ui.setStatus(R.string.voice_permission_required, active = false)
-            VoiceInput.requestPermission(context)
+            status.off()
+            ui.showPermissionCard()
             return
         }
-        session = VoiceInput.start(service, VoiceInput.SILENCE_HANDS_FREE, listener)
+        InputFeedbacks.hapticFeedback(ui.root)
+        session = VoiceInput.start(
+            service,
+            VoiceInput.SILENCE_HANDS_FREE,
+            VoiceInput.HANDS_FREE_IDLE_TIMEOUT_MS,
+            listener
+        )
     }
 
     override fun onCreateView(): View = ui.root.also {
         ui.micButton.setOnClickListener {
-            InputFeedbacks.hapticFeedback(it)
-            session?.stop() ?: start()
+            if (session != null) {
+                InputFeedbacks.hapticFeedback(it)
+                session?.stop()
+            } else {
+                start()
+            }
         }
-        ui.backspaceButton.apply {
-            setOnClickListener { service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL) }
+        ui.allowButton.setOnClickListener { VoiceInput.requestPermission(context) }
+        // coming back from the permission dialog
+        ui.onShown = {
+            if (ui.isPermissionCardShown && VoiceInput.hasPermission(context)) start()
+        }
+        ui.keyboardKey.setOnClickListener { windowManager.attachWindow(KeyboardWindow) }
+        ui.punctuationKeys.forEach { key ->
+            key.setOnClickListener { VoiceInput.type(service, key.tag as String) }
+        }
+        ui.backspaceKey.apply {
+            setOnClickListener { VoiceInput.backspace(service) }
             repeatEnabled = true
             onRepeatListener = {
                 service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                 if (hapticOnRepeat) InputFeedbacks.hapticFeedback(it)
             }
         }
-        ui.returnButton.setOnClickListener {
+        ui.returnKey.setOnClickListener {
             service.sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
         }
     }
 
     override fun onAttached() {
-        ui.setPartial("")
         start()
     }
 
     override fun onDetached() {
-        // what has been said is still transcribed and committed
+        // what has been said is still transcribed and inserted
         session?.stop()
     }
 
-    override val title by lazy { context.getString(R.string.voice_input) }
+    class Ui(private val ctx: Context, private val palette: VoicePalette, punctuation: List<String>) {
 
-    class Ui(private val ctx: Context, private val theme: Theme) {
+        private val keyRadius = ctx.dp(ThemeManager.prefs.keyRadius.getValue().toFloat())
 
-        private val accent = theme.accentKeyBackgroundColor
-        private val idle = theme.altKeyBackgroundColor
+        private fun rounded(color: Int, radius: Float) = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(color)
+        }
 
-        private fun circle(color: Int) = GradientDrawable().apply {
+        private fun oval(color: Int) = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(color)
         }
 
-        val partial = TextView(ctx).apply {
-            setTextColor(theme.keyTextColor)
-            textSize = 16f
+        private fun pressable(background: GradientDrawable) = RippleDrawable(
+            ColorStateList.valueOf(palette.pressHighlight), background, null
+        )
+
+        val waveform = WaveformView(ctx).apply { color = palette.primary }
+
+        // --- permission card -------------------------------------------------------------
+
+        val allowButton = TextView(ctx).apply {
+            setText(R.string.voice_allow_microphone)
+            setTextColor(palette.onPrimary)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
-            maxLines = PARTIAL_LINES
-            setPadding(ctx.dp(16), ctx.dp(8), ctx.dp(16), 0)
+            setPadding(ctx.dp(16), 0, ctx.dp(16), 0)
+            background = pressable(rounded(palette.primary, ctx.dp(18f)))
         }
 
-        private val halo = View(ctx).apply {
-            background = circle(ColorUtils.setAlphaComponent(accent, 0x55))
+        private val permissionCard = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = ctx.dp(14)
+            setPadding(p, ctx.dp(12), p, ctx.dp(12))
+            background = rounded(palette.key, ctx.dp(16f))
+            visibility = View.GONE
+            addView(TextView(ctx).apply {
+                setText(R.string.voice_permission_title)
+                setTextColor(palette.text)
+                textSize = 14f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            }, LinearLayout.LayoutParams(-1, -2))
+            addView(TextView(ctx).apply {
+                setText(R.string.voice_permission_body)
+                setTextColor(palette.secondaryText)
+                textSize = 13f
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(4) })
+            addView(allowButton, LinearLayout.LayoutParams(-2, ctx.dp(34)).apply {
+                topMargin = ctx.dp(10)
+            })
         }
 
-        private val micIcon = ImageView(ctx).apply {
-            setImageResource(R.drawable.ic_baseline_keyboard_voice_24)
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            setPadding(ctx.dp(18), ctx.dp(18), ctx.dp(18), ctx.dp(18))
-        }
+        val isPermissionCardShown get() = permissionCard.visibility == View.VISIBLE
+
+        // --- stop / microphone button ----------------------------------------------------
+
+        private val micIcon = ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE }
+
+        private val micHalo = View(ctx).apply { background = oval(palette.primaryContainer) }
 
         val micButton = FrameLayout(ctx).apply {
-            contentDescription = ctx.getString(R.string.voice_input)
-            addView(micIcon, FrameLayout.LayoutParams(-1, -1))
+            val icon = ctx.dp(28)
+            addView(micIcon, FrameLayout.LayoutParams(icon, icon, Gravity.CENTER))
         }
 
-        private val micContainer = FrameLayout(ctx).apply {
-            clipChildren = false
-            val halo = ctx.dp(72)
-            val button = ctx.dp(72)
-            addView(this@Ui.halo, FrameLayout.LayoutParams(halo, halo, Gravity.CENTER))
-            addView(micButton, FrameLayout.LayoutParams(button, button, Gravity.CENTER))
+        private val micArea = FrameLayout(ctx).apply {
+            addView(micHalo, FrameLayout.LayoutParams(ctx.dp(78), ctx.dp(78), Gravity.CENTER))
+            addView(micButton, FrameLayout.LayoutParams(ctx.dp(64), ctx.dp(64), Gravity.CENTER))
         }
 
-        private fun sideButton(@DrawableRes icon: Int, description: Int) =
-            ToolButton(ctx, icon, theme).apply {
+        // --- utility row -----------------------------------------------------------------
+
+        private fun CustomGestureView.styleAsKey(color: Int) = apply {
+            background = rounded(color, keyRadius)
+            foreground = RippleDrawable(
+                ColorStateList.valueOf(palette.pressHighlight), null, rounded(-1, keyRadius)
+            )
+        }
+
+        private fun iconKey(@DrawableRes icon: Int, @StringRes description: Int, accent: Boolean) =
+            CustomGestureView(ctx).apply {
+                styleAsKey(if (accent) palette.primary else palette.functionKey)
                 contentDescription = ctx.getString(description)
+                addView(ImageView(ctx).apply {
+                    setImageResource(icon)
+                    imageTintList = ColorStateList.valueOf(
+                        if (accent) palette.onPrimary else palette.secondaryText
+                    )
+                }, FrameLayout.LayoutParams(ctx.dp(22), ctx.dp(22), Gravity.CENTER))
             }
 
-        val backspaceButton = sideButton(R.drawable.ic_baseline_backspace_24, R.string.backspace)
-
-        val returnButton = sideButton(R.drawable.ic_baseline_keyboard_return_24, R.string.voice_enter)
-
-        private val status = TextView(ctx).apply {
-            setTextColor(theme.altKeyTextColor)
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, ctx.dp(8))
+        private fun textKey(text: String) = CustomGestureView(ctx).apply {
+            styleAsKey(palette.key)
+            tag = text
+            contentDescription = text
+            addView(TextView(ctx).apply {
+                this.text = text
+                setTextColor(palette.text)
+                textSize = 20f
+                gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(-1, -1))
         }
 
-        private val controls = LinearLayout(ctx).apply {
+        val keyboardKey =
+            iconKey(R.drawable.ic_baseline_keyboard_24, R.string.back_to_keyboard, false)
+
+        val punctuationKeys = punctuation.map(::textKey)
+
+        val backspaceKey = iconKey(R.drawable.ic_baseline_backspace_24, R.string.backspace, false)
+
+        val returnKey = iconKey(R.drawable.ic_baseline_keyboard_return_24, R.string.voice_enter, true)
+
+        private val utilityRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            clipChildren = false
-            val side = ctx.dp(56)
-            addView(backspaceButton, LinearLayout.LayoutParams(side, side))
-            addView(micContainer, LinearLayout.LayoutParams(ctx.dp(160), ctx.dp(112)))
-            addView(returnButton, LinearLayout.LayoutParams(side, side))
+            val gap = ctx.dp(3)
+            setPadding(ctx.dp(1), 0, ctx.dp(1), 0)
+            fun add(v: View, weight: Float) = addView(v, LinearLayout.LayoutParams(0, -1, weight)
+                .apply { setMargins(gap, 0, gap, 0) })
+            add(keyboardKey, 1.5f)
+            punctuationKeys.forEach { add(it, 1f) }
+            add(backspaceKey, 1.5f)
+            add(returnKey, 1.5f)
         }
 
-        val root = LinearLayout(ctx).apply {
+        // --- layout ----------------------------------------------------------------------
+
+        /** Called whenever the panel becomes visible again, e.g. after the permission dialog. */
+        var onShown: (() -> Unit)? = null
+
+        val root: View = object : LinearLayout(ctx) {
+            override fun onVisibilityAggregated(isVisible: Boolean) {
+                super.onVisibilityAggregated(isVisible)
+                if (isVisible) onShown?.invoke()
+            }
+        }.apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
-            addView(partial, LinearLayout.LayoutParams(-1, 0, 1f))
-            addView(controls, LinearLayout.LayoutParams(-1, -2))
-            addView(status, LinearLayout.LayoutParams(-1, -2))
+            addView(FrameLayout(ctx).apply {
+                addView(waveform, FrameLayout.LayoutParams(-1, -1))
+                addView(permissionCard, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply {
+                    setMargins(ctx.dp(12), 0, ctx.dp(12), 0)
+                })
+            }, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(micArea, LinearLayout.LayoutParams(-1, ctx.dp(82)).apply {
+                bottomMargin = ctx.dp(8)
+            })
+            addView(utilityRow, LinearLayout.LayoutParams(-1, ctx.dp(44)).apply {
+                bottomMargin = ctx.dp(6)
+            })
         }
 
         init {
-            setStatus(R.string.voice_tap_to_speak, active = false)
+            showPaused()
         }
 
-        fun setStatus(text: Int, active: Boolean) {
-            status.setText(text)
-            micButton.background = circle(if (active) accent else idle)
-            micIcon.imageTintList = ColorStateList.valueOf(
-                if (active) theme.accentKeyTextColor else theme.altKeyTextColor
+        private fun showMic(listening: Boolean) {
+            micArea.visibility = View.VISIBLE
+            waveform.visibility = View.VISIBLE
+            permissionCard.visibility = View.GONE
+            micHalo.visibility = if (listening) View.VISIBLE else View.INVISIBLE
+            micButton.background = pressable(
+                oval(if (listening) palette.primary else palette.primaryContainer)
             )
-            if (!active) setLevel(0f)
+            micButton.contentDescription = ctx.getString(
+                if (listening) R.string.voice_stop else R.string.voice_start
+            )
+            micIcon.setImageResource(
+                if (listening) R.drawable.ic_voice_stop_24
+                else R.drawable.ic_baseline_keyboard_voice_24
+            )
+            micIcon.imageTintList = ColorStateList.valueOf(
+                if (listening) palette.onPrimary else palette.primary
+            )
         }
 
-        fun setPartial(text: String) {
-            // full-width characters are about as wide as the text size
-            val perLine = ((partial.width - partial.paddingLeft - partial.paddingRight) / partial.textSize).toInt()
-            partial.text = VoiceText.tail(text, perLine * PARTIAL_LINES)
+        fun showListening() {
+            showMic(listening = true)
+            waveform.mode = WaveformView.Mode.Live
         }
 
-        companion object {
-            private const val PARTIAL_LINES = 2
+        fun showPaused() {
+            showMic(listening = false)
+            waveform.level = 0f
+            waveform.mode = WaveformView.Mode.Idle
         }
 
-        fun setLevel(level: Float) {
-            val scale = 1f + level * 0.45f
-            halo.scaleX = scale
-            halo.scaleY = scale
+        fun showPermissionCard() {
+            waveform.visibility = View.GONE
+            micArea.visibility = View.GONE
+            permissionCard.visibility = View.VISIBLE
         }
     }
 }

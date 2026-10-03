@@ -60,6 +60,9 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
     @Volatile
     var longPressFeedbackEnabled = true
 
+    /** called with the touch position (relative to this view) when the finger moves after a long press */
+    var onHoldMoveListener: ((View, Float, Float) -> Unit)? = null
+
     @Volatile
     private var repeatStarted = false
     var repeatEnabled = false
@@ -230,6 +233,10 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                     if (repeatStarted || !swipeEnabled) {
                         isPressed = false
                     }
+                }
+                if (longPressTriggered) {
+                    // let the listener follow the finger while a long press action is in progress
+                    onHoldMoveListener?.invoke(this, x, y)
                 }
                 if (!swipeEnabled || longPressTriggered || repeatStarted) return true
                 val countX = consumeSwipe(x, SwipeAxis.X)

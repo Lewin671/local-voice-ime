@@ -51,6 +51,7 @@ import org.fcitx.fcitx5.android.core.FcitxAPI
 import org.fcitx.fcitx5.android.core.FcitxEvent
 import org.fcitx.fcitx5.android.core.FcitxKeyMapping
 import org.fcitx.fcitx5.android.core.FormattedText
+import org.fcitx.fcitx5.android.core.TextFormatFlag
 import org.fcitx.fcitx5.android.core.KeyStates
 import org.fcitx.fcitx5.android.core.KeySym
 import org.fcitx.fcitx5.android.core.ScancodeMapping
@@ -970,6 +971,17 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         }
         composingText = text
         ic.endBatchEdit()
+    }
+
+    /**
+     * Show [text] as composing text at the cursor: the live preview of the utterance being
+     * dictated. It is replaced by the next preview or by [commitText]; an empty string removes it.
+     */
+    fun setVoicePreview(text: String) {
+        updateComposingText(
+            if (text.isEmpty()) FormattedText.Empty
+            else FormattedText(arrayOf(text), intArrayOf(TextFormatFlag.Underline.flag), text.length)
+        )
     }
 
     /**

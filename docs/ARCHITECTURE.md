@@ -33,8 +33,9 @@ Everything runs inside the IME process. There is no service, no IPC and no netwo
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, commits final text into the editor. |
-| `VoiceInputWindow` | Hands-free UI: an `InputWindow` that replaces the keyboard. |
-| `VoiceInputComponent` | Push-to-talk UI: an overlay shown while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
+| `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
+| `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
+| `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
 | `VoicePermissionActivity` | Transparent activity that shows the microphone permission dialog (a service cannot). |
 
 ### Simulated streaming
@@ -44,10 +45,11 @@ times per second. `VoiceSession` therefore:
 
 1. feeds audio to the VAD in 32 ms windows;
 2. once speech starts, re-decodes the utterance so far every ≥300 ms (backing off if the device is
-   slow) and reports it as a **partial** — shown in the voice UI, never written to the editor;
+   slow) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
+   (underlined) text;
 3. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
    utterance reaches 20 s, decodes the segment once more and reports a **final**, which
-   `VoiceInput` commits to the editor;
+   `VoiceInput` commits to the editor in place of the preview;
 4. on stop, flushes the VAD so that speech in progress is not lost.
 
 The reader coroutine never waits for decoding, so audio is not dropped on slow devices.
@@ -67,13 +69,17 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `VoicePermissionActivity` |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView` |
-| `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone button in the toolbar |
-| `input/keyboard/KeyAction.kt` | `SpaceReleaseAction` |
-| `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceReleaseAction` on touch up |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()` |
+| `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
+| `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
+| `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
+| `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
+| `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph on the space bar (`setLeadingIcon`) |
+| `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
 | `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
+| `.github/` | upstream's workflows and issue templates replaced by ours |
 | `app/src/main/java/.../utils/Const.kt` | repository and privacy policy URLs |
 | `app/src/main/res/drawable/ic_launcher_*`, `mipmap-*/ic_launcher*` | own launcher icon |
 | `app/src/main/res/values-*/strings.xml` | removed translated app names; `values-zh-rCN` has ours |

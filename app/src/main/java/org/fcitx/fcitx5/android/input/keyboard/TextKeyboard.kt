@@ -16,6 +16,7 @@ import org.fcitx.fcitx5.android.core.KeyStates
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.theme.Theme
+import org.fcitx.fcitx5.android.input.voice.VoiceEngine
 import org.fcitx.fcitx5.android.input.popup.PopupAction
 import splitties.views.imageResource
 
@@ -162,6 +163,12 @@ class TextKeyboard(
     override fun onPunctuationUpdate(mapping: Map<String, String>) {
         punctuationMapping = mapping
         updatePunctuationKeys()
+    }
+
+    init {
+        if (VoiceEngine.isAvailable(context)) {
+            space.setLeadingIcon(R.drawable.ic_baseline_keyboard_voice_24, theme.altKeyTextColor)
+        }
     }
 
     override fun onInputMethodUpdate(ime: InputMethodEntry) {

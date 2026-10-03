@@ -40,6 +40,7 @@ import splitties.views.dsl.constraintlayout.constraintLayout
 import splitties.views.dsl.constraintlayout.lParams
 import splitties.views.dsl.constraintlayout.parentId
 import splitties.views.dsl.core.add
+import splitties.views.dsl.constraintlayout.centerVertically
 import splitties.views.dsl.core.imageView
 import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.matchParent
@@ -273,6 +274,27 @@ open class TextKeyView(ctx: Context, theme: Theme, def: KeyDef.Appearance.Text) 
         appearanceView.apply {
             add(mainText, lParams(wrapContent, wrapContent) {
                 centerInParent()
+            })
+        }
+    }
+
+    /**
+     * Show a small icon left of the label, both in [color]
+     * (the microphone on the space bar, which is the push-to-talk key)
+     */
+    fun setLeadingIcon(@DrawableRes icon: Int, @ColorInt color: Int) {
+        mainText.setTextColor(color)
+        if (mainText.id == View.NO_ID) mainText.id = View.generateViewId()
+        appearanceView.apply {
+            add(imageView {
+                isClickable = false
+                isFocusable = false
+                imageResource = icon
+                imageTintList = ColorStateList.valueOf(color)
+            }, lParams(dp(15), dp(15)) {
+                centerVertically()
+                endToStart = mainText.id
+                marginEnd = dp(5)
             })
         }
     }

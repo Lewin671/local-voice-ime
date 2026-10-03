@@ -25,6 +25,7 @@ import org.fcitx.fcitx5.android.input.bar.ui.idle.InlineSuggestionsUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.NumberRow
 import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
+import org.fcitx.fcitx5.android.input.voice.VoicePillButton
 import splitties.dimensions.dp
 import splitties.views.dsl.constraintlayout.after
 import splitties.views.dsl.constraintlayout.before
@@ -39,6 +40,7 @@ import splitties.views.dsl.core.add
 import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.frameLayout
 import splitties.views.dsl.core.matchParent
+import splitties.views.dsl.core.wrapContent
 import splitties.views.imageResource
 import timber.log.Timber
 
@@ -77,8 +79,8 @@ class IdleUi(
 
     val hideKeyboardButton = ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme)
 
-    val voiceButton = ToolButton(ctx, R.drawable.ic_baseline_keyboard_voice_24, theme).apply {
-        contentDescription = ctx.getString(R.string.voice_input)
+    /** Opens hands-free dictation; see "Microphone pill" in docs/design/DESIGN.md */
+    val voiceButton = VoicePillButton(ctx, theme).apply {
         visibility = View.GONE
     }
 
@@ -128,8 +130,8 @@ class IdleUi(
             endOfParent()
             centerVertically()
         })
-        add(voiceButton, lParams(size, size) {
-            before(hideKeyboardButton)
+        add(voiceButton, lParams(wrapContent, dp(30)) {
+            before(hideKeyboardButton, dp(2))
             centerVertically()
         })
         add(animator, lParams(matchConstraints, matchParent) {

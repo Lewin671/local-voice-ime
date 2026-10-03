@@ -1,10 +1,13 @@
 # Testing
 
-## Unit tests
+## Everything that needs no device
 
 ```sh
-./gradlew :app:testDebugUnitTest
+./scripts/check.sh      # unit tests of the voice package, debug build, privacy check
 ```
+
+This is what CI runs. `./gradlew :app:testDebugUnitTest` runs upstream's tests as well; note
+that `ThemeSerializationTest.version2` already fails on upstream's own main branch.
 
 Voice-related tests live in `app/src/test/java/org/fcitx/fcitx5/android/input/voice/`.
 
@@ -31,6 +34,14 @@ build seems deaf, check that a stale `voice-test.wav` is not lying around.
 WAV files must be 16 kHz, mono, 16-bit PCM. To add a case, append a line to `cases.tsv`
 (or pass your own file: `scripts/e2e-voice.sh my-cases.tsv`).
 On macOS, `say -o x.wav --data-format=LEI16@16000 "text"` generates suitable audio.
+
+## UI screenshots
+
+```sh
+./scripts/ui-shots.sh   # PNGs of every state in docs/design/mockup.html, in build/ui-shots/
+```
+
+Compare them with the mockup as described in `docs/design/DESIGN.md`.
 
 ### Manual checks worth doing on a real phone
 

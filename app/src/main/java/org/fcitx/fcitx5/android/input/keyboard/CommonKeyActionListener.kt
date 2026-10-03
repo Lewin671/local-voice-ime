@@ -32,6 +32,7 @@ import org.fcitx.fcitx5.android.input.keyboard.KeyAction.ShowInputMethodPickerAc
 import org.fcitx.fcitx5.android.input.keyboard.KeyAction.SpaceLongPressAction
 import org.fcitx.fcitx5.android.input.keyboard.KeyAction.SymAction
 import org.fcitx.fcitx5.android.input.keyboard.KeyAction.UnicodeAction
+import org.fcitx.fcitx5.android.input.keyboard.KeyAction.SpaceHoldMoveAction
 import org.fcitx.fcitx5.android.input.keyboard.KeyAction.SpaceReleaseAction
 import org.fcitx.fcitx5.android.input.picker.PickerWindow
 import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
@@ -186,6 +187,7 @@ class CommonKeyActionListener :
                         SpaceLongPressBehavior.VoiceInput -> voiceInput.startPushToTalk()
                     }
                 }
+                is SpaceHoldMoveAction -> voiceInput.movePushToTalk(action.cancel)
                 is SpaceReleaseAction -> voiceInput.finishPushToTalk(action.cancel)
                 else -> {}
             }

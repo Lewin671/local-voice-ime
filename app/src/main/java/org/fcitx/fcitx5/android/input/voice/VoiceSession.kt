@@ -36,6 +36,8 @@ class VoiceSession(
     private val source: AudioSource,
     /** Trailing silence (seconds) that ends an utterance. */
     private val minSilence: Float,
+    /** Stop by itself after this long without speech; 0 to keep listening. */
+    private val idleTimeoutMs: Long,
     private val listener: Listener
 ) {
 
@@ -161,6 +163,7 @@ class VoiceSession(
         val window = VoiceEngine.VAD_WINDOW
         var lastPartialAt = 0L
         var lastDecodeCost = 0L
+        var lastSpeechAt = SystemClock.elapsedRealtime()
 
         for (first in chunks) {
             // take everything that queued up while we were decoding
@@ -187,13 +190,17 @@ class VoiceSession(
                 }
             }
             drain(vad)
+            val now = SystemClock.elapsedRealtime()
             if (!speaking) {
                 // only keep a short lead-in while waiting for speech
                 dropFromBuffer(buffer.size - 10 * window)
+                if (idleTimeoutMs > 0 && now - lastSpeechAt > idleTimeoutMs) {
+                    // don't keep the microphone open when nobody is talking
+                    stopRequested = true
+                }
                 continue
             }
-
-            val now = SystemClock.elapsedRealtime()
+            lastSpeechAt = now
             // re-decode at most ~3 times per second, and back off when decoding is slow
             if (now - lastPartialAt >= maxOf(300L, lastDecodeCost * 2)) {
                 val text = VoiceEngine.transcribe(buffer.toArray())

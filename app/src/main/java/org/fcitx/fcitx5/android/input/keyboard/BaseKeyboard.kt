@@ -153,6 +153,9 @@ abstract class BaseKeyboard(
             }
             if (def is SpaceKey) {
                 spaceKeys.add(this)
+                onHoldMoveListener = { view, _, y ->
+                    onAction(KeyAction.SpaceHoldMoveAction(cancel = y < -view.height))
+                }
                 swipeEnabled = spaceSwipeMoveCursor.getValue()
                 swipeRepeatEnabled = true
                 swipeThresholdX = selectionSwipeThreshold
@@ -172,8 +175,9 @@ abstract class BaseKeyboard(
                                 true
                             }
                         }
+                        // push-to-talk dictation: above the cancel line (one key height above
+                        // the space bar), releasing discards what was said
                         GestureType.Up -> {
-                            // sliding up and away from the key cancels push-to-talk dictation
                             onAction(KeyAction.SpaceReleaseAction(cancel = event.y < -view.height))
                             false
                         }

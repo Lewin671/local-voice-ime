@@ -41,6 +41,9 @@ sealed class KeyAction {
 
     data object SpaceLongPressAction : KeyAction()
 
+    /** Finger moved while the space bar is held after a long press; [cancel] above the cancel line */
+    data class SpaceHoldMoveAction(val cancel: Boolean) : KeyAction()
+
     /** Space bar released; ends push-to-talk dictation if it was started by long press */
     data class SpaceReleaseAction(val cancel: Boolean) : KeyAction()
 }

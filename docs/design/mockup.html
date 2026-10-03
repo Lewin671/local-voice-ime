@@ -66,7 +66,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .editor u { text-decoration-color: var(--primary); text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .editor .caret { display: inline-block; width: 2px; height: 1.1em; background: var(--primary); vertical-align: -0.15em; margin-left: 1px; }
 .kbd { background: var(--kb); color: var(--text); position: relative; }
-.bar { height: 44px; display: flex; align-items: center; gap: 4px; padding: 0 6px; }
+.bar { height: 40px; display: flex; align-items: center; gap: 4px; padding: 0 6px; }
 .bar .grow { flex: 1; }
 .icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--text2); }
 .icon svg, .key svg, .fab svg, .pill svg, .chip svg { width: 22px; height: 22px; fill: currentColor; }
@@ -89,7 +89,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .pad { flex: .5; }
 .w15 { flex: 1.5; }
 /* listening surface */
-.surface { position: absolute; inset: 44px 0 0 0; background: var(--kb); display: flex; flex-direction: column; align-items: center; }
+.surface { position: absolute; inset: 40px 0 0 0; background: var(--kb); display: flex; flex-direction: column; align-items: center; }
 .surface.over { background: color-mix(in srgb, var(--kb) 94%, transparent); }
 .cancel-zone { margin-top: 14px; height: 30px; padding: 0 14px; border-radius: 15px; display: flex; align-items: center; gap: 6px; font: 500 12px var(--device); color: var(--text2); border: 1px dashed color-mix(in srgb, var(--text2) 50%, transparent); }
 .cancel-zone svg { width: 14px; height: 14px; fill: currentColor; }
@@ -157,7 +157,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Key radius</td><td>9 dp</td><td>Every key, utility keys in the dictation panel</td></tr>
     <tr><td>Key gap</td><td>6 dp horizontal, 9 dp vertical</td><td>Visible gap between key caps; touch targets stay edge to edge</td></tr>
     <tr><td>Key label</td><td>21 sp regular; hints 9 sp top right</td><td>Letters; swipe-down symbols</td></tr>
-    <tr><td>Toolbar</td><td>44 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill, status while listening</td></tr>
+    <tr><td>Toolbar</td><td>40 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill, status while listening</td></tr>
     <tr><td>Waveform</td><td>27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
     <tr><td>Surface change</td><td>fade 140 ms, decelerate</td><td>Keys ↔ listening surface</td></tr>
     <tr><td>Haptics</td><td>tick on start, tick on insert, double tick on cancel</td><td>Confirms each step without looking</td></tr>
@@ -168,7 +168,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <h2>Interaction</h2>
   <div class="tablewrap"><table>
     <tr><th>You do</th><th>The keyboard does</th><th>Ends when</th></tr>
-    <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field.</td><td>You release: remaining speech is recognised and inserted. Keys return.</td></tr>
+    <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field.</td><td>You release: remaining speech is recognized and inserted. Keys return.</td></tr>
     <tr><td>Slide up while holding</td><td>Crossing the cancel line turns the hint and waveform red: "Release to cancel".</td><td>Release above the line: nothing is inserted, the preview is removed. Slide back down to keep talking.</td></tr>
     <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech.</td></tr>
     <tr><td>Tap ⌫ in the panel</td><td>Right after an utterance: removes that whole utterance. Otherwise one character. Hold to repeat.</td><td></td></tr>
@@ -211,7 +211,7 @@ const wave = (cls = 'live') => { const h = [8,14,10,22,16,30,24,40,28,48,36,54,4
   return `<div class="wave ${cls}">${h.map((x, i) => `<i style="height:${x}px;animation-delay:${-(i * 83 % 700)}ms"></i>`).join('')}</div>`; };
 const status = (text, err) => `<div class="bar"><span class="chip"><span class="dot" ${err ? 'style="background:var(--error)"' : ''}></span>${text}</span><span class="grow"></span><span class="chip">${I.lock}On-device</span></div>`;
 const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.down}</span></div>`;
-const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">${I.mic}Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
+const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
 const util = `<div class="util">${key(I.kb, 'alt w15')}${key('，')}${key('。')}${key('？')}${key(I.back, 'alt w15')}${key(I.enter, 'accent w15')}</div>`;
 
 const S = [
@@ -228,7 +228,7 @@ const S = [
   { t: 'Paused', d: 'After stop, or 10 s without speech. The microphone is off and the screen says so. One tap resumes.',
     e: 'Please send me the report by Friday. I will review it over the weekend.<span class="caret"></span>', k: status('Microphone off') .replace('class="dot"', 'class="dot" style="background:var(--text2)"') + `<div class="surface">${wave('idle')}<div class="fab paused">${I.mic}</div>${util}</div>` + keys('') },
   { t: 'Microphone access needed', d: 'Shown in place of the waveform the first time, or after access was revoked. States the reason in one sentence and offers the fix.',
-    e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Allow the microphone to dictate</b><span>Speech is recognised on this phone. Audio is never stored or sent anywhere.</span><div class="btn">Allow microphone</div></div>${util}</div>` + keys('') },
+    e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Microphone access needed</b><span>Audio stays on this phone. It is never stored or sent.</span><div class="btn">Allow microphone</div></div>${util}</div>` + keys('') },
 ];
 document.getElementById('screens').innerHTML = S.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}"><div class="editor">${s.e}</div><div class="kbd">${s.k}</div></div>`).join('')}</div>

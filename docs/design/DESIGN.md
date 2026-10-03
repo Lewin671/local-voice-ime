@@ -48,7 +48,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Key gap | 6 dp × 8 dp | `ThemePrefs.keyHorizontalMargin` 3, `keyVerticalMargin` 4 |
 | Key caps | on, shadow style | `ThemePrefs.keyBorder` default `true` |
 | Hints | top right | `ThemePrefs.punctuationPosition` default |
-| Toolbar height | 44 dp | `KawaiiBarComponent.HEIGHT` |
+| Toolbar height | 40 dp | `KawaiiBarComponent.HEIGHT` |
 | Waveform | 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall | `WaveformView` |
 | Surface change | 140 ms fade | `VoiceInputComponent`, `InputWindowManager` |
 
