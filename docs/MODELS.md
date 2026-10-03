@@ -198,6 +198,38 @@ Still not measured: any real phone. Run
 `WAVS=<dir> scripts/bench/device-bench.sh <key> <model dir> <kind>` with a phone attached and
 record the numbers here.
 
+## Cloud reference: Doubao streaming ASR 2.0 (2026-10)
+
+An evaluation only. The app never sends audio or text off the device, and nothing here changes
+that; this section records how far a commercial cloud model is ahead of what runs on the phone.
+
+Volcengine's "Doubao streaming speech recognition model 2.0" (`volc.seedasr.sauc.duration`),
+whole-utterance endpoint (`bigmodel_nostream`), ITN and punctuation on, measured with
+`scripts/bench/bench_volc.py`. Same 300 utterances per set; error rates on the utterances where
+none of the three models produced digits; in brackets the 95 % bootstrap interval of the
+difference to SenseVoice.
+
+| Model | AISHELL-1 | Wenet net | Wenet meeting | ASCEND mixed | LibriSpeech |
+|---|---|---|---|---|---|
+| SenseVoice Small int8 | 2.80 | 9.58 | 9.53 | 14.85 | 3.41 |
+| FireRedASR2 AED int8 | **0.83** (−2.6..−1.5) | 5.79 (−4.7..−2.8) | 6.28 (−4.0..−2.5) | 11.24 (−4.9..−2.3) | **1.86** (−2.2..−1.0) |
+| Doubao streaming ASR 2.0 | 1.34 (−2.0..−1.0) | **5.05** (−5.8..−3.4) | **6.24** (−4.0..−2.5) | **9.19** (−7.0..−4.5) | 2.87 (−1.1..−0.1) |
+
+- On Mandarin it is level with FireRedASR2, the refiner of the high-accuracy build. It is ahead
+  only on code-switched speech (9.2 against 11.2), and behind on read English.
+- What the numbers do not show: it returns punctuation, ITN, and English with proper casing and
+  spacing in one pass ("push 到 GitHub 上了", "Pull Request", "NLP", "R 语言"), which locally takes
+  two models and a merge step.
+- Latency: the final result arrives 0.6–1.0 s (median) after the last packet when a whole
+  utterance is uploaded at once, and about 0.3 s after the end of speech when audio is streamed
+  in real time on the bidirectional endpoint (`bigmodel_async` with `enable_nonstream`). That
+  endpoint drops the end of an utterance when audio is sent faster than real time, so it was
+  not used for the error rates.
+- Cost and data: 1 CNY per hour of audio, pay-as-you-go, after 20 free hours. The service terms
+  say customer data is not stored or used for training, with exceptions for troubleshooting,
+  legal compliance and content moderation; request logs are kept. The audio leaves the device
+  either way.
+
 ## Reproducing / evaluating another model
 
 ```sh
