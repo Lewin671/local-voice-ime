@@ -175,9 +175,6 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             "space_long_press_behavior",
             SpaceLongPressBehavior.VoiceInput
         )
-        val voiceRefine = switch(
-            R.string.voice_refine, "voice_refine", true, R.string.voice_refine_summary
-        )
         val spaceSwipeMoveCursor =
             switch(R.string.space_swipe_move_cursor, "space_swipe_move_cursor", true)
         val showLangSwitchKey =
@@ -334,6 +331,12 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         }
     }
 
+    inner class VoiceInput : ManagedPreferenceCategory(R.string.voice_input, sharedPreferences) {
+        val voiceRefine = switch(
+            R.string.voice_refine, "voice_refine", true, R.string.voice_refine_summary
+        )
+    }
+
     inner class Clipboard : ManagedPreferenceCategory(R.string.clipboard, sharedPreferences) {
         val clipboardListening = switch(R.string.clipboard_listening, "clipboard_enable", true)
         val clipboardHistoryLimit = int(
@@ -390,6 +393,7 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
 
     val internal = Internal().register()
     val keyboard = Keyboard().register()
+    val voiceInput = VoiceInput().register()
     val candidates = Candidates().register()
     val clipboard = Clipboard().register()
     val symbols = Symbols().register()

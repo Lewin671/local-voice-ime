@@ -13,6 +13,9 @@
         <exclude
             domain="file"
             path="README.md" />
+        <exclude
+            domain="file"
+            path="voice-models" />
     </cloud-backup>
     <device-transfer>
         <exclude
@@ -27,5 +30,8 @@
         <exclude
             domain="file"
             path="README.md" />
+        <exclude
+            domain="file"
+            path="voice-models" />
     </device-transfer>
 </data-extraction-rules>

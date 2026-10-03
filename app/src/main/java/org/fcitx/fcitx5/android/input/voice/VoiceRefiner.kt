@@ -20,17 +20,17 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /**
- * The large, slow, accurate model of the high-accuracy build (FireRedASR2 AED). It transcribes
+ * The large, slow, accurate model (FireRedASR2 AED), optional and downloaded. It transcribes
  * each utterance a second time after the fast model's text has been inserted; [VoiceRefine]
  * then merges its words into that text.
  *
  * It has its own thread, so that a refinement (seconds) never delays the live preview of the
- * next utterance, and it is only present when the build bundles the model (see
- * `scripts/fetch-voice-assets.sh --refiner`).
+ * next utterance. The model is not part of the APK: it is there once the user has downloaded
+ * it in the settings (see [VoiceModels]).
  */
 object VoiceRefiner {
 
-    private const val ASSET_DIR = "voice/refiner"
+    private val model = VoiceModels.FireRedAsr2
 
     /** About 1.4 GB: freed again soon after the last use. */
     private const val IDLE_RELEASE_MINUTES = 3L
@@ -46,16 +46,10 @@ object VoiceRefiner {
     @Volatile
     private var recognizer: OfflineRecognizer? = null
 
-    private var available: Boolean? = null
+    private val enabled by AppPrefs.getInstance().voiceInput.voiceRefine
 
-    private val enabled by AppPrefs.getInstance().keyboard.voiceRefine
-
-    /** Whether this build bundles the large model. */
-    fun isAvailable(context: Context): Boolean {
-        available?.let { return it }
-        val files = runCatching { context.assets.list(ASSET_DIR) }.getOrNull().orEmpty()
-        return ("encoder.int8.onnx" in files && "decoder.int8.onnx" in files).also { available = it }
-    }
+    /** Whether the large model has been downloaded. */
+    fun isAvailable(context: Context) = VoiceModels.isInstalled(context, model)
 
     /** Whether dictated text should be refined: the model is there and the user wants it. */
     fun isActive(context: Context) = isAvailable(context) && enabled
@@ -71,38 +65,11 @@ object VoiceRefiner {
         recognizer = null
     }
 
-    /**
-     * The model is loaded from plain files rather than from the APK: reading 1.2 GB through the
-     * asset manager takes several times longer (12 s instead of 3 s on the test emulator), on
-     * every load. So the assets are copied to the app's private storage once per model version.
-     */
-    private fun extract(context: Context): File {
-        val dir = File(context.filesDir, "voice-refiner")
-        val names = listOf("encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt")
-        // the .onnx assets are stored uncompressed, so their size is known without reading them
-        val version = names.filter { it.endsWith(".onnx") }.joinToString("-") { name ->
-            context.assets.openFd("$ASSET_DIR/$name").use { it.length.toString() }
-        }
-        val marker = File(dir, "version")
-        if (marker.exists() && marker.readText() == version) return dir
-        val t0 = SystemClock.elapsedRealtime()
-        dir.deleteRecursively()
-        dir.mkdirs()
-        for (name in names) {
-            context.assets.open("$ASSET_DIR/$name").use { input ->
-                File(dir, name).outputStream().use { input.copyTo(it, 1 shl 20) }
-            }
-        }
-        marker.writeText(version)
-        Timber.i("Voice refiner extracted in ${SystemClock.elapsedRealtime() - t0} ms")
-        return dir
-    }
-
     suspend fun ensureLoaded(context: Context) = withContext(dispatcher) {
         touch()
-        if (recognizer != null) return@withContext
+        if (recognizer != null || !isAvailable(context)) return@withContext
         val t0 = SystemClock.elapsedRealtime()
-        val dir = extract(context.applicationContext)
+        val dir = VoiceModels.dir(context, model)
         val config = OfflineRecognizerConfig(
             modelConfig = OfflineModelConfig(
                 fireRedAsr = OfflineFireRedAsrModelConfig(
@@ -145,5 +112,11 @@ object VoiceRefiner {
 
     fun release() {
         executor.execute(::releaseNow)
+    }
+
+    /** Delete the model. On the refiner thread, so that it cannot happen while it is being loaded. */
+    suspend fun uninstall(context: Context) = withContext(dispatcher) {
+        releaseNow()
+        VoiceModels.delete(context, model)
     }
 }

@@ -12,7 +12,6 @@ plugins {
 // populated by scripts/fetch-voice-assets.sh
 val voiceDir: File = rootProject.file("voice")
 val voiceRuntime: File = voiceDir.resolve("libs/sherpa-onnx.aar")
-val voiceRefiner: Boolean = providers.gradleProperty("voiceRefiner").orNull == "true"
 
 android {
     namespace = "org.fcitx.fcitx5.android"
@@ -70,8 +69,6 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir(voiceDir.resolve("assets"))
-            // high-accuracy build: also bundle the large refinement model (-PvoiceRefiner=true)
-            if (voiceRefiner) assets.srcDir(voiceDir.resolve("assets-refiner"))
         }
     }
 }
@@ -80,9 +77,6 @@ tasks.named("preBuild") {
     doFirst {
         check(voiceRuntime.exists() && voiceDir.resolve("assets/voice/sense-voice/model.int8.onnx").exists()) {
             "Speech runtime/models are missing. Run ./scripts/fetch-voice-assets.sh first."
-        }
-        check(!voiceRefiner || voiceDir.resolve("assets-refiner/voice/refiner/encoder.int8.onnx").exists()) {
-            "The refinement model is missing. Run ./scripts/fetch-voice-assets.sh --refiner first."
         }
     }
 }

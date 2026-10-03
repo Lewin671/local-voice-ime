@@ -14,7 +14,7 @@ import androidx.core.content.getSystemService
  * enough for the system to throttle it.
  *
  * Dictation then does only what is needed to get the words into the text field: previews come
- * half as often, the large model of the high-accuracy build stays unloaded, and the speech model
+ * half as often, the large model stays unloaded, and the speech model
  * is not loaded ahead of time.
  */
 object VoicePower {

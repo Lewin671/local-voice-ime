@@ -18,4 +18,4 @@
 
 - [ ] New upstream files touched are listed in `docs/ARCHITECTURE.md`
 - [ ] New dependencies, models or assets are recorded in `NOTICE.md` and `app/licenses/libraries/`
-- [ ] The APK still has no network permission
+- [ ] Network use is unchanged: only `VoiceModelFetch.kt`, only model downloads (`docs/PRIVACY.md`)

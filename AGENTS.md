@@ -11,14 +11,20 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 - It is a fork of [fcitx5-android](https://github.com/fcitx5-android/fcitx5-android) (LGPL-2.1+).
   Upstream provides the keyboard, pinyin engine (libime), clipboard, themes, settings.
 - This fork adds speech recognition with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx),
-  running the SenseVoice Small model on the phone's CPU.
+  running the SenseVoice Small model on the phone's CPU. A larger model (FireRedASR2) that
+  re-checks dictated text is an optional download inside the app.
 
 ## Non-negotiable rules
 
-1. **No network access, ever.** The app must not declare `android.permission.INTERNET`, and no
-   dependency may add it. `scripts/check-privacy.sh` enforces this on the built APK; run it
-   after touching the manifest or dependencies. Models ship inside the APK; nothing is downloaded
-   at runtime.
+1. **Audio and text never leave the device; the network is for downloading models only.**
+   The app holds `android.permission.INTERNET` for one purpose: fetching a speech model when
+   the user taps *Download* in *Settings → Voice input*. `VoiceModelFetch.kt` is the only file
+   that may open a connection; it sends a plain GET for a pinned URL and accepts only files that
+   match a pinned SHA-256. No other network use, no other network-capable permission, no
+   dependency that goes online (analytics, crash reporting, HTTP clients, WebView content).
+   `scripts/check-privacy.sh` enforces this; run it after touching the manifest, dependencies
+   or anything under `input/voice/VoiceModel*`. `docs/PRIVACY.md` states the promise to users:
+   change it first if the promise has to change, and say so in the release notes.
 2. **Everything in the repo is written in English**: code, comments, docs, commit messages, UI
    source strings (`values/strings.xml`). Translations go in `values-*/`.
 3. **Keep the diff against upstream small.** New functionality goes into new files under
@@ -26,7 +32,8 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
    minimal hooks. This keeps merging upstream releases cheap. `docs/ARCHITECTURE.md` lists every
    upstream file we touch.
 4. **Don't commit large binaries.** The speech runtime and models live in `voice/` (git-ignored)
-   and are fetched by `scripts/fetch-voice-assets.sh` with pinned checksums.
+   and are fetched by `scripts/fetch-voice-assets.sh` with pinned checksums. Models the app
+   downloads are listed in `VoiceModels.kt`, each file pinned by size and SHA-256.
 5. **License hygiene.** The project is LGPL-2.1-or-later, like upstream. Keep upstream copyright
    headers; when you add a dependency, model or asset, check that its license allows
    redistribution, then record it in `NOTICE.md` and `app/licenses/libraries/`. When you change
@@ -41,7 +48,7 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 | `app/src/debug/` | Debug-only test hooks (`TestInputActivity`) |
 | `app/src/test/` | JVM unit tests |
 | `lib/`, `plugin/`, `codegen/`, `build-logic/` | Upstream native libraries, plugins and build logic; rarely touched |
-| `voice/` | Git-ignored: `libs/sherpa-onnx.aar` and `assets/voice/**` (models) |
+| `voice/` | Git-ignored: `libs/sherpa-onnx.aar`, `assets/voice/**` (bundled models), `models/` (the downloadable model, for tests) |
 | `scripts/` | Setup, build, checks, end-to-end test, UI screenshots, model benchmark |
 | `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md`, `design/` (design spec and mockup) |
 
@@ -55,10 +62,11 @@ git submodule update --init --recursive   # once after cloning
 ./scripts/fetch-voice-assets.sh           # once: speech runtime + models (~290 MB)
 ./scripts/build.sh                        # debug APK for arm64-v8a -> prints the APK path
 ./scripts/build.sh release                # release APK (see docs/TESTING.md for signing)
-REFINER=1 ./scripts/build.sh              # high-accuracy variant ("-hq" APK, bundles the large model)
 ./scripts/check.sh                        # unit tests + debug build + privacy check (what CI runs)
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
 ./scripts/e2e-scenarios.sh                # behaviour rules: preview, undo, cancel, cursor moves, timeout
+REFINER=1 ./scripts/e2e-scenarios.sh      # the same plus refinement, with the large model pushed to the device
+./scripts/push-voice-model.sh             # put the large model on a device without downloading it there
 ./scripts/ui-shots.sh                     # screenshot every UI state, light and dark
 ./scripts/bench/device-bench.sh           # load time, speed and memory of a model on a device
 ```
@@ -79,11 +87,12 @@ minutes and are timing-sensitive; unit tests take seconds. So:
 - Model questions (accuracy, speed, merging two transcripts) are answered on the desktop with
   `scripts/bench/` and recorded in `docs/MODELS.md`.
 - The device scripts (`e2e-voice.sh`, `e2e-scenarios.sh`, `ui-shots.sh`) run once before a
-  release, on both build variants, as a confirmation that the pieces are wired together.
+  release, with and without the large model, as a confirmation that the pieces are wired together.
 
 In order:
 
 1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
+   The download code is covered here (`VoiceModelFetchTest`, against a local server).
 2. `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` with an emulator or phone attached.
    The first compares transcripts; the second checks the behaviour rules of the design
    (add a scenario there whenever you fix or add a behaviour). It feeds WAV files through the

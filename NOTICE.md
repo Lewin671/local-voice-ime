@@ -22,7 +22,8 @@ the release, including its git submodules. Build instructions are in [README.md]
 - Changed the application id (`io.github.lewin671.localvoiceime`), the application name and the
   launcher icon, so that the fork cannot be mistaken for, and can be installed next to, the
   original app. As a consequence, plugins built for the original app do not load in this fork.
-- Added the `RECORD_AUDIO` permission.
+- Added the `RECORD_AUDIO` permission, and the `INTERNET` permission, used only to download a
+  speech model on the user's request ([docs/PRIVACY.md](docs/PRIVACY.md)).
 - Changed the default long-press action of the space bar to voice dictation.
 - Removed upstream's Google Play and F-Droid store metadata.
 - Added `scripts/`, `docs/`, `AGENTS.md`; moved the upstream README to `docs/UPSTREAM_README.md`.
@@ -31,15 +32,16 @@ The exact changes, with dates, are recorded in the git history: `git log e6199a2
 
 ## Third-party components added by this fork
 
-These are downloaded by `scripts/fetch-voice-assets.sh` (FireRedASR2 with `--refiner`) and bundled into the APK. They are
-separate works under their own licenses.
+These are downloaded by `scripts/fetch-voice-assets.sh` and bundled into the APK, except
+FireRedASR2, which is not distributed with the app: the app downloads it from ModelScope when
+the user asks for it. They are separate works under their own licenses.
 
 | Component | Author | License |
 |---|---|---|
 | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8 — speech inference runtime | Xiaomi Corporation / k2-fsa contributors | [Apache-2.0](https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE) |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) — bundled in sherpa-onnx | Microsoft Corporation | [MIT](https://github.com/microsoft/onnxruntime/blob/main/LICENSE) |
 | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) (model name: `SenseVoiceSmall`) — speech recognition model, ONNX conversion from the sherpa-onnx project | FunAudioLLM, Alibaba Group | [FunASR Model Open Source License Agreement 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE) |
-| [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) AED (model name: `FireRedASR2-AED`) — second speech recognition model, **high-accuracy build only**; ONNX conversion from the sherpa-onnx project | FireRedTeam | [Apache-2.0](https://github.com/FireRedTeam/FireRedASR2S/blob/main/LICENSE) |
+| [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) AED (model name: `FireRedASR2-AED`) — optional second speech recognition model, **downloaded by the app on request, not bundled**; ONNX conversion from the sherpa-onnx project ([ModelScope](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx)) | FireRedTeam | [Apache-2.0](https://github.com/FireRedTeam/FireRedASR2S/blob/main/LICENSE) |
 | [Silero VAD](https://github.com/snakers4/silero-vad) v5 — voice activity detection model | Silero Team | [MIT](https://github.com/snakers4/silero-vad/blob/master/LICENSE) |
 
 The launcher icon uses the "keyboard voice" glyph from

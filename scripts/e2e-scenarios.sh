@@ -3,6 +3,8 @@
 # in docs/design/DESIGN.md that a transcript comparison (scripts/e2e-voice.sh) cannot catch.
 #
 #   scripts/e2e-scenarios.sh
+#   REFINER=1 scripts/e2e-scenarios.sh     also installs the large model (scripts/push-voice-model.sh)
+#                                          and runs the refinement scenarios
 #
 # Requires a debug APK (scripts/build.sh); it is reinstalled from scratch, so app data of the
 # debug build is reset. The emulator/device microphone must deliver silence for the idle-timeout
@@ -20,19 +22,18 @@ activity=$pkg/org.fcitx.fcitx5.android.debug.TestInputActivity
 remote_wav=/sdcard/Android/data/$pkg/files/voice-test.wav
 work=$(mktemp -d)
 # What is said in voice/test-wavs/zh.wav. The fast model sometimes hears 开饭 instead of 开放,
-# depending on how the utterance was cut; the large model of the high-accuracy build corrects it.
+# depending on how the utterance was cut; the large model corrects it.
 refined="开放时间早上9点至下午5点。"
 fast_alt="开饭时间早上9点至下午5点。"
-unzip -l "$apk" >"$work/apk-contents.txt"
-if grep -q "assets/voice/refiner/" "$work/apk-contents.txt"; then
-    # high-accuracy build: inserted text is corrected in place a few seconds later
+if [[ ${REFINER:-} == 1 ]]; then
+    # with the large model: inserted text is corrected in place a few seconds later
     hq=true
     settle() { sleep 10; }
 else
     hq=false
     settle() { :; }
 fi
-# true if $1 is the sample sentence (in the standard build either reading of it)
+# true if $1 is the sample sentence (without the large model either reading of it)
 is_sentence() { [[ $1 == "$refined" ]] || { ! $hq && [[ $1 == "$fast_alt" ]]; }; }
 punctuation='。．.，,、；;：:？?！!…'
 
@@ -52,6 +53,7 @@ echo "Installing $apk (fresh)"
 adb uninstall "$pkg" >/dev/null 2>&1
 adb install -g "$apk" >/dev/null || exit 1
 sleep 2
+if $hq; then ./scripts/push-voice-model.sh "$pkg" || exit 1; fi
 adb shell ime enable "$ime" >/dev/null
 adb shell ime set "$ime" >/dev/null
 adb shell mkdir -p "$(dirname "$remote_wav")"
@@ -131,7 +133,7 @@ expect "space bar teaches 'Hold to talk' on a fresh install" \
 
 # warm up: load the model(s) once, so that the timing of the following scenarios is predictable
 adb shell input motionevent DOWN "$sx" "$sy"; sleep 12; adb shell input motionevent UP "$sx" "$sy"; sleep 3
-$hq && sleep 30   # first use copies the large model out of the APK and loads it
+$hq && sleep 15   # the large model takes a few seconds to load
 
 # a long utterance, so that it is still being spoken while the screen is read
 use_long_wav

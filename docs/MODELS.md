@@ -2,9 +2,9 @@
 
 ## Current choice
 
-The standard build uses the models in the table below. The high-accuracy build adds
-**FireRedASR2 AED int8** (1.2 GB) as a second stage that re-checks every utterance; see
-"Refinement" further down for why and how well that works.
+The APK contains the models in the table below. **FireRedASR2 AED int8** (1.2 GB) is an optional
+download inside the app (*Settings → Voice input*) and works as a second stage that re-checks
+every utterance; see "Refinement" further down for why and how well that works.
 
 | Role | Model | Size in APK | Source |
 |---|---|---|---|
@@ -23,6 +23,31 @@ Why SenseVoice Small:
 
 Versions and checksums are pinned in `scripts/fetch-voice-assets.sh`; the model is configured in
 `VoiceEngine.kt`.
+
+## Downloadable models
+
+Models that are too large for the APK are listed in `VoiceModels.kt` and fetched by the app.
+
+| Model | Files | Source | License |
+|---|---|---|---|
+| FireRedASR2 AED int8 | `encoder.int8.onnx` (817 MB), `decoder.int8.onnx` (417 MB), `tokens.txt` | [ModelScope `csukuangfj/FireRedASR2-AED-onnx`](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx), directory `aed/` | Apache-2.0 |
+
+The files are byte-identical to those in sherpa-onnx's GitHub release archive
+`sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26` (same SHA-256), published file by file by the
+same maintainer. ModelScope was chosen because it is reachable from mainland China without a
+proxy (GitHub releases and Hugging Face are not, reliably), needs no account, and supports
+resuming (HTTP range requests). FireRedTeam's own ModelScope repository only has the PyTorch
+weights, which sherpa-onnx cannot load.
+
+To offer another model for download:
+
+1. benchmark it as described below and record the numbers here;
+2. host: an official repository of the model's or the converter's authors, reachable from
+   mainland China, plain HTTPS GET with range support, license allowing the use;
+3. add a `VoiceModel` to `VoiceModels.all` with the size and SHA-256 of every file (they are
+   what the app trusts; the URL is not), and the code that loads it;
+4. record it in `NOTICE.md`, `app/licenses/libraries/` and `docs/PRIVACY.md` (the host is named
+   there).
 
 ## Benchmark (2026-10)
 
@@ -197,6 +222,51 @@ lower case.
 Still not measured: any real phone. Run
 `WAVS=<dir> scripts/bench/device-bench.sh <key> <model dir> <kind>` with a phone attached and
 record the numbers here.
+
+### A code-switching fine-tune: TEA-ASR-1.1-mini (2026-10)
+
+[TEA-ASR-1.1-mini](https://huggingface.co/JacobLinCool/TEA-ASR-1.1-mini) is Qwen3-ASR 0.6B with a
+merged LoRA, trained on under 10 hours of Taiwan Mandarin and Mandarin–English code-switched
+speech (MIT; published by one developer, used by a few Taiwanese subtitle and meeting-transcript
+projects, no independent benchmark found). There is no sherpa-onnx export, so it and its base
+were both run with the `qwen-asr` PyTorch package, fp32, automatic language
+(`scripts/bench/bench_qwen_pt.py`). Same 300 utterances per set, common subset without digits;
+the last column is the difference to the base with its 95 % bootstrap interval.
+
+| Test set | TEA-ASR-1.1-mini | Qwen3-ASR 0.6B (base) | SenseVoice | FireRedASR2 AED | TEA − base |
+|---|---|---|---|---|---|
+| ASCEND mixed | **10.35** | 12.59 | 14.85 | 11.26 | −2.24 (−3.33..−1.26) |
+| AISHELL-1 | 2.34 | 2.20 | 2.84 | **0.85** | +0.13 (−0.19..+0.47) |
+| WenetSpeech net | 8.64 | 7.78 | 9.58 | **5.79** | +0.85 (−0.11..+2.25) |
+| WenetSpeech meeting | 10.40 | 9.07 | 9.68 | **6.29** | +1.33 (+0.74..+1.94) |
+| LibriSpeech | 2.62 | 2.49 | 3.41 | **1.86** | +0.13 (−0.26..+0.49) |
+| KeSpeech (accents) | 8.55 | 8.35 | 12.20 | **5.46** | +0.20 (−0.48..+0.90) |
+| Common Voice zh-CN | 9.27 | 8.60 | 13.58 | **6.05** | +0.67 (+0.02..+1.31) |
+
+- **The fine-tune does what it says on code-switched speech and nothing else.** It removes about
+  a sixth of the base model's errors on ASCEND ("entry level", "girls night", "hard choice" where
+  the base wrote Chinese sound-alikes) and is level or slightly worse everywhere else, clearly
+  worse on far-field meetings.
+- **The ASCEND gain is partly a home advantage**: the ASCEND training split is in its training
+  data, so this is in-domain for TEA and out-of-domain for every other model in the table. Against
+  FireRedASR2 the difference on ASCEND is within noise (−0.79, −1.91..+0.24, on the 296
+  utterances the two share), while FireRedASR2 is 1.7–4 points better on every Mandarin set.
+- **Its output is not usable as typed text.** It writes Traditional Chinese with Taiwan vocabulary
+  (257 of 300 ASCEND transcripts), almost no punctuation (9 marks on ASCEND against 670 for the
+  base; 34 against 808 on LibriSpeech), and lower-case English. Forcing `language="Chinese"`, as
+  its model card recommends, changes nothing (10.47 on ASCEND). It could only serve as a
+  words-only second stage, like FireRedASR2.
+- Cost is that of Qwen3-ASR 0.6B: 5–10× slower than SenseVoice and 2.5 GB peak memory on a device.
+
+Verdict: **not adopted.** As a refiner it would trade a code-switching gain that is not
+distinguishable from FireRedASR2's for an error rate on Mandarin that is 1.5–1.7× as high
+(3× on AISHELL-1).
+
+A side result: the base model scored better here than in its sherpa-onnx int8 form above
+(KeSpeech 8.35 against 10.33, Common Voice 8.60 against 10.32 on the same utterances; ASCEND
+12.7 against 15.2 on slightly different subsets). Either int8 quantization or the export costs
+Qwen3-ASR about two points, unlike SenseVoice and X-ASR. The fp32 model is still behind
+FireRedASR2 on everything but code-switching, so this does not change any conclusion.
 
 ## Cloud reference: Doubao streaming ASR 2.0 (2026-10)
 

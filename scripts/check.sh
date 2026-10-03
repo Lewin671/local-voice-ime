@@ -3,7 +3,7 @@
 #
 #   1. unit tests of the voice package
 #   2. debug build
-#   3. the APK holds no network permission
+#   3. network use is limited to downloading speech models (scripts/check-privacy.sh)
 #
 # Changes under input/voice/ additionally need scripts/e2e-voice.sh, and UI changes
 # scripts/ui-shots.sh; both require a device or emulator.

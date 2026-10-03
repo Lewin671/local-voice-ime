@@ -6,7 +6,7 @@ body:
     id: problem
     attributes:
       label: What are you trying to do?
-      description: Describe the situation, not the solution. Features that need network access are out of scope.
+      description: Describe the situation, not the solution. Features that send audio or text anywhere are out of scope; the app only goes online to download speech models.
     validations:
       required: true
   - type: textarea

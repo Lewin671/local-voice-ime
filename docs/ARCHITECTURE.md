@@ -20,7 +20,9 @@
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Everything runs inside the IME process. There is no service, no IPC and no network.
+Everything runs inside the IME process. There is no service and no IPC, and dictation never
+touches the network (the only network code downloads a model from the settings, see
+[Privacy model](#privacy-model)).
 
 ## Voice package
 
@@ -34,7 +36,10 @@ Everything runs inside the IME process. There is no service, no IPC and no netwo
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
-| `VoiceRefiner` | High-accuracy build: the large model (FireRedASR2 AED) on its own thread; unpacked from the APK to private storage on first use, freed after 3 idle minutes. |
+| `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded, freed after 3 idle minutes. |
+| `VoiceModels` | Catalogue of downloadable models (files pinned by size and SHA-256), what is installed, and the download: start, pause, resume, delete. State is a `StateFlow` per model. |
+| `VoiceModelFetch` | Downloads one file, resumable, verified. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
+| `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
 | `VoicePacing` | `PartialPacer`: when the utterance in progress is decoded again for a preview. Pure Kotlin, unit-tested. |
 | `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
@@ -66,10 +71,11 @@ Why not a true streaming model: the non-streaming model is markedly more accurat
 includes punctuation and inverse text normalization, and only one model has to be kept in memory.
 See `docs/MODELS.md` for the numbers.
 
-### Refinement (high-accuracy build)
+### Refinement (optional large model)
 
-The standard build is the pipeline above. With `-PvoiceRefiner=true` (`REFINER=1 scripts/build.sh`)
-the APK also contains FireRedASR2 AED, and every final goes through a second stage:
+As installed, the app is the pipeline above. Once the user has downloaded FireRedASR2 AED
+(*Settings → Voice input*) and left refinement switched on, every final goes through a second
+stage:
 
 ```
 final (SenseVoice text + audio) ──► inserted immediately            (VoiceEdits.insert)
@@ -97,14 +103,14 @@ What keeps it in check, and what to preserve when changing the pipeline:
 | Cost | Measure | Where |
 |---|---|---|
 | Previews: each one decodes the whole utterance so far | at most a third of the time is spent decoding, however long the utterance; half as often during a pause (unchanged text) | `PartialPacer` |
-| Large model (high-accuracy build): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
+| Large model (if installed): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
 | Open microphone and VAD | hands-free listening turns itself off after 10 s without speech; the session stops when the keyboard is hidden | `VoiceSession`, `VoiceInput.stopCurrent` |
 | Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off, or while nobody speaks and the room is quiet | `WaveformView` |
 | Loading the model ahead of time | only within 30 minutes after dictation was used | `VoiceInput.warmUp` |
 
 When Battery Saver is on or the device reports severe thermal throttling (`VoicePower`), previews
 come half as often, the large model is not used and nothing is loaded ahead of time. Accuracy
-of the inserted text is that of the standard build then.
+of the inserted text is that of the built-in model then.
 
 Nothing runs while the keyboard is hidden: there is no service, wake lock, alarm or background
 work, and both model threads sleep until the next request.
@@ -118,9 +124,11 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 
 | Upstream file | Change |
 |---|---|
-| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` (and, with `-PvoiceRefiner=true`, `voice/assets-refiner`) as extra asset dirs, `noCompress onnx`, own `applicationId` |
+| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir, `noCompress onnx`, own `applicationId` |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
-| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `VoicePermissionActivity` |
+| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download only), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
+| `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models are excluded from backups |
+| `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt` | entry and route for *Settings → Voice input* |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
 | `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText` |
@@ -130,7 +138,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
-| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `voiceRefine` switch |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` switch |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |
@@ -148,10 +156,23 @@ Upstream copies everything under `app/src/main/assets/` to the app's data direct
 and are read directly from the APK), so they live in a separate asset source directory, `voice/assets/`,
 and are stored uncompressed.
 
+Downloaded models live in the app's private storage, `files/voice-models/<model id>/`. A file
+named `installed` is written last, so a directory that has it holds every file complete and
+verified; anything else in there is an unfinished download (`*.part`) that the next attempt
+continues. The directory is excluded from backups.
+
 ## Privacy model
 
-- No `INTERNET` permission: the OS guarantees the process cannot open sockets.
-  `scripts/check-privacy.sh` fails the build check if that ever changes.
+- The network is used for one thing: `VoiceModelFetch` downloads the files of a model listed in
+  `VoiceModels` when the user taps *Download* (or *Resume*) in the settings. It sends a GET for a
+  fixed HTTPS URL and nothing else, and what arrives is used only if it matches the pinned size
+  and SHA-256. Nothing starts a download by itself, and the dictation pipeline has no reference
+  to this code.
+- `scripts/check-privacy.sh` fails the build check if another source file opens a connection,
+  if a network-capable permission other than `INTERNET` appears, if cleartext traffic becomes
+  possible, or if a dependency that goes online is added. This replaces the guarantee the app
+  had up to 0.3, when it held no `INTERNET` permission at all; `docs/PRIVACY.md` explains the
+  trade to users.
 - Audio is held in memory only for the utterance in progress and is never written to disk.
 - Dictated text is committed to the focused editor and is not logged or stored by the voice code.
 - The microphone button and push-to-talk are disabled on password fields.

@@ -4,7 +4,7 @@
 
 | What | Where | How long |
 |---|---|---|
-| Text post-processing, merging two transcripts, what may be edited in the text field | JVM unit tests (`app/src/test/.../voice/`) | seconds |
+| Text post-processing, merging two transcripts, what may be edited in the text field, downloading a model (resume, verification) | JVM unit tests (`app/src/test/.../voice/`) | seconds |
 | Which model, how accurate, how fast | desktop benchmark (`scripts/bench/`, results in `MODELS.md`) | minutes |
 | That it is all wired together on Android | device scripts below | 5–10 minutes each |
 
@@ -85,17 +85,22 @@ Compare them with the mockup as described in `docs/design/DESIGN.md`.
 Useful while debugging: `adb logcat | grep -i voice` shows model load time and the real-time
 factor of every decode (debug builds).
 
-## High-accuracy build
+## With the large model
 
 ```sh
-REFINER=1 ./scripts/build.sh        # debug "-hq" APK, 1.5 GB
-./scripts/e2e-scenarios.sh          # detects the build and adds the refinement scenarios
+./scripts/build.sh                        # debug APK
+REFINER=1 ./scripts/e2e-scenarios.sh      # installs the model, adds the refinement scenarios
 ```
 
-The scripts always use the newest debug APK, so run them right after building the variant you
-want to test. The APK needs about 4 GB of free storage on the device to install and unpack its
-model; an emulator with the default 6 GB data partition is too small (set
-`disk.dataPartition.size` to 10G or more in the AVD's `config.ini`).
+`REFINER=1` runs `scripts/push-voice-model.sh`, which copies the model from `voice/models/`
+(fetched once with `scripts/fetch-voice-assets.sh --refiner`) into the app's private storage,
+exactly as a finished download would leave it. This needs a debug build and about 1.5 GB of
+free storage on the device.
+
+The download itself is covered by `VoiceModelFetchTest` on the JVM (a local server that drops
+connections, ignores ranges, and serves wrong content). Before a release, do it once for real:
+*Settings → Voice input → Download*, pause and resume it, switch to another app while it runs,
+and check that the row ends at "Installed" and that dictated text is refined afterwards.
 
 ## Release builds
 
@@ -125,5 +130,7 @@ updating an installed app with an APK signed by the same key. Never commit it.
 ./scripts/check-privacy.sh [apk]
 ```
 
-Fails if the APK declares `INTERNET` or any other network-capable permission. Run it for every
+Fails if the app could use the network for anything but downloading a speech model: a
+network-capable permission other than `INTERNET`, cleartext traffic allowed, network code in a
+source file other than `VoiceModelFetch.kt`, or a dependency that goes online. Run it for every
 APK you hand to someone.

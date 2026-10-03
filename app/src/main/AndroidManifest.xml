@@ -13,11 +13,14 @@
 
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!--
-      On-device dictation. Note that this app deliberately does NOT request
-      android.permission.INTERNET: audio and text cannot leave the device.
-    -->
+    <!-- On-device dictation: audio and text never leave the device. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!--
+      For one thing only: downloading a speech model when the user asks for it in the settings
+      (input/voice/VoiceModelFetch.kt, the only code that opens a connection). See docs/PRIVACY.md;
+      scripts/check-privacy.sh keeps it that way.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- remove intent queries merged from library manifest (namely Android-Image-Cropper) -->
     <queries tools:node="removeAll" />
@@ -51,6 +54,7 @@
         android:roundIcon="@mipmap/app_icon_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FcitxAppTheme"
+        android:usesCleartextTraffic="false"
         tools:targetApi="33">
         <activity
             android:name=".ui.setup.SetupActivity"

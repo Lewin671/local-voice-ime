@@ -216,7 +216,7 @@ object VoiceInput {
     }
 
     /**
-     * High-accuracy build: transcribe [samples] again with the large model and, if it heard
+     * With the large model installed: transcribe [samples] again with the large model and, if it heard
      * different words, write the merged text over what was inserted for this utterance.
      */
     private fun refine(

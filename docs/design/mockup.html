@@ -111,6 +111,32 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .card span { color: var(--text2); }
 .btn { height: 36px; padding: 0 16px; border-radius: 18px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font: 500 14px var(--device); }
 .pair { display: grid; grid-template-columns: 1fr; gap: 12px; }
+/* settings app: a plain list, the product's primary as the only accent */
+.app { display: flex; flex-direction: column; min-height: 520px; position: relative; font-size: 14px; }
+.appbar { height: 56px; display: flex; align-items: center; gap: 20px; padding: 0 16px; font: 500 20px var(--device); }
+.appbar svg { width: 24px; height: 24px; fill: currentColor; }
+.item { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.item.lead { flex-direction: row; gap: 16px; }
+.item.lead svg { width: 24px; height: 24px; fill: var(--text2); flex: none; margin-top: 2px; }
+.item b { font: 400 16px var(--device); }
+.item span { color: var(--text2); line-height: 1.4; }
+.item span.err { color: var(--error); }
+.group { padding: 18px 16px 4px; font: 500 13px var(--device); color: var(--primary); }
+.meter { height: 4px; border-radius: 2px; background: var(--alt); margin-top: 10px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--primary); }
+.actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-height: 36px; }
+.actions span { flex: 1; }
+.tbtn { height: 36px; padding: 0 12px; display: grid; place-items: center; font: 500 14px var(--device); color: var(--text2); }
+.switch { width: 36px; height: 20px; border-radius: 10px; background: var(--alt); position: relative; flex: none; align-self: center; }
+.switch::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; top: 2px; left: 2px; background: var(--text2); }
+.switch.on { background: var(--primary); } .switch.on::after { left: 18px; background: var(--on-primary); }
+.off { opacity: .45; }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; }
+.dialog { margin: 0 24px; padding: 22px 22px 10px; border-radius: 20px; background: var(--key); display: flex; flex-direction: column; gap: 12px; }
+.dialog b { font: 500 18px var(--device); }
+.dialog span { color: var(--text2); line-height: 1.45; }
+.dialog .actions { justify-content: flex-end; }
+.dialog .tbtn { color: var(--primary); }
 @media (prefers-reduced-motion: no-preference) {
   .wave.live i { animation: bob 1.1s ease-in-out infinite alternate; transform-origin: center; }
   @keyframes bob { from { transform: scaleY(.55) } to { transform: scaleY(1) } }
@@ -130,7 +156,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <div class="principles">
     <div><h3>Text goes where text lives</h3><p>Live dictation is written straight into the text field, underlined until final. No transcript bubbles to read and then re-read.</p></div>
     <div><h3>One gesture, one meaning</h3><p>Hold space to talk, release to insert, slide up to discard. Tap the mic to talk hands-free. Nothing else starts the microphone.</p></div>
-    <div><h3>Privacy is visible</h3><p>While the microphone is on, a lock and the words "On-device" stay on screen. The microphone never stays open after 10 s of silence.</p></div>
+    <div><h3>Privacy is visible</h3><p>While the microphone is on, a lock and the words "On-device" stay on screen. The microphone never stays open after 10 s of silence. The app goes online only after a tap on a button that says what is fetched and from where.</p></div>
     <div><h3>Quiet surface, one accent</h3><p>Neutral keys, generous radius, a single teal used only for the things that act: enter, the microphone, the waveform.</p></div>
   </div>
 </section>
@@ -139,6 +165,21 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <h2>Screens</h2>
   <p class="note">Each state in the light and dark theme. The keyboard follows the system theme; 1 px here equals 1 dp.</p>
   <div class="screens" id="screens"></div>
+</section>
+
+<section>
+  <h2>Settings: voice input</h2>
+  <p class="note">One screen, <em>Settings → Voice input</em>, holds everything about speech: what stays on the phone, which models are on it, and the one optional download. It is a list like the rest of the settings; only the model row is new.</p>
+  <div class="screens" id="settings"></div>
+  <div class="tablewrap"><table>
+    <tr><th>State of a model</th><th>Status line</th><th>Actions</th></tr>
+    <tr><td>Not on the phone</td><td>—</td><td>Download (asks first: size, source, "nothing is uploaded")</td></tr>
+    <tr><td>Downloading</td><td>Progress bar, "412 MB of 1.2 GB"</td><td>Pause</td></tr>
+    <tr><td>Paused, or left unfinished</td><td>"Paused · 412 MB of 1.2 GB"</td><td>Resume (no question: consent was given), Delete</td></tr>
+    <tr><td>Failed</td><td>In the error colour, naming the cause and the fix: connection, free storage, or a file that did not pass verification</td><td>Resume or Download, Delete if something is kept</td></tr>
+    <tr><td>Installed</td><td>"Installed"</td><td>Delete (asks first, says how much is freed)</td></tr>
+  </table></div>
+  <p class="note">Rules: the app never goes online by itself, a download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. The refinement switch is disabled until the model is installed. Built-in models have no actions. A further downloadable model is one more row of the same kind.</p>
 </section>
 
 <section>
@@ -173,7 +214,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
     <tr><td>Tap ⌫ in the panel</td><td>Deletes one character, always. Hold to repeat.</td><td></td></tr>
     <tr><td>Tap ， 。 ？ or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
-    <tr><td>(High-accuracy build) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. The pill reads "Refining…" until this is done, the panel's status row likewise once listening has stopped.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
+    <tr><td>(High-accuracy model installed) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. The pill reads "Refining…" until this is done, the panel's status row likewise once listening has stopped.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
     <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
   </table></div>
@@ -224,7 +265,7 @@ const S = [
     e: '周五下午把<u>bao gao</u><span class="caret"></span>', k: `<div class="bar"><div class="cands"><span>报告</span><span>报稿</span><span>包</span><span>宝</span></div><span class="icon">${I.down}</span></div>` + keys('拼音') },
   { t: 'Hold space: listening', d: 'Keys give way to the waveform. The held key stays under the finger and says what releasing does. Words land in the text field, underlined.',
     e: '周五下午把报告发我，<u>我周末 review 一下</u><span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone">${I.close}Slide up to cancel</div>${wave()}${held}</div>` + keys('') },
-  { t: 'High-accuracy build: refining', d: 'The text is inserted at once, exactly as in the standard build. While a larger model re-checks it, the pill says so; corrected words then replace the wrong ones in place, punctuation and numbers untouched. Tapping the pill takes the text back.',
+  { t: 'High-accuracy model: refining', d: 'The text is inserted at once, exactly as without the model. While a larger model re-checks it, the pill says so; corrected words then replace the wrong ones in place, punctuation and numbers untouched. Tapping the pill takes the text back.',
     e: '周五下午把报告发我，我周末 <span style="text-decoration:underline dotted var(--text2)">revue</span> 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', '<span class="dot"></span>Refining…') + keys('拼音') },
   { t: 'After hold-to-talk: undo', d: 'For eight seconds the pill offers to take back what was just inserted. It removes the text only if nothing else has changed since.',
     e: '周五下午把报告发我，我周末 review 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', I.undo + 'Undo') + keys('拼音') },
@@ -239,6 +280,36 @@ const S = [
 ];
 document.getElementById('screens').innerHTML = S.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}"><div class="editor">${s.e}</div><div class="kbd">${s.k}</div></div>`).join('')}</div>
+  <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
+
+// ---- settings screens
+const arrow = '<svg viewBox="0 0 24 24"><path d="M20 11H7.800l5.600-5.600L12 4l-8 8 8 8 1.400-1.400L7.800 13H20z"/></svg>';
+const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
+  <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
+const settings = (row, on, extra = '') => `<div class="app">
+  <div class="appbar">${arrow}Voice input</div>
+  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</span></div></div>
+  <div class="group">Speech models</div>
+  <div class="item"><b>Standard</b><span>SenseVoice Small · built in</span><span>Text appears while you speak, with punctuation and numbers.</span></div>
+  ${modelRow(row)}
+  <div class="group">Dictation</div>
+  <div class="item lead ${on ? '' : 'off'}" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Paused while Battery Saver is on or the device is hot.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
+  ${extra}</div>`;
+const acts = (status, ...btns) => `<div class="actions"><span${status.err ? ' class="err"' : ''}>${status.t || status}</span>${btns.join('')}</div>`;
+const T = [
+  { t: 'Voice input settings', d: 'The first thing on the screen is the promise, including its one exception. Models are listed with what they do, how large they are and where they come from. Until the large model is there, its switch is disabled.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false) },
+  { t: 'Before going online', d: 'Tapping Download asks once. The dialog says how much, from where, and that nothing is sent. This tap is the only way the app ever opens a connection.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false, `<div class="scrim"><div class="dialog"><b>Download 1.2 GB?</b><span>FireRedASR2 is fetched from modelscope.cn over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Download</div></div></div></div>`) },
+  { t: 'Downloading', d: 'Progress in the row itself, in amounts rather than a bare percentage. Pause is the only action; leaving the screen does not stop the download.',
+    k: settings('<div class="meter"><i style="width:34%"></i></div>' + acts('412 MB of 1.2 GB', '<div class="tbtn">Pause</div>'), false) },
+  { t: 'Interrupted', d: 'A lost connection, or a pause, keeps what has arrived. The message names the cause and the fix; Resume continues from the same byte.',
+    k: settings(acts({ t: 'Download interrupted. Check the connection, then resume.', err: 1 }, '<div class="tbtn">Delete</div>', '<div class="btn">Resume</div>'), false) },
+  { t: 'Installed', d: 'Verified and in use: the switch is live. Delete frees the space again; dictation then continues with the standard model.',
+    k: settings(acts('Installed', '<div class="tbtn">Delete</div>'), true) },
+];
+document.getElementById('settings').innerHTML = T.map(s => `<figure>
+  <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 
 const P = { light: [['Keyboard','#eef1f0'],['Key','#ffffff'],['Function key','#dce3e1'],['Text','#1b1f1e'],['Secondary text','#5f6b68'],['Primary','#00695c'],['Primary container','#cde8e2'],['Error','#b3261e']],

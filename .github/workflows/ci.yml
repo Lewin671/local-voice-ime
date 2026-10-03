@@ -43,7 +43,7 @@ jobs:
           path: voice
           key: voice-${{ hashFiles('scripts/fetch-voice-assets.sh') }}
 
-      # unit tests, debug build, and the check that the APK has no network permission
+      # unit tests, debug build, and the check that network use stays limited to model downloads
       - name: Check
         run: ./scripts/check.sh
 

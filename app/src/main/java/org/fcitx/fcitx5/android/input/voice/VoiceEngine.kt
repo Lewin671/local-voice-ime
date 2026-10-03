@@ -23,8 +23,8 @@ import java.util.concurrent.TimeUnit
 /**
  * Process-wide holder of the on-device speech recognizer.
  *
- * Everything runs locally: models are read from the APK's assets and the app has no
- * `INTERNET` permission, so neither audio nor text can leave the device.
+ * Everything runs locally: the model is read from the APK's assets, and neither audio nor text
+ * leaves the device (the app's only network use is downloading a model, see `docs/PRIVACY.md`).
  *
  * All native calls are confined to a single thread; the recognizer is loaded lazily on first use
  * and freed again after a few idle minutes, as it takes ~250 MB of memory.

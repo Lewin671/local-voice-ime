@@ -15,7 +15,9 @@ A UI change without a matching design change is a bug in one of the two.
 2. **One gesture, one meaning.** Hold space = talk, release = insert, slide up = discard.
    Microphone pill = hands-free. Nothing else starts the microphone.
 3. **Privacy is visible.** While the microphone is on, a lock and "On-device" are on screen.
-   Hands-free listening stops by itself after 10 s without speech.
+   Hands-free listening stops by itself after 10 s without speech. The app goes online only
+   after a tap on a button that says what is fetched and from where (a speech model, in
+   *Settings → Voice input*); it never does so by itself.
 4. **Quiet surface, one accent.** Neutral keys; the primary colour only on things that act:
    enter, the microphone, the waveform, the first candidate.
 
@@ -56,13 +58,15 @@ also looks right with the other built-in themes, Monet, and user themes.
 
 | Component | Code | States |
 |---|---|---|
-| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy build, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field, model missing) |
+| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field, model missing) |
 | Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
 | Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs permission, unavailable |
 | Waveform | `WaveformView` | live (follows level; at rest, without animation, while nobody speaks and the room is quiet), idle (dots), cancel (flat, error colour) |
 | Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
+| Voice input settings | `VoiceSettingsFragment` | privacy statement, model list, refinement switch (disabled until the large model is installed) |
+| Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
 
 Behaviour rules that are easy to get wrong:
 
@@ -70,7 +74,7 @@ Behaviour rules that are easy to get wrong:
   stop, which would flicker. Punctuation appears with the final text.
 - If the user moves the cursor while a preview is showing, the editor keeps the preview as
   ordinary text and dictation stops; writing more would duplicate it at the new position.
-- **Refinement** (high-accuracy build): the fast model's text is inserted immediately; the large
+- **Refinement** (high-accuracy model installed and switched on): the fast model's text is inserted immediately; the large
   model's transcript of the same audio is merged into it (`VoiceText.refine`: its words, the fast
   model's punctuation, digits and casing) and written over the inserted text. It only ever
   replaces text that is still exactly what dictation inserted, directly before the cursor
@@ -83,6 +87,10 @@ Behaviour rules that are easy to get wrong:
   an explicit Undo (a first version made ⌫ do it in the panel; users read that as a bug).
 - Haptics: tick on start, tick on insert, double tick on cancel — through `InputFeedbacks`, so the
   user's haptic settings apply.
+- **Downloads**: only *Download* and *Resume* in the model row start one; *Download* asks first
+  and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
+  process all keep what has arrived. A model is used only once every file matched its pinned
+  checksum; a file that does not match is discarded and reported as such.
 - Every string on screen comes from `values/strings.xml`; wording in `mockup.html` is the source.
 
 ## Accepting an implementation
@@ -98,6 +106,8 @@ screenshots to the pull request.
 
 ## Out of scope for v1
 
-The settings app and setup wizard (still upstream's), landscape and tablet layouts for the voice
+The settings app other than *Voice input*, and the setup wizard (still upstream's; the voice
+input screen uses the same list components and theme), a notification for a running download,
+landscape and tablet layouts for the voice
 surfaces (they must work, but have no dedicated design), and theming of the candidate window for
 physical keyboards.
