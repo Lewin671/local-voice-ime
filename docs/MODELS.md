@@ -80,7 +80,21 @@ Also measured and ruled out (raw numbers, AISHELL / Wenet net / meeting / ASCEND
 SenseVoice "funasr-nano" variant 2025-12-17 (4.46 / 10.77 / 11.74 / 14.79 / 7.16, no punctuation),
 Dolphin small (4.21 / 14.58 / 14.19 / 41.72 / ~100), TeleSpeech (7.07 / 37.87 / 36.87 / 45.94 / –),
 Moonshine base zh (6.42 / 35.27 / 55.86 / 37.03 / 72.62), Omnilingual 300M v2
-(18.29 / 29.15 / 32.10 / 36.58 / 4.96), Whisper turbo int8 (31 % on AISHELL-1, RTF 0.34; stopped).
+(18.29 / 29.15 / 32.10 / 36.58 / 4.96), Whisper turbo int8 (31 % on AISHELL-1, RTF 0.34; stopped),
+Nemotron 3.5 ASR streaming 0.6B int8, 1120 ms chunks, automatic language
+(14.31 / 29.76 / 24.75 / 26.93 / 3.11, RTF 0.07–0.11, 680 MB; KeSpeech 57.36, Common Voice
+zh-CN 31.98). Nemotron is fine for English and unusable for Mandarin: it drops short utterances
+and emits runs of Thai characters on a quarter to a third of the KeSpeech and Common Voice
+utterances; forcing the language to `zh` does not help. Its model card reports about 19 % CER
+for Mandarin on FLEURS, so this is the model, not the export. It is a streaming model
+(`OnlineRecognizer`), which `bench_all.py` does not cover.
+
+Looked at and not measured (2026-10), with the reason: Qwen3-ASR 1.7B (heavier than the 0.6B
+model, whose peak memory is already 2.5 GB, and behind FireRedASR2 AED in the FireRedASR2S
+report), FireRedASR2-LLM and Xiaomi MiMo-V2.5-ASR (too large for a phone; MiMo is 8B), Cohere
+Transcribe 03-2026 (2B; its model card says code-switched audio is handled inconsistently),
+GLM-ASR-Nano-2512 (1.5B; sherpa-onnx support not checked). No open model released up to
+2026-10 was found that beats FireRedASR2 on Mandarin.
 Non-quantized SenseVoice and X-ASR score the same as their int8 versions: quantization is free.
 
 What this says:
