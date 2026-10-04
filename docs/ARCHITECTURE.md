@@ -33,6 +33,8 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded, confines all native calls to one thread, frees the model after 5 idle minutes. |
 | `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
+| `VoiceCapture` | Lossless reader loop and one-time source teardown before queued recognition finishes. Preserves the last completed read when stopping. Pure Kotlin, unit-tested. |
+| `VoiceModelLoad` | Worker-side demand check for queued model loads. Withdrawn speculation never suppresses independently required recognition. Pure Kotlin, unit-tested. |
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
