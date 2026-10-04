@@ -4,8 +4,13 @@
 
 ## How it was verified
 
-- [ ] `./scripts/check.sh` passes
-- [ ] `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` pass on a device or emulator (required for changes under `input/voice/`)
+<!-- Follow docs/TESTING.md#verification-policy. Remove inapplicable checks and explain any
+required checks that remain pending. -->
+
+- [ ] `./scripts/check.sh` passes (code changes)
+- [ ] Relevant device checks pass for Android wiring, recording, permissions, editor interaction, or runtime/model changes
+- [ ] Real-phone recording/permission checks pass when those behaviors changed
+- [ ] Diff and local links checked (documentation/comment-only changes)
 
 ## UI changes
 

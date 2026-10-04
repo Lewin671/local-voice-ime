@@ -78,35 +78,21 @@ are listed in `README.md`.
 
 ## How to verify a change
 
-**Test on the Mac first; devices are for the final check before a release.** Device runs take
-minutes and are timing-sensitive; unit tests take seconds. So:
+**Test locally first; use devices for Android integration and release checks.**
+The verification policy is in [docs/TESTING.md](docs/TESTING.md#verification-policy).
 
-- Put logic where it can be unit-tested on the JVM: pure Kotlin without Android classes, with
-  the editor / clock / model behind a small interface (see `VoiceText`, `VoiceRefine`,
-  `VoiceEdits` and their tests). If a behaviour can only be checked on a device, that is a
-  reason to restructure the code, not to write another device scenario.
-- Model questions (accuracy, speed, merging two transcripts) are answered on the desktop with
-  `scripts/bench/` and recorded in `docs/MODELS.md`.
-- The device scripts (`e2e-voice.sh`, `e2e-scenarios.sh`, `ui-shots.sh`) run once before a
-  release, with and without the large model, as a confirmation that the pieces are wired together.
+- Pure Kotlin logic: add relevant JVM tests and run `./scripts/check.sh`. Documentation-only
+  changes need link and diff checks, not a build or device run.
+- Android wiring, recording, permissions, editor interaction, or speech runtime/model changes:
+  run the relevant device checks before claiming the affected behavior is verified. Visible
+  changes also need `./scripts/ui-shots.sh` and comparison with the updated design.
+- Before release, run the full device checks with and without the large model. Report exactly
+  which checks ran; if a device is unavailable, state what remains unverified.
 
-In order:
-
-1. `./scripts/check.sh` — unit tests of the voice package, debug build, privacy check.
-   The download code is covered here (`VoiceModelFetchTest`, against a local server, and
-   `VoiceModelStoreTest`).
-2. `./scripts/e2e-voice.sh` and `./scripts/e2e-scenarios.sh` with an emulator or phone attached.
-   The first compares transcripts; the second checks the behaviour rules of the design
-   (add a scenario there whenever you fix or add a behaviour). It feeds WAV files through the
-   real recognition pipeline inside the IME and compares what lands in a text field. This is the
-   test that matters for anything under `input/voice/`.
-
-3. For anything visible: `./scripts/ui-shots.sh`, then look at the PNGs in `build/ui-shots/`
-   and compare them with `docs/design/mockup.html`. UI work is design-first: change the design
-   documents before the code (`docs/design/DESIGN.md`).
-
-Do not claim a voice change works without step 2, or a UI change without step 3.
-Details and troubleshooting: `docs/TESTING.md`. The full workflow is in `CONTRIBUTING.md`.
+Keep logic testable without Android classes (see `VoiceText`, `VoiceRefine`, and `VoiceEdits`).
+Benchmark model questions on the desktop and record results in `docs/MODELS.md`.
+UI work is design-first: update `docs/design/DESIGN.md` and the mockup before implementation.
+The contribution workflow is in `CONTRIBUTING.md`.
 
 ## Conventions
 

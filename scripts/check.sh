@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Everything that can be verified without a device. Run it before every commit; CI runs the same.
+# Local checks for code changes; CI runs the same. See docs/TESTING.md#verification-policy.
 #
 #   1. unit tests of the voice package
 #   2. debug build
 #   3. network use is limited to downloading speech models (scripts/check-privacy.sh)
 #
-# Changes under input/voice/ additionally need scripts/e2e-voice.sh, and UI changes
-# scripts/ui-shots.sh; both require a device or emulator.
+# Device checks depend on the affected behavior, not just the source directory.
+# Documentation/comment-only changes need diff and link checks, not this script.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

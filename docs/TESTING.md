@@ -8,8 +8,24 @@
 | Which model, how accurate, how fast | desktop benchmark (`scripts/bench/`, results in `MODELS.md`) | minutes |
 | That it is all wired together on Android | device scripts below | 5–10 minutes each |
 
-Day-to-day development should only need the first row. The device scripts are the confirmation
-before a release.
+## Verification policy
+
+This section defines the verification requirements referenced by `AGENTS.md`,
+`CONTRIBUTING.md`, and the PR template. Run checks after a coherent change, not after every edit.
+
+| Change | Required checks |
+|---|---|
+| Documentation or comments only | Review the diff and local links; no build or device run |
+| Pure Kotlin logic with no Android wiring changes | Relevant JVM regression tests and `./scripts/check.sh`; no device run required |
+| Android wiring, recording, permissions, editor interaction, or speech runtime/model | `./scripts/check.sh` plus relevant device scenarios; run `e2e-voice.sh` for recognition and `e2e-scenarios.sh` for interaction behavior |
+| Visible UI or gesture | Local checks plus `ui-shots.sh` and comparison with the updated design; run interaction scenarios when gestures or editor behavior change |
+| Release | Local checks, `e2e-voice.sh`, `e2e-scenarios.sh`, `REFINER=1 ./scripts/e2e-scenarios.sh`, UI screenshots, and the real-phone/manual download checks below |
+
+Report local tests, emulator checks, and real-phone checks separately. WAV-based device tests
+exercise the recognition pipeline but replace the microphone; recording or microphone-permission
+changes also need a real-phone recording/permission check. If required hardware is unavailable,
+report the missing checks and keep device verification pending; do not claim the affected
+behavior or release is fully verified. Serialize runs on the same test device.
 
 ## Everything that needs no device
 

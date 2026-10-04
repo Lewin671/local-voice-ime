@@ -23,16 +23,17 @@ written by a person or by an AI agent. `AGENTS.md` is the orientation guide; rea
 | Kind of change | Do this first | Then | Verify with |
 |---|---|---|---|
 | Anything visible (layout, colour, wording, gesture) | Update `docs/design/mockup.html` and `docs/design/DESIGN.md`; agree on the design in the issue or PR | Implement | `scripts/ui-shots.sh`, compare with the mockup, attach screenshots |
-| Voice pipeline (`input/voice/`) | — | Implement, add unit tests for pure logic and a scenario for each behaviour rule | `scripts/e2e-voice.sh`, `scripts/e2e-scenarios.sh` |
+| Voice pipeline (`input/voice/`) | — | Add JVM tests for logic and device scenarios for Android behavior changes | Checks matching the change in [the verification policy](docs/TESTING.md#verification-policy) |
 | Speech model or runtime | Benchmark as described in `docs/MODELS.md`, record the numbers there | Update `scripts/fetch-voice-assets.sh`, `NOTICE.md`, `app/licenses/` | `scripts/e2e-voice.sh` on a device |
 | Merging upstream | `git fetch upstream && git merge upstream/master` | Re-apply hooks listed in `docs/ARCHITECTURE.md` if they conflict | everything below |
 
-Every change: `./scripts/check.sh` must pass (unit tests, build, privacy check). CI runs it on
-each push and pull request.
+Follow [the verification policy](docs/TESTING.md#verification-policy) for when each check is
+required. Code changes need `./scripts/check.sh` (unit tests, build, privacy check); documentation
+or comment-only changes need diff and link checks. CI still runs local checks on each push and PR.
 
-Keep the feedback loop on your computer: write behaviour as pure Kotlin behind small interfaces
-and cover it with JVM unit tests. The device scripts in the table are slow; run them before a
-release (with and without the large model), not after every edit.
+Keep the feedback loop local with pure Kotlin behind small interfaces and JVM tests. Use device
+checks for affected Android behavior after a coherent change, and the full suite before release.
+Report missing device checks rather than claiming unverified behavior works.
 
 ## Commits and pull requests
 
