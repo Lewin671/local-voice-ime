@@ -9,6 +9,7 @@ import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.text.format.Formatter
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -30,6 +31,7 @@ import org.fcitx.fcitx5.android.input.keyboard.CustomGestureView
 import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
+import org.fcitx.fcitx5.android.utils.AppUtil
 import org.mechdancer.dependency.manager.must
 import splitties.dimensions.dp
 
@@ -38,8 +40,8 @@ import splitties.dimensions.dp
  * shown; every utterance is inserted when the speaker pauses; the microphone turns off when the
  * stop button is tapped, the panel is left, or nobody has spoken for a while.
  *
- * See "Hands-free dictation", "Paused" and "Microphone access needed" in
- * `docs/design/mockup.html`.
+ * See "Hands-free dictation", "Paused", "Microphone access needed" and "Speech model needed"
+ * in `docs/design/mockup.html`.
  */
 class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
@@ -123,13 +125,13 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
         if (session != null) return
         failed = false
         if (!VoiceEngine.isAvailable(context)) {
-            status.error(R.string.voice_model_missing)
-            ui.showPaused()
+            status.off()
+            ui.showCard(Ui.Card.Model, VoiceModels.SenseVoice.size)
             return
         }
         if (!VoiceInput.hasPermission(context)) {
             status.off()
-            ui.showPermissionCard()
+            ui.showCard(Ui.Card.Permission)
             return
         }
         InputFeedbacks.hapticFeedback(ui.root)
@@ -150,10 +152,22 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
                 start()
             }
         }
-        ui.allowButton.setOnClickListener { VoiceInput.requestPermission(context) }
-        // coming back from the permission dialog
+        ui.cardButton.setOnClickListener {
+            when (ui.card) {
+                // the keyboard does not go online; the settings do, after saying what is fetched
+                Ui.Card.Model -> AppUtil.launchMainToVoiceInput(context)
+                Ui.Card.Permission -> VoiceInput.requestPermission(context)
+                null -> {}
+            }
+        }
+        // coming back from the settings or the permission dialog
         ui.onShown = {
-            if (ui.isPermissionCardShown && VoiceInput.hasPermission(context)) start()
+            val resolved = when (ui.card) {
+                Ui.Card.Model -> VoiceEngine.isAvailable(context)
+                Ui.Card.Permission -> VoiceInput.hasPermission(context)
+                null -> false
+            }
+            if (resolved) start()
         }
         ui.keyboardKey.setOnClickListener { windowManager.attachWindow(KeyboardWindow) }
         ui.punctuationKeys.forEach { key ->
@@ -211,10 +225,30 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         val waveform = WaveformView(ctx).apply { color = palette.primary }
 
-        // --- permission card -------------------------------------------------------------
+        // --- card: what is missing, and the one button that fixes it -------------------------
 
-        val allowButton = TextView(ctx).apply {
-            setText(R.string.voice_allow_microphone)
+        enum class Card(@StringRes val title: Int, @StringRes val body: Int, @StringRes val button: Int) {
+            /** The speech model has not been downloaded; [body] takes its size. */
+            Model(R.string.voice_model_needed_title, R.string.voice_model_needed_body, R.string.voice_open_settings),
+            Permission(R.string.voice_permission_title, R.string.voice_permission_body, R.string.voice_allow_microphone)
+        }
+
+        /** The card on screen, if any. */
+        var card: Card? = null
+            private set
+
+        private val cardTitle = TextView(ctx).apply {
+            setTextColor(palette.text)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+
+        private val cardBody = TextView(ctx).apply {
+            setTextColor(palette.secondaryText)
+            textSize = 13f
+        }
+
+        val cardButton = TextView(ctx).apply {
             setTextColor(palette.onPrimary)
             textSize = 14f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -223,29 +257,18 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             background = pressable(rounded(palette.primary, ctx.dp(18f)))
         }
 
-        private val permissionCard = LinearLayout(ctx).apply {
+        private val cardView = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             val p = ctx.dp(14)
             setPadding(p, ctx.dp(12), p, ctx.dp(12))
             background = rounded(palette.key, ctx.dp(16f))
             visibility = View.GONE
-            addView(TextView(ctx).apply {
-                setText(R.string.voice_permission_title)
-                setTextColor(palette.text)
-                textSize = 14f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            }, LinearLayout.LayoutParams(-1, -2))
-            addView(TextView(ctx).apply {
-                setText(R.string.voice_permission_body)
-                setTextColor(palette.secondaryText)
-                textSize = 13f
-            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(4) })
-            addView(allowButton, LinearLayout.LayoutParams(-2, ctx.dp(34)).apply {
+            addView(cardTitle, LinearLayout.LayoutParams(-1, -2))
+            addView(cardBody, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ctx.dp(4) })
+            addView(cardButton, LinearLayout.LayoutParams(-2, ctx.dp(34)).apply {
                 topMargin = ctx.dp(10)
             })
         }
-
-        val isPermissionCardShown get() = permissionCard.visibility == View.VISIBLE
 
         // --- stop / microphone button ----------------------------------------------------
 
@@ -328,7 +351,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         // --- layout ----------------------------------------------------------------------
 
-        /** Called whenever the panel becomes visible again, e.g. after the permission dialog. */
+        /** Called whenever the panel becomes visible again, e.g. after the settings or the permission dialog. */
         var onShown: (() -> Unit)? = null
 
         val root: View = object : LinearLayout(ctx) {
@@ -341,7 +364,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             clipChildren = false
             addView(FrameLayout(ctx).apply {
                 addView(waveform, FrameLayout.LayoutParams(-1, -1))
-                addView(permissionCard, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply {
+                addView(cardView, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply {
                     setMargins(ctx.dp(12), 0, ctx.dp(12), 0)
                 })
             }, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -360,7 +383,8 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
         private fun showMic(listening: Boolean) {
             micArea.visibility = View.VISIBLE
             waveform.visibility = View.VISIBLE
-            permissionCard.visibility = View.GONE
+            cardView.visibility = View.GONE
+            card = null
             micHalo.visibility = if (listening) View.VISIBLE else View.INVISIBLE
             micButton.background = pressable(
                 oval(if (listening) palette.primary else palette.primaryContainer)
@@ -388,10 +412,18 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             waveform.mode = WaveformView.Mode.Idle
         }
 
-        fun showPermissionCard() {
+        /** Instead of the waveform and the microphone; [modelSize] is the download [Card.Model] names. */
+        fun showCard(card: Card, modelSize: Long = 0) {
+            this.card = card
+            cardTitle.setText(card.title)
+            cardBody.text = when (card) {
+                Card.Model -> ctx.getString(card.body, Formatter.formatShortFileSize(ctx, modelSize))
+                Card.Permission -> ctx.getString(card.body)
+            }
+            cardButton.setText(card.button)
             waveform.visibility = View.GONE
             micArea.visibility = View.GONE
-            permissionCard.visibility = View.VISIBLE
+            cardView.visibility = View.VISIBLE
         }
     }
 }

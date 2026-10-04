@@ -169,7 +169,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 
 <section>
   <h2>Settings: voice input</h2>
-  <p class="note">One screen, <em>Settings → Voice input</em>, holds everything about speech: what stays on the phone, which models are on it, and the one optional download. It is a list like the rest of the settings; only the model row is new.</p>
+  <p class="note">One screen, <em>Settings → Voice input</em>, holds everything about speech: what stays on the phone, which models are on it, and their downloads. No speech model is part of the installed app, so the first visit here is to download the standard one (240 MB); the high-accuracy one is optional. It is a list like the rest of the settings; only the model row is new.</p>
   <div class="screens" id="settings"></div>
   <div class="tablewrap"><table>
     <tr><th>State of a model</th><th>Status line</th><th>Actions</th></tr>
@@ -177,9 +177,9 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Downloading</td><td>Progress bar, "412 MB of 1.2 GB"</td><td>Pause</td></tr>
     <tr><td>Paused, or left unfinished</td><td>"Paused · 412 MB of 1.2 GB"</td><td>Resume (no question: consent was given), Delete</td></tr>
     <tr><td>Failed</td><td>In the error colour, naming the cause and the fix: connection, free storage, or a file that did not pass verification</td><td>Resume or Download, Delete if something is kept</td></tr>
-    <tr><td>Installed</td><td>"Installed"</td><td>Delete (asks first, says how much is freed)</td></tr>
+    <tr><td>Installed</td><td>"Installed"</td><td>Delete (asks first, says how much is freed and what stops working)</td></tr>
   </table></div>
-  <p class="note">Rules: the app never goes online by itself, a download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. The refinement switch is disabled until the model is installed. Built-in models have no actions. A further downloadable model is one more row of the same kind.</p>
+  <p class="note">Rules: the app never goes online by itself, a download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. Both models are rows of the same kind and behave alike. The standard model is the one voice input cannot do without: its row says "Needed for voice input", and deleting it says that voice input stops until it is downloaded again. The refinement switch is disabled until the high-accuracy model is installed. A further downloadable model is one more row of the same kind.</p>
 </section>
 
 <section>
@@ -218,7 +218,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
   </table></div>
-  <p class="note">The microphone pill and hold-to-talk are absent on password fields. If microphone access is missing, the panel explains why it is needed and offers one button to grant it. Errors name their cause: "Another app is using the microphone", "Could not load the speech model".</p>
+  <p class="note">The microphone pill and hold-to-talk are absent on password fields. If the speech model has not been downloaded, the pill and the space bar look as usual, and both open the panel, which says what is missing and offers one button that opens <em>Settings → Voice input</em>; the keyboard itself never starts a download. Back at the keyboard with the model installed, the panel starts listening. If microphone access is missing, the panel explains why it is needed and offers one button to grant it. Errors name their cause: "Another app is using the microphone", "Could not load the speech model".</p>
 </section>
 
 <section>
@@ -279,6 +279,8 @@ const S = [
     e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Microphone access needed</b><span>Audio stays on this phone. It is never stored or sent.</span><div class="btn">Allow microphone</div></div>${util}</div>` + keys('') },
 ];
 document.getElementById('screens').innerHTML = S.map(s => `<figure>
+  { t: 'Speech model needed', d: 'A fresh install has no speech model: it is a 240 MB download, kept out of the app so that the app itself stays small. The microphone pill and hold-to-talk are there from the start and lead here. The button opens Settings → Voice input, the only place a download can start.',
+    e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Speech model needed</b><span>Voice input runs on this phone. Download its speech model (240 MB) once in the settings.</span><div class="btn">Open settings</div></div>${util}</div>` + keys('') },
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}"><div class="editor">${s.e}</div><div class="kbd">${s.k}</div></div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 
@@ -286,21 +288,25 @@ document.getElementById('screens').innerHTML = S.map(s => `<figure>
 const arrow = '<svg viewBox="0 0 24 24"><path d="M20 11H7.800l5.600-5.600L12 4l-8 8 8 8 1.400-1.400L7.800 13H20z"/></svg>';
 const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
   <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
-const settings = (row, on, extra = '') => `<div class="app">
+const standardRow = (rest) => `<div class="item"><b>Standard</b><span>SenseVoice Small · 240 MB · from modelscope.cn</span>
+  <span style="margin-top:4px">Needed for voice input. Text appears while you speak, with punctuation and numbers.</span>${rest}</div>`;
+const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>')) => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
   <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</span></div></div>
   <div class="group">Speech models</div>
-  <div class="item"><b>Standard</b><span>SenseVoice Small · built in</span><span>Text appears while you speak, with punctuation and numbers.</span></div>
+  ${standardRow(standard)}
   ${modelRow(row)}
   <div class="group">Dictation</div>
   <div class="item lead ${on ? '' : 'off'}" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Paused while Battery Saver is on or the device is hot.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
   ${extra}</div>`;
 const acts = (status, ...btns) => `<div class="actions"><span${status.err ? ' class="err"' : ''}>${status.t || status}</span>${btns.join('')}</div>`;
 const T = [
-  { t: 'Voice input settings', d: 'The first thing on the screen is the promise, including its one exception. Models are listed with what they do, how large they are and where they come from. Until the large model is there, its switch is disabled.',
-    k: settings(acts('', '<div class="btn">Download</div>'), false) },
+  { t: 'Voice input settings: first visit', d: 'The first thing on the screen is the promise, including its one exception. Models are listed with what they do, how large they are and where they come from. Nothing is on the phone yet; the standard model is the one to download.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false, '', acts('', '<div class="btn">Download</div>')) },
   { t: 'Before going online', d: 'Tapping Download asks once. The dialog says how much, from where, and that nothing is sent. This tap is the only way the app ever opens a connection.',
-    k: settings(acts('', '<div class="btn">Download</div>'), false, `<div class="scrim"><div class="dialog"><b>Download 1.2 GB?</b><span>FireRedASR2 is fetched from modelscope.cn over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Download</div></div></div></div>`) },
+    k: settings(acts('', '<div class="btn">Download</div>'), false, `<div class="scrim"><div class="dialog"><b>Download 240 MB?</b><span>SenseVoice Small is fetched from modelscope.cn over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Download</div></div></div></div>`, acts('', '<div class="btn">Download</div>')) },
+  { t: 'Ready to dictate', d: 'With the standard model installed, voice input works. The high-accuracy model stays an offer; until it is there, its switch is disabled.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false) },
   { t: 'Downloading', d: 'Progress in the row itself, in amounts rather than a bare percentage. Pause is the only action; leaving the screen does not stop the download.',
     k: settings('<div class="meter"><i style="width:34%"></i></div>' + acts('412 MB of 1.2 GB', '<div class="tbtn">Pause</div>'), false) },
   { t: 'Interrupted', d: 'A lost connection, or a pause, keeps what has arrived. The message names the cause and the fix; Resume continues from the same byte.',

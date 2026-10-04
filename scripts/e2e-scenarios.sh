@@ -3,11 +3,12 @@
 # in docs/design/DESIGN.md that a transcript comparison (scripts/e2e-voice.sh) cannot catch.
 #
 #   scripts/e2e-scenarios.sh
-#   REFINER=1 scripts/e2e-scenarios.sh     also installs the large model (scripts/push-voice-model.sh)
+#   REFINER=1 scripts/e2e-scenarios.sh     also installs the large model
 #                                          and runs the refinement scenarios
 #
 # Requires a debug APK (scripts/build.sh); it is reinstalled from scratch, so app data of the
-# debug build is reset. The emulator/device microphone must deliver silence for the idle-timeout
+# debug build is reset. The speech models are not downloaded on the device but copied to it
+# (scripts/push-voice-model.sh). The emulator/device microphone must deliver silence for the idle-timeout
 # scenario (an emulator started with -no-audio does). Exit code is non-zero if a scenario fails.
 set -uo pipefail
 
@@ -53,7 +54,7 @@ echo "Installing $apk (fresh)"
 adb uninstall "$pkg" >/dev/null 2>&1
 adb install -g "$apk" >/dev/null || exit 1
 sleep 2
-if $hq; then ./scripts/push-voice-model.sh "$pkg" || exit 1; fi
+./scripts/push-voice-model.sh $($hq && echo --refiner) "$pkg" || exit 1
 adb shell ime enable "$ime" >/dev/null
 adb shell ime set "$ime" >/dev/null
 adb shell mkdir -p "$(dirname "$remote_wav")"

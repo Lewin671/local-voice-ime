@@ -41,7 +41,7 @@ def online(r):
     return f
 
 MODELS = {
-    "sensevoice-int8": lambda: offline(R.from_sense_voice(model=f"{V}/assets/voice/sense-voice/model.int8.onnx", tokens=f"{V}/assets/voice/sense-voice/tokens.txt", num_threads=4, language="auto", use_itn=True)),
+    "sensevoice-int8": lambda: offline(R.from_sense_voice(model=f"{V}/models/sense-voice-small-int8/model.int8.onnx", tokens=f"{V}/models/sense-voice-small-int8/tokens.txt", num_threads=4, language="auto", use_itn=True)),
     "xasr-int8": lambda: offline(R.from_transducer(encoder=f"{XA}/encoder-epoch-99-avg-1.int8.onnx", decoder=f"{XA}/decoder-epoch-99-avg-1.onnx", joiner=f"{XA}/joiner-epoch-99-avg-1.int8.onnx", tokens=f"{XA}/tokens.txt", num_threads=4)),
     "xasr-s480": lambda: online(sherpa_onnx.OnlineRecognizer.from_transducer(encoder=f"{XS}/encoder.int8.onnx", decoder=f"{XS}/decoder.onnx", joiner=f"{XS}/joiner.int8.onnx", tokens=f"{XS}/tokens.txt", num_threads=4)),
     "firered2-aed": lambda: offline(R.from_fire_red_asr(encoder=f"{V}/models/fire-red-asr2-aed-int8/encoder.int8.onnx", decoder=f"{V}/models/fire-red-asr2-aed-int8/decoder.int8.onnx", tokens=f"{V}/models/fire-red-asr2-aed-int8/tokens.txt", num_threads=4)),

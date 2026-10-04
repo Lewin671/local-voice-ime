@@ -60,7 +60,7 @@ android {
     androidResources {
         @Suppress("UnstableApiUsage")
         generateLocaleConfig = true
-        // speech models are read straight from the APK
+        // the voice activity detection model is read straight from the APK
         noCompress += "onnx"
     }
 
@@ -75,8 +75,12 @@ android {
 
 tasks.named("preBuild") {
     doFirst {
-        check(voiceRuntime.exists() && voiceDir.resolve("assets/voice/sense-voice/model.int8.onnx").exists()) {
-            "Speech runtime/models are missing. Run ./scripts/fetch-voice-assets.sh first."
+        check(voiceRuntime.exists() && voiceDir.resolve("assets/voice/silero_vad.onnx").exists()) {
+            "The speech runtime is missing. Run ./scripts/fetch-voice-assets.sh first."
+        }
+        // speech models are downloaded by the app; one left here would be bundled into the APK
+        check(!voiceDir.resolve("assets/voice/sense-voice").exists()) {
+            "voice/assets holds a speech model. Run ./scripts/fetch-voice-assets.sh to move it away."
         }
     }
 }

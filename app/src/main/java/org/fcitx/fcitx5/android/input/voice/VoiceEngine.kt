@@ -16,6 +16,7 @@ import com.k2fsa.sherpa.onnx.VadModelConfig
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -23,8 +24,9 @@ import java.util.concurrent.TimeUnit
 /**
  * Process-wide holder of the on-device speech recognizer.
  *
- * Everything runs locally: the model is read from the APK's assets, and neither audio nor text
- * leaves the device (the app's only network use is downloading a model, see `docs/PRIVACY.md`).
+ * Everything runs locally: the model is read from the app's private storage, where the user
+ * downloaded it to (see [VoiceModels]), and neither audio nor text leaves the device (the app's
+ * only network use is downloading a model, see `docs/PRIVACY.md`).
  *
  * All native calls are confined to a single thread; the recognizer is loaded lazily on first use
  * and freed again after a few idle minutes, as it takes ~250 MB of memory.
@@ -39,10 +41,10 @@ object VoiceEngine {
     /** Window size (in samples) expected by the VAD model. */
     const val VAD_WINDOW = 512
 
-    private const val ASSET_DIR = "voice"
-    private const val ASR_MODEL = "$ASSET_DIR/sense-voice/model.int8.onnx"
-    private const val ASR_TOKENS = "$ASSET_DIR/sense-voice/tokens.txt"
-    private const val VAD_MODEL = "$ASSET_DIR/silero_vad.onnx"
+    private val model = VoiceModels.SenseVoice
+
+    /** Small enough (2 MB) to be part of the APK. */
+    private const val VAD_MODEL = "voice/silero_vad.onnx"
 
     /** The recognizer is freed after being unused for this long. */
     private const val IDLE_RELEASE_MINUTES = 5L
@@ -72,18 +74,8 @@ object VoiceEngine {
     /** Whether the model is in memory; if not, the next session has to wait for [ensureLoaded]. */
     val isLoaded get() = recognizer != null
 
-    private var available: Boolean? = null
-
-    /**
-     * Whether speech models were bundled into this build.
-     */
-    fun isAvailable(context: Context): Boolean {
-        available?.let { return it }
-        val files = runCatching {
-            context.assets.list("$ASSET_DIR/sense-voice")
-        }.getOrNull().orEmpty()
-        return ("model.int8.onnx" in files && "tokens.txt" in files).also { available = it }
-    }
+    /** Whether the speech model has been downloaded; there is no voice input without it. */
+    fun isAvailable(context: Context) = VoiceModels.isInstalled(context, model)
 
     private val numThreads: Int
         get() = if (Runtime.getRuntime().availableProcessors() >= 8) 4 else 2
@@ -91,22 +83,24 @@ object VoiceEngine {
     suspend fun ensureLoaded(context: Context) = withContext(dispatcher) {
         touch()
         if (recognizer != null) return@withContext
+        check(isAvailable(context)) { "The speech model is not installed" }
         val t0 = SystemClock.elapsedRealtime()
+        val dir = VoiceModels.dir(context, model)
         val config = OfflineRecognizerConfig(
             modelConfig = OfflineModelConfig(
                 senseVoice = OfflineSenseVoiceModelConfig(
-                    model = ASR_MODEL,
+                    model = File(dir, "model.int8.onnx").path,
                     // auto-detect, so that Mandarin, English and code-switching all work
                     language = "auto",
                     // spoken numbers -> digits, and punctuation
                     useInverseTextNormalization = true
                 ),
-                tokens = ASR_TOKENS,
+                tokens = File(dir, "tokens.txt").path,
                 numThreads = numThreads,
                 provider = "cpu"
             )
         )
-        recognizer = OfflineRecognizer(context.applicationContext.assets, config)
+        recognizer = OfflineRecognizer(null, config)
         Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
     }
 
@@ -157,5 +151,11 @@ object VoiceEngine {
      */
     fun release() {
         executor.execute(::releaseNow)
+    }
+
+    /** Delete the model. On the engine thread, so that it cannot happen while it is being loaded. */
+    suspend fun uninstall(context: Context) = withContext(dispatcher) {
+        releaseNow()
+        VoiceModels.delete(context, model)
     }
 }

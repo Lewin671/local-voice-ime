@@ -72,7 +72,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         isPasswordField = capFlags.has(CapabilityFlag.Password)
         // an undo offer does not carry over to another text field
         endUndoOffer()
-        if (isAvailable) VoiceInput.warmUp(service)
+        if (isAvailable && VoiceEngine.isAvailable(context)) VoiceInput.warmUp(service)
     }
 
     private val status by lazy { VoiceStatusUi(context, palette) }
@@ -275,14 +275,17 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         }
     }
 
-    /** Whether dictation can be offered for the current editor; never on password fields. */
-    val isAvailable get() = !isPasswordField && VoiceEngine.isAvailable(context)
+    /**
+     * Whether dictation can be offered for the current editor; never on password fields. It is
+     * offered before the speech model has been downloaded, too: the panel then says how to get it.
+     */
+    val isAvailable get() = !isPasswordField
 
     /** Space bar is being held. */
     fun startPushToTalk() {
         if (!isAvailable || session != null) return
-        if (!VoiceInput.hasPermission(context)) {
-            // the panel explains why the microphone is needed and offers to grant access
+        if (!VoiceEngine.isAvailable(context) || !VoiceInput.hasPermission(context)) {
+            // the panel says what is missing (the speech model, microphone access) and offers the fix
             showWindow()
             return
         }

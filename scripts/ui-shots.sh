@@ -4,7 +4,9 @@
 #
 #   scripts/ui-shots.sh [output dir]        default: build/ui-shots
 #
-# Requires a debug APK (scripts/build.sh); it is (re)installed first. Dictation states are driven with a sample recording instead of the microphone.
+# Requires a debug APK (scripts/build.sh); it is (re)installed first, and the speech model is
+# copied to the device (scripts/push-voice-model.sh). Dictation states are driven with a sample
+# recording instead of the microphone.
 # The device's previous keyboard and day/night setting are restored at the end.
 set -euo pipefail
 
@@ -25,11 +27,14 @@ work=$(mktemp -d)
 adb get-state >/dev/null
 echo "Installing $apk"
 adb install -r -g "$apk" >/dev/null
+./scripts/push-voice-model.sh "$pkg"
+model=files/voice-models/sense-voice-small-int8
 
 previous_ime=$(adb shell settings get secure default_input_method | tr -d '\r')
 previous_night=$(adb shell cmd uimode night | tr -d '\r' | awk '{print $NF}')
 cleanup() {
     adb shell rm -f "$remote_wav" >/dev/null 2>&1 || true
+    adb shell run-as "$pkg" mv "$model.aside" "$model" >/dev/null 2>&1 || true
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO >/dev/null 2>&1 || true
     adb shell cmd uimode night "$previous_night" >/dev/null 2>&1 || true
     adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
@@ -109,4 +114,22 @@ for theme in light dark; do
     adb shell input tap $(center "Voice input")
     sleep 2
     shot 6-panel-permission
+
+    # without the speech model, as after a fresh install (the app reads what is installed once
+    # per process, hence the restart)
+    adb shell pm grant "$pkg" android.permission.RECORD_AUDIO
+    adb shell am force-stop "$pkg"
+    adb shell run-as "$pkg" mv "$model" "$model.aside"
+    adb shell ime set "$ime" >/dev/null
+    open_keyboard
+    adb shell input tap $(center "Voice input")
+    sleep 2
+    shot 7-panel-model-needed
+    dump_ui
+    adb shell input tap $(center "Open settings")
+    sleep 3
+    shot 8-settings-voice-input
+    adb shell am force-stop "$pkg"
+    adb shell run-as "$pkg" mv "$model.aside" "$model"
+    adb shell ime set "$ime" >/dev/null
 done

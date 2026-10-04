@@ -92,9 +92,10 @@ factor of every decode (debug builds).
 REFINER=1 ./scripts/e2e-scenarios.sh      # installs the model, adds the refinement scenarios
 ```
 
-`REFINER=1` runs `scripts/push-voice-model.sh`, which copies the model from `voice/models/`
-(fetched once with `scripts/fetch-voice-assets.sh --refiner`) into the app's private storage,
-exactly as a finished download would leave it. This needs a debug build and about 1.5 GB of
+No device script downloads a model on the device: they run `scripts/push-voice-model.sh`, which
+copies the standard model from `voice/models/` (fetched once with
+`scripts/fetch-voice-assets.sh --models`) into the app's private storage, exactly as a finished
+download would leave it. `REFINER=1` adds the large model (`--refiner`) the same way. This needs a debug build and about 1.5 GB of
 free storage on the device.
 
 The download itself is covered on the JVM: `VoiceModelFetchTest` (a local server that drops

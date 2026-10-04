@@ -4,7 +4,7 @@ A privacy-first Android keyboard with **on-device voice dictation**.
 
 Speak Mandarin, English, or a mix of both; the text appears with punctuation, and **what you say
 and type never leaves your phone**: recognition runs on the device. The app goes online for one
-thing only, and only when you ask: downloading an optional, more accurate speech model.
+thing only, and only when you ask: downloading a speech model.
 
 It is also a complete everyday keyboard: 26-key pinyin with sentence-level prediction, English
 with spell check, clipboard history, symbol/emoji pickers and themes — all inherited from
@@ -24,23 +24,28 @@ with spell check, clipboard history, symbol/emoji pickers and themes — all inh
 - Works fully offline. No account, no telemetry, no cloud API, no cost.
 - Dictation is disabled on password fields.
 
-## High-accuracy model (optional)
+## Speech models
 
-| | As installed | With the high-accuracy model |
+The app comes without a speech model, which keeps the APK small. Voice input works once the
+standard model has been downloaded in *Settings → Voice input* (240 MB, once); the microphone
+button leads there until then. A second, larger model is optional:
+
+| | Standard model | With the high-accuracy model |
 |---|---|---|
-| Size | APK of about 300 MB | plus a 1.2 GB download in *Settings → Voice input* |
+| Download in *Settings → Voice input* | 240 MB | plus 1.2 GB |
 | Memory while dictating | about 0.4 GB | about 1.8 GB |
 | Speech model | SenseVoice Small | SenseVoice Small, then FireRedASR2 re-checks every utterance |
 | Errors (see [docs/MODELS.md](docs/MODELS.md)) | baseline | about 40–70 % fewer wrong words |
 
-With the model installed the text still appears at once. A few seconds later, words the larger
+With the high-accuracy model installed the text still appears at once. A few seconds later, words the larger
 model heard differently are corrected in place, keeping punctuation and numbers as they were.
 Text you have edited in the meantime is never touched. It needs a phone with plenty of memory
 (12 GB recommended) and can be switched off, or deleted again, on the same settings screen.
 
-The download comes from [ModelScope](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx)
-(reachable from mainland China), can be paused and resumed, and is verified against checksums
-fixed in the app before it is used.
+Downloads come from ModelScope ([standard](https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue),
+[high accuracy](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx); reachable
+from mainland China), can be paused and resumed, and are verified against checksums fixed in
+the app before they are used.
 
 ## How it stays private
 
@@ -59,7 +64,8 @@ There is no store release yet. Build the APK (below) and install it with `adb in
 
 1. Open **Local Voice IME** and follow the setup screen to enable and select the keyboard.
 2. In the app, add **Pinyin** under *Input Methods* if it is not there already.
-3. The first time you use voice input, grant the microphone permission.
+3. The first time you use voice input, download the speech model (the keyboard takes you to
+   *Settings → Voice input*) and grant the microphone permission.
 
 Requirements: Android 6.0+, arm64. The model needs about 300 MB of RAM while dictating and is
 unloaded after a few idle minutes.
@@ -77,7 +83,7 @@ Prerequisites:
 ```sh
 git clone --recurse-submodules https://github.com/Lewin671/local-voice-ime.git
 cd local-voice-ime
-./scripts/build.sh            # downloads the speech model (~290 MB) on first run, prints the APK path
+./scripts/build.sh            # downloads the speech runtime (~60 MB) on first run, prints the APK path
 ./scripts/check-privacy.sh    # verifies that network use is limited to model downloads
 adb install -r <path printed by build.sh>
 ```
@@ -117,5 +123,5 @@ listed in [NOTICE.md](NOTICE.md).
 - [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S) (Apache-2.0) — the optional high-accuracy model
 - [Silero VAD](https://github.com/snakers4/silero-vad) (MIT) — voice activity detection
 
-Licensed under [LGPL-2.1-or-later](LICENSE), like upstream. The bundled and downloadable models
+Licensed under [LGPL-2.1-or-later](LICENSE), like upstream. The speech models
 are distributed under their own licenses; see the links above.

@@ -2,15 +2,17 @@
 
 ## Current choice
 
-The APK contains the models in the table below. **FireRedASR2 AED int8** (1.2 GB) is an optional
-download inside the app (*Settings → Voice input*) and works as a second stage that re-checks
-every utterance; see "Refinement" further down for why and how well that works.
+Recognition is done by **SenseVoice Small**. **FireRedASR2 AED int8** (1.2 GB) is optional and
+works as a second stage that re-checks every utterance; see "Refinement" further down for why
+and how well that works. Neither is part of the APK: the app downloads them
+(*Settings → Voice input*, see [Downloadable models](#downloadable-models)), and without the
+first there is no voice input.
 
-| Role | Model | Size in APK | Source |
+| Role | Model | Size | Where it comes from |
 |---|---|---|---|
-| Recognition | SenseVoice Small, int8 (`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17`) | 229 MB | [sherpa-onnx asr-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |
-| Voice activity detection | Silero VAD v5 | 2 MB | same |
-| Runtime | sherpa-onnx 1.13.8 (onnxruntime), CPU | ~20 MB (arm64) | [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases) |
+| Recognition | SenseVoice Small, int8 (`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17`) | 240 MB | downloaded by the app |
+| Voice activity detection | Silero VAD v5 | 2 MB | in the APK; [sherpa-onnx asr-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models) |
+| Runtime | sherpa-onnx 1.13.8 (onnxruntime), CPU | ~20 MB (arm64) | in the APK; [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases) |
 
 Why SenseVoice Small:
 
@@ -21,20 +23,28 @@ Why SenseVoice Small:
   (see "simulated streaming" in `ARCHITECTURE.md`), so no second, streaming model is needed;
 - accuracy is on par with much larger models (below).
 
-Versions and checksums are pinned in `scripts/fetch-voice-assets.sh`; the model is configured in
-`VoiceEngine.kt`.
+Versions and checksums are pinned in `VoiceModels.kt` (what the app downloads) and
+`scripts/fetch-voice-assets.sh` (runtime, VAD, and the same models for tests); the model is
+configured in `VoiceEngine.kt`.
 
 ## Downloadable models
 
-Models that are too large for the APK are listed in `VoiceModels.kt` and fetched by the app.
+Speech models are kept out of the APK, which would otherwise be 300 MB and more; they are listed
+in `VoiceModels.kt` and fetched by the app.
 
 | Model | Files | Source | License |
 |---|---|---|---|
+| SenseVoice Small int8 | `model.int8.onnx` (239 MB), `tokens.txt` | [ModelScope `pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue`](https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue) | FunASR Model Open Source License Agreement 1.1 |
 | FireRedASR2 AED int8 | `encoder.int8.onnx` (817 MB), `decoder.int8.onnx` (417 MB), `tokens.txt` | [ModelScope `csukuangfj/FireRedASR2-AED-onnx`](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx), directory `aed/` | Apache-2.0 |
 
-The files are byte-identical to those in sherpa-onnx's GitHub release archive
+The FireRedASR2 files are byte-identical to those in sherpa-onnx's GitHub release archive
 `sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26` (same SHA-256), published file by file by the
-same maintainer. ModelScope was chosen because it is reachable from mainland China without a
+same maintainer. The SenseVoice files are byte-identical to those in the release archive
+`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17`, but the sherpa-onnx maintainer does
+not publish them on ModelScope: the repository used is a third party's copy, the most
+downloaded of several identical ones (2026-10). That is acceptable because the app trusts the
+pinned SHA-256, not the host; if the repository disappears, any other copy with the same
+checksums can take its place by changing `baseUrl`. ModelScope was chosen because it is reachable from mainland China without a
 proxy (GitHub releases and Hugging Face are not, reliably), needs no account, and supports
 resuming (HTTP range requests). FireRedTeam's own ModelScope repository only has the PyTorch
 weights, which sherpa-onnx cannot load.

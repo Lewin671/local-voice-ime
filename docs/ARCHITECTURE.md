@@ -30,14 +30,14 @@ touches the network (the only network code downloads a model from the settings, 
 
 | File | Responsibility |
 |---|---|
-| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from APK assets, confines all native calls to one thread, frees the model after 5 idle minutes. |
+| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded, confines all native calls to one thread, frees the model after 5 idle minutes. |
 | `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
 | `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded, freed after 3 idle minutes. |
-| `VoiceModels` | Catalogue of downloadable models (files pinned by size and SHA-256) and the entry points the rest of the app uses. |
+| `VoiceModels` | Catalogue of the speech models, all of them downloads (files pinned by size and SHA-256), and the entry points the rest of the app uses. |
 | `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
 | `VoiceModelFetch` | Downloads one file, resumable, verified. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
 | `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
@@ -74,7 +74,7 @@ See `docs/MODELS.md` for the numbers.
 
 ### Refinement (optional large model)
 
-As installed, the app is the pipeline above. Once the user has downloaded FireRedASR2 AED
+With the standard model, the app is the pipeline above. Once the user has also downloaded FireRedASR2 AED
 (*Settings → Voice input*) and left refinement switched on, every final goes through a second
 stage:
 
@@ -111,7 +111,7 @@ What keeps it in check, and what to preserve when changing the pipeline:
 
 When Battery Saver is on or the device reports severe thermal throttling (`VoicePower`), previews
 come half as often, the large model is not used and nothing is loaded ahead of time. Accuracy
-of the inserted text is that of the built-in model then.
+of the inserted text is that of the standard model then.
 
 Nothing runs while the keyboard is hidden: there is no service, wake lock, alarm or background
 work, and both model threads sleep until the next request.
@@ -125,11 +125,11 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 
 | Upstream file | Change |
 |---|---|
-| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir, `noCompress onnx`, own `applicationId` |
+| `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir (the VAD model), `noCompress onnx`, own `applicationId` |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download only), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models are excluded from backups |
-| `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt` | entry and route for *Settings → Voice input* |
+| `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input*, and opening it from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
 | `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText` |
@@ -153,11 +153,13 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 ## Assets
 
 Upstream copies everything under `app/src/main/assets/` to the app's data directory on first run
-(tracked by `descriptor.json`). Speech models must not go through that mechanism (they are large
-and are read directly from the APK), so they live in a separate asset source directory, `voice/assets/`,
-and are stored uncompressed.
+(tracked by `descriptor.json`). The voice activity detection model must not go through that
+mechanism (it is read directly from the APK), so it lives in a separate asset source directory,
+`voice/assets/`, and is stored uncompressed. It is the only model in the APK.
 
-Downloaded models live in the app's private storage, `files/voice-models/<model id>/`. A file
+The speech models are downloads: the standard one (SenseVoice Small, 240 MB), without which
+voice input shows how to get it instead of listening (`VoiceInputWindow`), and the optional
+large one. Downloaded models live in the app's private storage, `files/voice-models/<model id>/`. A file
 named `installed` is written last, so a directory that has it holds every file complete and
 verified; anything else in there is an unfinished download (`*.part`) that the next attempt
 continues. The directory is excluded from backups.

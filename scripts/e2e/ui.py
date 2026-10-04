@@ -5,7 +5,7 @@
   ui.py bounds <ui.xml> <name>     print "left top right bottom" of the node
   ui.py text <ui.xml> <name>       print the node's text
   ui.py has-text <ui.xml> <text>   succeed if some node shows exactly <text>
-                                   <name> is a content description or a resource id name
+                                   <name> is a content description, a resource id name or, failing those, the text shown
   ui.py score <expected> <actual>          print the character error rate (0..1), ignoring
                                            punctuation, whitespace and case
 """
@@ -15,9 +15,13 @@ import xml.etree.ElementTree as ET
 
 
 def find(path, name):
-    """Find a node by content description, or by resource id (the part after ':id/')."""
-    for node in ET.parse(path).iter("node"):
+    """Find a node by content description or resource id (the part after ':id/'), else by its text."""
+    nodes = list(ET.parse(path).iter("node"))
+    for node in nodes:
         if node.get("content-desc") == name or node.get("resource-id", "").endswith(":id/" + name):
+            return node
+    for node in nodes:
+        if node.get("text") == name:
             return node
     sys.exit(f"node '{name}' not found")
 

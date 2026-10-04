@@ -32,7 +32,7 @@ from fireredvad.stream_vad import FireRedStreamVad, FireRedStreamVadConfig
 
 SR, MARGIN, MIN_SIL, MIN_SPEECH, MAX_SPEECH = 16000, int(0.3 * 16000), 0.7, 0.25, 20.0
 VOICE = os.path.join(HERE, "../../voice/assets/voice")
-SV = f"{VOICE}/sense-voice"
+SV = os.path.join(HERE, "../../voice/models/sense-voice-small-int8")
 asr = sherpa_onnx.OfflineRecognizer.from_sense_voice(
     model=f"{SV}/model.int8.onnx", tokens=f"{SV}/tokens.txt", num_threads=4, language="auto", use_itn=False)
 

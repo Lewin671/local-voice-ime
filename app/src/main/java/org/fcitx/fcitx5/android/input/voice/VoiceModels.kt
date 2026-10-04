@@ -10,7 +10,7 @@ import java.io.File
 import java.net.URL
 
 /**
- * A speech model that is not part of the APK: the user downloads it from the settings
+ * A speech model. None is part of the APK: the user downloads them from the settings
  * (`VoiceSettingsFragment`). Every file is pinned by size and SHA-256.
  */
 class VoiceModel(
@@ -36,6 +36,29 @@ class VoiceModel(
  * deleting come with it ([VoiceModelStore]), as does the row in the settings.
  */
 object VoiceModels {
+
+    /**
+     * SenseVoice Small, int8: the model that turns speech into text ([VoiceEngine]); without it
+     * there is no voice input. The files are the ones in sherpa-onnx's release archive
+     * `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17` (same SHA-256), as mirrored on
+     * ModelScope.
+     */
+    val SenseVoice = VoiceModel(
+        id = "sense-voice-small-int8",
+        name = "SenseVoice Small",
+        host = "www.modelscope.cn",
+        baseUrl = "/models/pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue/resolve/master/",
+        files = listOf(
+            VoiceModel.File(
+                "model.int8.onnx", 239233841,
+                "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+            ),
+            VoiceModel.File(
+                "tokens.txt", 315894,
+                "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+            )
+        )
+    )
 
     /**
      * FireRedASR2 AED, int8: the large model that re-checks every utterance ([VoiceRefiner]).
@@ -64,7 +87,7 @@ object VoiceModels {
         )
     )
 
-    val all = listOf(FireRedAsr2)
+    val all = listOf(SenseVoice, FireRedAsr2)
 
     enum class Error { Network, Storage, Content }
 

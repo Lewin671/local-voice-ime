@@ -2,15 +2,20 @@
 # Download the speech runtime and models that are too large to keep in git.
 #
 #   voice/libs/sherpa-onnx.aar                 inference runtime (sherpa-onnx + onnxruntime)
-#   voice/assets/voice/sense-voice/            speech recognition model (SenseVoice Small, int8)
 #   voice/assets/voice/silero_vad.onnx         voice activity detection model
-#   voice/test-wavs/                           sample recordings for the end-to-end test
-#   voice/models/fire-red-asr2-aed-int8/       only with --refiner: the large model that
-#                                              re-checks dictated text (FireRedASR2 AED, 1.2 GB)
 #
-# voice/libs and voice/assets are bundled into the APK at build time. The large model is not:
-# users download it in the app's settings (VoiceModels.kt pins the same files). --refiner
-# fetches it for scripts/push-voice-model.sh, which puts it on a test device without a download.
+# with --models (implied by --refiner):
+#   voice/models/sense-voice-small-int8/       speech recognition model (SenseVoice Small, int8, 240 MB)
+#   voice/test-wavs/                           sample recordings for the end-to-end test
+#
+# with --refiner:
+#   voice/models/fire-red-asr2-aed-int8/       the large model that re-checks dictated text
+#                                              (FireRedASR2 AED, 1.2 GB)
+#
+# voice/libs and voice/assets are bundled into the APK at build time, and are all a build needs.
+# The speech models are not bundled: users download them in the app's settings (VoiceModels.kt
+# pins the same files). --models and --refiner fetch them for scripts/push-voice-model.sh, which
+# puts them on a test device without a download, and for the benchmarks in scripts/bench/.
 #
 # Idempotent: files that are already present with the right checksum are kept.
 set -euo pipefail
@@ -50,9 +55,26 @@ fetch "$RELEASES/asr-models/silero_vad_v5.onnx" \
     voice/assets/voice/silero_vad.onnx \
     6b99cbfd39246b6706f98ec13c7c50c6b299181f2474fa05cbc8046acc274396
 
-model_dir=voice/assets/voice/sense-voice
+# ---- the speech models, for tests only
+model_dir=voice/models/sense-voice-small-int8
 wavs_dir=voice/test-wavs
-if [[ -f $model_dir/model.int8.onnx && $(sha256 "$model_dir/model.int8.onnx") == "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51" && -f $model_dir/tokens.txt && -f $wavs_dir/zh.wav && -f $wavs_dir/en.wav ]]; then
+
+# Until 0.4 the recognition model was bundled into the APK from voice/assets; it must not be
+# any more, so move a copy that is still there to where the tests expect it.
+old_model_dir=voice/assets/voice/sense-voice
+if [[ -d $old_model_dir ]]; then
+    mkdir -p "$model_dir"
+    for f in model.int8.onnx tokens.txt; do
+        [[ -f $old_model_dir/$f && ! -f $model_dir/$f ]] && mv "$old_model_dir/$f" "$model_dir/$f"
+    done
+    rm -rf "$old_model_dir"
+    echo "moved    $old_model_dir -> $model_dir"
+fi
+
+[[ ${1:-} == --models || ${1:-} == --refiner ]] || exit 0
+
+# the files and checksums of VoiceModels.SenseVoice, taken from sherpa-onnx's release archive
+if [[ -f $model_dir/model.int8.onnx && $(sha256 "$model_dir/model.int8.onnx") == "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51" && -f $model_dir/tokens.txt && $(sha256 "$model_dir/tokens.txt") == "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc" && -f $wavs_dir/zh.wav && -f $wavs_dir/en.wav ]]; then
     echo "ok       $model_dir"
 else
     tmp=$(mktemp -d)
@@ -68,7 +90,6 @@ else
     echo "ok       $model_dir"
 fi
 
-# ---- the large model, for tests only
 if [[ ${1:-} == --refiner ]]; then
     # the files and checksums of VoiceModels.FireRedAsr2
     REFINER=https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx/resolve/master/aed

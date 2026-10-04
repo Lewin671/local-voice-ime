@@ -8,7 +8,8 @@
 #
 #   scripts/e2e-voice.sh [--no-install] [cases.tsv]
 #
-# Requires a debug APK (scripts/build.sh). Exit code is non-zero if any case fails.
+# Requires a debug APK (scripts/build.sh). The speech model is not downloaded on the device but
+# copied to it (scripts/push-voice-model.sh). Exit code is non-zero if any case fails.
 # The device's previous default keyboard is restored at the end.
 set -euo pipefail
 
@@ -36,6 +37,7 @@ if $install; then
     echo "Installing $apk"
     adb install -r -g "$apk" >/dev/null
 fi
+./scripts/push-voice-model.sh "$pkg"
 
 previous_ime=$(adb shell settings get secure default_input_method | tr -d '\r')
 cleanup() {

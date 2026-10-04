@@ -324,7 +324,9 @@
     <string name="voice_recognizing">辨識中…</string>
     <string name="voice_microphone_off">麥克風已關閉</string>
     <string name="voice_microphone_unavailable">麥克風無法使用</string>
-    <string name="voice_model_missing">此版本未內建語音模型</string>
+    <string name="voice_model_needed_title">需要語音模型</string>
+    <string name="voice_model_needed_body">語音輸入在本機完成。請先在設定中下載語音模型（%s），只需一次。</string>
+    <string name="voice_open_settings">開啟設定</string>
     <string name="voice_slide_up_to_cancel">上滑取消</string>
     <string name="voice_release_to_cancel">放開取消</string>
     <string name="voice_release_to_insert">放開輸入</string>
@@ -351,7 +353,7 @@
     <string name="voice_models">語音模型</string>
     <string name="voice_dictation">聽寫</string>
     <string name="voice_model_standard">標準</string>
-    <string name="voice_model_standard_summary">SenseVoice Small · 已內建\n邊說邊出字，自帶標點和數字格式。</string>
+    <string name="voice_model_standard_summary">語音輸入必需。邊說邊出字，自帶標點和數字格式。</string>
     <string name="voice_model_accurate">高精度</string>
     <string name="voice_model_accurate_summary">每句話上屏後再複核一遍，原地修正聽錯的字詞，錯誤大約減半。語音輸入時約佔用 1.5 GB 記憶體。</string>
     <string name="voice_model_source">%1$s · %2$s · 來自 %3$s</string>
@@ -367,5 +369,7 @@
     <string name="voice_model_download_title">下載 %s？</string>
     <string name="voice_model_download_message">%1$s 將透過 HTTPS 從 %2$s 下載，驗證通過後才會使用。不會上傳任何內容。建議使用 Wi-Fi；離開此頁面後下載會繼續。</string>
     <string name="voice_model_delete_title">刪除高精度模型？</string>
+    <string name="voice_model_standard_delete_title">刪除標準模型？</string>
+    <string name="voice_model_standard_delete_message">可釋放 %s。重新下載之前，語音輸入將無法使用。</string>
     <string name="voice_model_delete_message">可釋放 %s。語音輸入會繼續使用標準模型。</string>
 </resources>

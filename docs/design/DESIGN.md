@@ -58,14 +58,14 @@ also looks right with the other built-in themes, Monet, and user themes.
 
 | Component | Code | States |
 |---|---|---|
-| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field, model missing) |
+| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field) |
 | Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
 | Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs permission, unavailable |
 | Waveform | `WaveformView` | live (follows level; at rest, without animation, while nobody speaks and the room is quiet), idle (dots), cancel (flat, error colour) |
 | Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
-| Voice input settings | `VoiceSettingsFragment` | privacy statement, model list, refinement switch (disabled until the large model is installed) |
+| Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed) |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
 
 Behaviour rules that are easy to get wrong:
@@ -100,6 +100,12 @@ Behaviour rules that are easy to get wrong:
 ```
 
 `ui-shots.sh` drives a debug build on a device or emulator through every state in the mockup, in
+- **No speech model yet** (a fresh install, or the standard model was deleted): the microphone
+  pill, the space bar's glyph and "Hold to talk" are shown as usual, so that voice input can be
+  found. Both gestures open the dictation panel, which shows the "Speech model needed" card
+  instead of listening; its button opens *Settings → Voice input*. The keyboard never starts a
+  download itself. When the panel becomes visible again and the model is installed, it starts
+  listening.
 both themes. Compare each screenshot with its drawing: what is visible, where it sits, which
 element carries the accent, and the wording. Offsets under 2 dp are not defects. Attach the
 screenshots to the pull request.

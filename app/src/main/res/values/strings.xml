@@ -329,7 +329,9 @@
     <string name="voice_recognizing">Recognizing…</string>
     <string name="voice_microphone_off">Microphone off</string>
     <string name="voice_microphone_unavailable">Microphone unavailable</string>
-    <string name="voice_model_missing">No speech model in this build</string>
+    <string name="voice_model_needed_title">Speech model needed</string>
+    <string name="voice_model_needed_body">Voice input runs on this phone. Download its speech model (%s) once in the settings.</string>
+    <string name="voice_open_settings">Open settings</string>
     <string name="voice_slide_up_to_cancel">Slide up to cancel</string>
     <string name="voice_release_to_cancel">Release to cancel</string>
     <string name="voice_release_to_insert">Release to insert</string>
@@ -356,7 +358,7 @@
     <string name="voice_models">Speech models</string>
     <string name="voice_dictation">Dictation</string>
     <string name="voice_model_standard">Standard</string>
-    <string name="voice_model_standard_summary">SenseVoice Small · built in\nText appears while you speak, with punctuation and numbers.</string>
+    <string name="voice_model_standard_summary">Needed for voice input. Text appears while you speak, with punctuation and numbers.</string>
     <string name="voice_model_accurate">High accuracy</string>
     <string name="voice_model_accurate_summary">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</string>
     <string name="voice_model_source">%1$s · %2$s · from %3$s</string>
@@ -372,5 +374,7 @@
     <string name="voice_model_download_title">Download %s?</string>
     <string name="voice_model_download_message">%1$s is fetched from %2$s over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</string>
     <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
+    <string name="voice_model_standard_delete_title">Delete the standard model?</string>
+    <string name="voice_model_standard_delete_message">Frees %s. Voice input stops working until the model is downloaded again.</string>
     <string name="voice_model_delete_message">Frees %s. Dictation keeps working with the standard model.</string>
 </resources>

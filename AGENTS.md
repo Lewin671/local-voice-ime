@@ -12,7 +12,8 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
   Upstream provides the keyboard, pinyin engine (libime), clipboard, themes, settings.
 - This fork adds speech recognition with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx),
   running the SenseVoice Small model on the phone's CPU. A larger model (FireRedASR2) that
-  re-checks dictated text is an optional download inside the app.
+  re-checks dictated text is optional. Neither model is part of the APK: the user downloads
+  them inside the app, the first one before voice input can be used at all.
 
 ## Non-negotiable rules
 
@@ -48,7 +49,7 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 | `app/src/debug/` | Debug-only test hooks (`TestInputActivity`) |
 | `app/src/test/` | JVM unit tests |
 | `lib/`, `plugin/`, `codegen/`, `build-logic/` | Upstream native libraries, plugins and build logic; rarely touched |
-| `voice/` | Git-ignored: `libs/sherpa-onnx.aar`, `assets/voice/**` (bundled models), `models/` (the downloadable model, for tests) |
+| `voice/` | Git-ignored: `libs/sherpa-onnx.aar`, `assets/voice/` (bundled: only the voice activity detection model), `models/` (the speech models the app downloads, for tests and benchmarks) |
 | `scripts/` | Setup, build, checks, end-to-end test, UI screenshots, model benchmark |
 | `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md`, `design/` (design spec and mockup) |
 
@@ -59,14 +60,14 @@ All scripts are idempotent and safe to re-run. They locate the Android SDK via `
 
 ```sh
 git submodule update --init --recursive   # once after cloning
-./scripts/fetch-voice-assets.sh           # once: speech runtime + models (~290 MB)
+./scripts/fetch-voice-assets.sh           # once: speech runtime (~60 MB); --models / --refiner add the speech models for tests
 ./scripts/build.sh                        # debug APK for arm64-v8a -> prints the APK path
 ./scripts/build.sh release                # release APK (see docs/TESTING.md for signing)
 ./scripts/check.sh                        # unit tests + debug build + privacy check (what CI runs)
 ./scripts/e2e-voice.sh                    # install on a device/emulator and dictate test audio
 ./scripts/e2e-scenarios.sh                # behaviour rules: preview, undo, cancel, cursor moves, timeout
-REFINER=1 ./scripts/e2e-scenarios.sh      # the same plus refinement, with the large model pushed to the device
-./scripts/push-voice-model.sh             # put the large model on a device without downloading it there
+REFINER=1 ./scripts/e2e-scenarios.sh      # the same plus refinement, with the large model as well
+./scripts/push-voice-model.sh             # put the speech model(s) on a device without downloading them there (the device scripts do this)
 ./scripts/ui-shots.sh                     # screenshot every UI state, light and dark
 ./scripts/bench/device-bench.sh           # load time, speed and memory of a model on a device
 ```

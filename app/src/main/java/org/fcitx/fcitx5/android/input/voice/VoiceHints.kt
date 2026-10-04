@@ -22,7 +22,6 @@ object VoiceHints {
     }.getOrNull()
 
     fun shouldShowHoldToTalk(context: Context): Boolean {
-        if (!VoiceEngine.isAvailable(context)) return false
         val uses = runCatching { prefs(context)?.getInt(KEY_PUSH_TO_TALK_USES, 0) }.getOrNull()
         return (uses ?: 0) < USES_UNTIL_LEARNED
     }
