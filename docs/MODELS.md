@@ -329,6 +329,8 @@ marks:
 | FireRedASR2 + FireRedPunc, no SenseVoice | 85.7 | 89.9 | 77.5 |
 | FireRedASR2 + CT-Transformer, no SenseVoice | 77.8 | 84.3 | 73.1 |
 | X-ASR offline alone | 86.7 | 79.9 | 81.1 |
+| FireRedASR2 words, X-ASR offline format | 86.3 | 80.1 | 81.5 |
+| X-ASR streaming (480 ms) alone | 59.9 | – | 59.3 |
 | Reference words + FireRedPunc (upper bound) | 88.7 | 90.4 | 81.3 |
 
 - **FireRedPunc is level with SenseVoice**: +1.7 and +0.5 on the Mandarin sets, −1.0 on English.
@@ -339,10 +341,61 @@ marks:
   and casing would still have to come from SenseVoice (capitalised words, F1 on FLEURS en: 14.6
   for FireRedASR2 + FireRedPunc with sentence-initial capitals restored, 78.3 for the merge).
 - CT-Transformer is clearly worse than SenseVoice's own punctuation.
+- X-ASR's offline model as the source of the format is 2–3 points ahead on the long FLEURS
+  sentences and 9 behind on the short Common Voice ones, where it often leaves out the final
+  full stop (final mark right in 73 % of the sentences, SenseVoice 91 %). Dictation is mostly
+  short sentences, and X-ASR has no ITN, so that is not a gain either.
+- The streaming X-ASR model rarely closes a sentence (full stop F1 8 on FLEURS zh, 53 on en): its
+  punctuation cannot be the final text's.
 - Not measured: question marks (none of the 900 references has one) and spontaneous dictation;
   all three sets are read speech.
 
 Decision: keep SenseVoice's punctuation.
+
+## A streaming model for the preview? (2026-10)
+
+The preview is "simulated streaming": SenseVoice re-decodes the utterance so far a few times per
+second (`ARCHITECTURE.md`). Would a real streaming model do that job better? Every streaming
+Mandarin–English model sherpa-onnx offers was run with `scripts/bench/bench_stream.py`, which
+feeds the audio 100 ms at a time. Same 300 utterances per set as above; error rates on the
+utterances where none of the models in the table produced digits (250–291 per set).
+
+| Model | AISHELL-1 | Wenet net | Wenet meeting | ASCEND mixed | LibriSpeech | KeSpeech | Common Voice zh-CN | RTF | Size |
+|---|---|---|---|---|---|---|---|---|---|
+| SenseVoice Small int8, whole utterance (the app) | **2.84** | 9.58 | **9.68** | 14.85 | 3.41 | **12.24** | **13.94** | 0.015 | 155 MB |
+| X-ASR zipformer int8, whole utterance | **2.84** | **7.72** | 9.19 | **11.17** | **2.76** | 16.69 | 12.21 | 0.015 | 130 MB |
+| X-ASR streaming, 960 ms chunks, int8 | 3.64 | 9.34 | 11.17 | 11.85 | 2.91 | 23.21 | 14.48 | 0.06 | 127 MB |
+| X-ASR streaming, 480 ms chunks, int8 | 4.19 | 9.64 | 11.78 | 12.29 | 3.04 | 26.40 | 14.65 | 0.05 | 127 MB |
+| X-ASR streaming, 160 ms chunks, int8 | 4.67 | 10.72 | 13.78 | 15.17 | 3.15 | 29.47 | 16.37 | 0.17 | 127 MB |
+| Streaming paraformer bilingual zh-en | 3.72 | 13.73 | 16.99 | 21.53 | 25.64 | 30.15 | 21.42 | 0.08 | 1 GB archive |
+| Streaming zipformer bilingual zh-en (2023-02-20), int8 | 3.87 | 13.01 | 14.19 | 26.30 | 8.01 | 29.58 | 20.11 | 0.045 | 490 MB archive |
+
+Models: `sherpa-onnx-x-asr-{160,480,960}ms-streaming-zipformer-transducer-zh-en-punct-int8-2026-06-05`,
+`sherpa-onnx-streaming-paraformer-bilingual-zh-en`,
+`sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20` (int8 encoder and joiner, fp32
+decoder: with the int8 decoder its output is garbage). RTF on an Apple M-series laptop, 4 threads,
+including the 100 ms feeding loop; the X-ASR 480 ms and 160 ms runs shared the machine with other
+jobs for part of the time, so only the order of magnitude counts.
+
+- **Only the X-ASR streaming models are usable**; the two older bilingual models are far behind
+  on everything but read Mandarin.
+- **X-ASR streaming is level with SenseVoice on standard Mandarin, English and code-switched
+  speech and about twice as wrong with regional accents** (KeSpeech 23–29 % against 12 %), the
+  weakness its whole-utterance model already has.
+- Shorter chunks cost accuracy and compute: 160 ms chunks are 0.2–3.3 points worse than 960 ms
+  ones on the standard sets and take three times the CPU. With 960 ms chunks text appears about
+  once a second, slower than the current preview (a re-decode every ≥300 ms).
+- The partial result changed 5.4 / 9.5 / 17.7 times per utterance (960 / 480 / 160 ms).
+- A streaming model would be a third recognizer: it does not end sentences (see the punctuation
+  section) and has no ITN, so the final text still needs SenseVoice, and FireRedASR2 for the
+  words when refinement is on.
+- Not measured: how stable the previews are (how often already shown words are rewritten) for
+  either approach, which is the one thing a streaming model might do better; latency and
+  battery on a phone.
+
+Decision: keep the simulated streaming with SenseVoice. If the preview is to become truly
+streaming, X-ASR with 480 ms chunks is the candidate, and preview stability is what to measure
+first.
 
 ## Voice activity detection: Silero, TEN-VAD or FireRedVAD? (2026-10)
 
@@ -457,6 +510,7 @@ model families sherpa-onnx supports and runs all five sets), and record the numb
 
 `scripts/bench/bench_qwen_pt.py` (PyTorch) and `scripts/bench/bench_mlx.py` (MLX, Apple silicon)
 run checkpoints that have no sherpa-onnx export on the same utterances.
+`scripts/bench/bench_stream.py` runs streaming models (`OnlineRecognizer`) on the same utterances.
 `scripts/bench/punct_eval.py` (with `bench_fleurs.py`) and `scripts/bench/vad_eval.py` reproduce
 the punctuation and voice activity detection comparisons; each lists the extra models, data and
 packages it needs at the top of the file.
