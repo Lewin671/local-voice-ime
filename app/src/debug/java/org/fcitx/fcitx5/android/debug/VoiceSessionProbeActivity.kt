@@ -13,6 +13,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.fcitx.fcitx5.android.input.voice.AudioSource
 import org.fcitx.fcitx5.android.input.voice.PartialPacer
+import org.fcitx.fcitx5.android.input.voice.VoiceEngine
 import org.fcitx.fcitx5.android.input.voice.VoiceSession
 import org.fcitx.fcitx5.android.input.voice.WavFileSource
 import org.json.JSONArray
@@ -30,7 +31,7 @@ class VoiceSessionProbeActivity : Activity() {
         super.onCreate(savedInstanceState)
         val display = TextView(this)
         setContentView(display)
-        val result = JSONObject()
+        val result = JSONObject().put("captureStoppedBeforeFinishing", false)
         val finals = JSONArray()
         val stops = JSONArray()
         val captured = MessageDigest.getInstance("SHA-256")
@@ -71,11 +72,15 @@ class VoiceSessionProbeActivity : Activity() {
                             .put("capturedSamples", capturedSamples)
                             .put("capturedSha256", hex(captured.digest()))
                             .put("sourceStopCalls", stopCalls)
-                        File(filesDir, "voice-probe-result.json").writeText(result.toString(2))
+                            .put("standardModelLoadedAtEnd", VoiceEngine.isLoaded)
+                        val temporary = File(filesDir, "voice-probe-result.json.tmp")
+                        temporary.writeText(result.toString(2))
+                        check(temporary.renameTo(File(filesDir, "voice-probe-result.json")))
                         display.text = "DONE"
                     }
                 }
             })
+        if (intent.getBooleanExtra("cancelBeforeStart", false)) session.stop(discard = true)
         session.start()
     }
 

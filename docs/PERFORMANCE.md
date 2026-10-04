@@ -39,6 +39,7 @@ stop call fails. The recognition, VAD, sentence and preview policies are unchang
 
 Both model workers recheck demand when a queued load actually starts. A discarded session can
 skip a queued standard-model load; normal release still requires full final recognition.
+If cancelled before the session coroutine starts, it opens neither capture nor either model.
 Speculative refiner loading is withdrawn once the requesting session stops. Committed text's
 refinement has its own independent required-load path. Active native loads/decodes are never
 interrupted; cancelling the session does not release a model used by another request.
@@ -54,6 +55,36 @@ final transcripts, sentence punctuation, source stop count and whether capture i
 before the finishing phase. This establishes input/output equivalence on the supplied clips,
 not broad spontaneous-speech accuracy or physical microphone/battery behavior. Probe JSON and
 transcripts stay in debug-only test artifacts; the release build contains no probe activity.
+
+The follow-up passed all 83 voice JVM tests, the debug build and privacy check. The four paired
+production-session probes (Chinese, English, repeated long Chinese and concatenated mixed
+speech) matched captured sample counts/hashes, final audio counts/hashes, final text,
+continuation flags and sentence stops exactly. All four changed capture release before
+`Finishing` from false to true, with exactly one source stop in both builds. The complete
+standard-model interaction suite passed, including the emulator AudioRecord silence timeout.
+These remain public smoke recordings, not independent speakers or physical-phone validation.
+
+### Bounded-spinning experiment (not adopted)
+
+The bundled arm64 ONNX library contains the bounded-spinning/backoff configuration keys.
+`CPU_CONFIG` in `scripts/bench/device-bench.sh` tested 100, 500 and 1000 microsecond spin caps
+with backoff 8, using the same four derived recordings and four SenseVoice inference threads.
+Default spinning was repeated after the three candidates. Warm second-run totals:
+
+| Policy | Process CPU ms | Decode elapsed ms |
+|---|---:|---:|
+| Default, first | 2,326 | 632 |
+| 100 us cap, backoff 8 | 2,257 | 621 |
+| 500 us cap, backoff 8 | 2,338 | 653 |
+| 1000 us cap, backoff 8 | 2,358 | 646 |
+| Default, repeat | 2,390 | 652 |
+
+Raw texts were identical across all five runs. The 100-us candidate's 3.0% CPU reduction
+against the first baseline is close to the default's 2.8% repeat drift; the other caps provided
+no improvement against the first baseline. This small experiment does not establish stable
+whole-pipeline energy or latency gains. Production SenseVoice scheduling therefore remains
+unchanged. Artifacts: `build/device-bench/demand-spin-*.json`. The benchmark loads complete
+unsegmented clips and is not a substitute for the production-session accuracy comparison.
 
 | Area | Evidence in the current pipeline | Change / decision |
 |---|---|---|

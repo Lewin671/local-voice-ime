@@ -175,6 +175,8 @@ force-stops the debug app between clips. For paired builds compare `finals`, `se
 Do not interpret this WAV-source lifecycle check as physical AudioRecord or energy validation.
 Run `python3 scripts/bench/compare-session-probes.py <baseline-directory> <optimized-directory>`
 to enforce this comparison without a CER tolerance.
+`CANCEL_BEFORE_START=1` with the probe verifies the cold cancelled-session wiring: no samples,
+no final text, one source stop, and no standard model loaded by the native worker.
 
 `VoiceCaptureTest` covers lossless queued audio, the final partial read when stopping, empty
 reads, cancellation/errors, EOF-before-release ordering and one-time cleanup. `VoiceModelLoadTest`

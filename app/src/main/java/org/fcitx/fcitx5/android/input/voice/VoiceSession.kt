@@ -148,6 +148,8 @@ class VoiceSession(
         withContext(Dispatchers.Main.immediate) { listener.block() }
 
     private suspend fun run() = coroutineScope {
+        // A gesture can be cancelled before this coroutine gets its first worker time.
+        if (discard) return@coroutineScope
         // Start capturing right away: loading the model can take seconds after a cold start,
         // and whatever is said meanwhile is queued in `chunks` instead of being lost.
         capture.start()
