@@ -89,7 +89,7 @@ factor of every decode (debug builds).
 
 ```sh
 ./scripts/build.sh                        # debug APK
-REFINER=1 ./scripts/e2e-scenarios.sh      # installs the model, adds the refinement scenarios
+REFINER=1 ./scripts/e2e-scenarios.sh      # also checks refinement in Battery Saver
 ```
 
 No device script downloads a model on the device: they run `scripts/push-voice-model.sh`, which
@@ -136,3 +136,26 @@ Fails if the app could use the network for anything but downloading a speech mod
 network-capable permission other than `INTERNET`, cleartext traffic allowed, network code in a
 source file other than `VoiceModelFetch.kt`, or a dependency that goes online. Run it for every
 APK you hand to someone.
+
+## Native thread-pool experiment
+
+`CPU_SPIN=0 WAVS=<16-kHz-WAV-directory> scripts/bench/device-bench.sh <key> <model-dir> <kind>`
+compares CPU worker sleeping against the default spinning policy. Use `CPU_SPIN=1` for the
+explicit baseline. Requires the newest debug APK installed; `VoiceBenchActivity` reports both
+wall time and process CPU time for each of its two decodes. The configuration is private to
+the benchmark and does not change normal dictation. Compare raw transcripts before interpreting
+performance. Repeating and alternating order reduces initialization and ordering bias.
+
+## Performance and energy regression
+
+`./scripts/bench/audio-buffer.sh` runs the old storage implementation and production buffer
+against the same 10 minutes of synthetic audio, verifies matching window checksums, and reports
+JVM allocations and median elapsed time. It also simulates preview pacing on a 20-second
+utterance. Requires `kotlinc` and a JDK; no Android device or model is needed.
+
+The high-accuracy scenario suite unplugs the simulated battery, enables Battery Saver, checks
+that refinement still decodes and preserves the transcript, then restores the original power
+mode and resets the simulated battery override. Use a dedicated test device: this suite resets the debug app.
+
+These measurements do not measure battery consumption. See [PERFORMANCE.md](PERFORMANCE.md)
+for interpretation, remaining bottlenecks, and the real-phone measurement procedure.

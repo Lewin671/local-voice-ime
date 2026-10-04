@@ -8,6 +8,14 @@ drawing cannot say: how the design maps onto the code, and the rules for changin
 implement, then verify with `scripts/ui-shots.sh` (see [Accepting an implementation](#accepting-an-implementation)).
 A UI change without a matching design change is a bug in one of the two.
 
+## Accuracy and energy
+
+Battery Saver and thermal throttling reduce preview frequency and disable speculative model
+loading. Normal previews retain their 300 ms minimum during the first three seconds, then
+progressively slow to a 900 ms minimum at nine seconds; Battery Saver doubles those intervals.
+This changes preview latency, not final recognition. They do not disable the high-accuracy model when its refinement switch is enabled.
+The settings summary states this explicitly; final recognition keeps the same models and audio.
+
 ## Principles
 
 1. **Text goes where text lives.** Live dictation is written into the text field as composing

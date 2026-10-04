@@ -40,7 +40,14 @@ punctuation='。．.，,、；;：:？?！!…'
 
 adb get-state >/dev/null || exit 1
 previous_ime=$(adb shell settings get secure default_input_method | tr -d '\r')
+previous_saving=$(adb shell settings get global low_power | tr -d '\r')
+[[ $previous_saving == 1 ]] || previous_saving=0
+battery_changed=false
 cleanup() {
+    if $battery_changed; then
+        adb shell cmd power set-mode "${previous_saving:-0}" >/dev/null 2>&1
+        adb shell cmd battery reset >/dev/null 2>&1
+    fi
     adb shell rm -f "$remote_wav" >/dev/null 2>&1
     adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1
     if [[ -n $previous_ime && $previous_ime != null && $previous_ime != "$ime" ]]; then
@@ -211,6 +218,30 @@ if $hq; then
     text=$(field)
     expect "a second utterance is refined without disturbing the first" \
         '[[ $text == "$refined$refined" ]]' "field: '$text'"
+
+    # Energy saving may reduce previews, but must keep the selected final recognition models.
+    battery_changed=true
+    adb shell cmd battery unplug
+    adb shell cmd power set-mode 1
+    saving=$(adb shell settings get global low_power | tr -d '\r')
+    expect "Battery Saver is enabled for the accuracy regression" \
+        '[[ $saving == 1 ]]' "low_power: '$saving'"
+    open_keyboard
+    adb logcat -c
+    adb shell input motionevent DOWN "$sx" "$sy"; sleep 8
+    adb shell input motionevent UP "$sx" "$sy"
+    if wait_log "Voice refine:" 45; then
+        pass "Battery Saver still runs high-accuracy refinement"
+    else
+        fail "Battery Saver still runs high-accuracy refinement" "no refinement decode logged"
+    fi
+    settle
+    text=$(field)
+    expect "Battery Saver preserves the refined transcript and formatting" \
+        '[[ $text == "$refined" ]]' "field: '$text'"
+    adb shell cmd power set-mode "${previous_saving:-0}"
+    adb shell cmd battery reset
+    battery_changed=false
 
     use_long_wav
     open_keyboard

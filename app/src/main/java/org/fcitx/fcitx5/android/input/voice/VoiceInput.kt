@@ -164,7 +164,8 @@ object VoiceInput {
         lastFinal = ""
         typedAhead.clear()
         val saving = VoicePower.isSaving(service)
-        val refine = VoiceRefiner.isActive(service) && !saving
+        // Energy policy changes previews, never the selected final recognition pipeline.
+        val refine = VoiceRefiner.isActive(service)
         // The large model is loaded when the first words are heard rather than when the session
         // starts: a session in which nothing is said (the space bar held by accident) must not
         // cost reading more than a gigabyte.

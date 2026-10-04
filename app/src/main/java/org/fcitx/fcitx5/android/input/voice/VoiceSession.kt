@@ -144,24 +144,35 @@ class VoiceSession(
         val cold = !VoiceEngine.isLoaded
         emit { onState(if (cold) State.Preparing else State.Listening) }
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        // Only visual feedback may be conflated. Audio remains lossless even if the main
+        // thread stalls; the microphone reader must never wait for a waveform redraw.
+        val levels = Channel<Float>(Channel.CONFLATED)
+        val levelReporter = launch {
+            for (level in levels) emit { onLevel(level) }
+        }
         // reader: never waits for decoding, so no audio is dropped on slow devices
         val reader = launch(Dispatchers.IO) {
             val chunkSize = VoiceEngine.SAMPLE_RATE / 10
             var lastLevel = 0f
-            while (isActive && !stopRequested) {
-                val buf = FloatArray(chunkSize)
-                val n = source.read(buf)
-                if (n < 0) break
-                if (n == 0) continue
-                val chunk = if (n == buf.size) buf else buf.copyOf(n)
-                chunks.send(chunk)
-                // reported from here, so that the level is live even while the model loads
-                val level = levelOf(chunk).let { if (it < QUIET_LEVEL && !speaking) 0f else it }
-                // nothing to report while it stays silent: the UI has nothing to redraw then
-                if (level > 0f || lastLevel > 0f) emit { onLevel(level) }
-                lastLevel = level
+            try {
+                while (isActive && !stopRequested) {
+                    val buf = FloatArray(chunkSize)
+                    val n = source.read(buf)
+                    if (n < 0) break
+                    if (n == 0) continue
+                    val chunk = if (n == buf.size) buf else buf.copyOf(n)
+                    chunks.send(chunk)
+                    // reported from here, so that the level is live even while the model loads
+                    val level = levelOf(chunk).let { if (it < QUIET_LEVEL && !speaking) 0f else it }
+                    // nothing to report while it stays silent: the UI has nothing to redraw then
+                    if (level > 0f || lastLevel > 0f) levels.trySend(level)
+                    lastLevel = level
+                }
+            } finally {
+                stopRequested = true
+                chunks.close()
+                levels.close()
             }
-            chunks.close()
         }
 
         val vad = try {
@@ -177,6 +188,7 @@ class VoiceSession(
         try {
             consume(chunks, vad)
             reader.join()
+            levelReporter.join()
             emit { onState(State.Finishing) }
             vad.flush()
             drain(vad)
@@ -189,7 +201,8 @@ class VoiceSession(
     // Audio that has not been finalized yet: the utterance in progress, or a short lead-in while
     // waiting for speech. `bufferStart` is the position of buffer[0] in the whole recording, which
     // is the coordinate system of the segments reported by the VAD.
-    private val buffer = FloatBuffer()
+    private val buffer = VoiceAudioBuffer()
+    private val vadWindow = FloatArray(VoiceEngine.VAD_WINDOW)
     private var bufferStart = 0L
     private var fed = 0
 
@@ -274,7 +287,9 @@ class VoiceSession(
             if (!speaking && sentence.isOver(bufferStart + fed)) endSentence()
 
             while (fed + window <= buffer.size) {
-                vad.acceptWaveform(buffer.copyOfRange(fed, fed + window))
+                // sherpa-onnx 1.13.8 copies the input before acceptWaveform returns.
+                buffer.copyInto(vadWindow, fed)
+                vad.acceptWaveform(vadWindow)
                 fed += window
                 if (!speaking && vad.isSpeechDetected()) {
                     speaking = true
@@ -295,7 +310,8 @@ class VoiceSession(
             }
             lastSpeechAt = now
             pacer.heard(dbOf(sumSquares, count))
-            if (pacer.isDue(now)) {
+            if (pacer.isDue(now, stopping = stopRequested,
+                    audioDurationMs = buffer.size * 1000L / VoiceEngine.SAMPLE_RATE)) {
                 val text = VoiceEngine.transcribe(buffer.toArray())
                 val changed = text != lastPartial
                 pacer.decoded(now, SystemClock.elapsedRealtime(), changed)
@@ -336,33 +352,5 @@ class VoiceSession(
 
         const val FORCED_SPLIT_SAMPLES =
             ((VoiceEngine.MAX_SPEECH_SECONDS - 1f) * VoiceEngine.SAMPLE_RATE).toInt()
-    }
-
-    /** Minimal growable float array. */
-    private class FloatBuffer {
-        private var data = FloatArray(VoiceEngine.SAMPLE_RATE * 4)
-        var size = 0
-            private set
-
-        fun append(src: FloatArray) {
-            if (size + src.size > data.size) {
-                data = data.copyOf(maxOf(data.size * 2, size + src.size))
-            }
-            src.copyInto(data, size)
-            size += src.size
-        }
-
-        fun copyOfRange(from: Int, to: Int) = data.copyOfRange(from, to)
-
-        fun toArray() = data.copyOf(size)
-
-        fun dropFirst(n: Int) {
-            data.copyInto(data, 0, n, size)
-            size -= n
-        }
-
-        fun clear() {
-            size = 0
-        }
     }
 }

@@ -299,7 +299,7 @@ const settings = (row, on, extra = '', standard = acts('Installed', '<div class=
   ${standardRow(standard)}
   ${modelRow(row)}
   <div class="group">Dictation</div>
-  <div class="item lead ${on ? '' : 'off'}" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Paused while Battery Saver is on or the device is hot.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
+  <div class="item lead ${on ? '' : 'off'}" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
   ${extra}</div>`;
 const acts = (status, ...btns) => `<div class="actions"><span${status.err ? ' class="err"' : ''}>${status.t || status}</span>${btns.join('')}</div>`;
 const T = [

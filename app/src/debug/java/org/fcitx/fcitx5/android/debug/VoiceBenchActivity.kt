@@ -7,6 +7,7 @@ package org.fcitx.fcitx5.android.debug
 import android.app.Activity
 import android.os.Bundle
 import android.os.Debug
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
@@ -36,7 +37,8 @@ import kotlin.concurrent.thread
  *
  * Extras: `dir` (model directory), `kind` (sensevoice | transducer | funasr_nano | firered_aed |
  * qwen3), `wavs` (directory with 16 kHz mono WAV files), `threads`, `out` (result file),
- * optional `punct` (CT-Transformer punctuation model file, applied to the transcripts).
+ * optional `punct` (CT-Transformer punctuation model file, applied to the transcripts),
+ * `provider` (default cpu; accepts a sherpa-onnx provider configuration file).
  */
 class VoiceBenchActivity : Activity() {
 
@@ -58,8 +60,9 @@ class VoiceBenchActivity : Activity() {
         val out = File(intent.getStringExtra("out")!!)
         val threads = intent.getIntExtra("threads", 4)
         val punct = intent.getStringExtra("punct")
+        val provider = intent.getStringExtra("provider") ?: "cpu"
         thread(name = "voice-bench") {
-            val result = runCatching { run(dir, kind, wavs, threads, punct) }
+            val result = runCatching { run(dir, kind, wavs, threads, punct, provider) }
                 .getOrElse { e ->
                     say("FAILED: $e")
                     JSONObject().put("error", e.toString())
@@ -75,7 +78,8 @@ class VoiceBenchActivity : Activity() {
         return info.totalPss / 1024
     }
 
-    private fun config(dir: File, kind: String, threads: Int): OfflineRecognizerConfig {
+    private fun config(dir: File, kind: String, threads: Int,
+                       provider: String): OfflineRecognizerConfig {
         val files = dir.listFiles().orEmpty()
         // prefer quantized files, as shipped in the *-int8 archives
         fun onnx(prefix: String): String =
@@ -121,6 +125,7 @@ class VoiceBenchActivity : Activity() {
         }
         model.tokens = tokens
         model.numThreads = threads
+        model.provider = provider
         return OfflineRecognizerConfig(modelConfig = model)
     }
 
@@ -142,15 +147,17 @@ class VoiceBenchActivity : Activity() {
         error("not a PCM WAV file: $file")
     }
 
-    private fun run(dir: File, kind: String, wavs: File, threads: Int, punct: String?): JSONObject {
+    private fun run(dir: File, kind: String, wavs: File, threads: Int, punct: String?,
+                    provider: String): JSONObject {
         val result = JSONObject()
         result.put("model", dir.name).put("kind", kind).put("threads", threads)
+        result.put("provider", provider)
         result.put("cores", Runtime.getRuntime().availableProcessors())
         result.put("device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
         val before = pssMb()
 
         var t = SystemClock.elapsedRealtime()
-        val recognizer = OfflineRecognizer(null, config(dir, kind, threads))
+        val recognizer = OfflineRecognizer(null, config(dir, kind, threads, provider))
         val loadMs = SystemClock.elapsedRealtime() - t
         result.put("loadMs", loadMs).put("pssBeforeMb", before).put("pssLoadedMb", pssMb())
         say("loaded in $loadMs ms, PSS ${before} -> ${pssMb()} MB")
@@ -169,19 +176,23 @@ class VoiceBenchActivity : Activity() {
             val audioMs = samples.size / 16L
             // twice: the first run of a model pays for one-time initialisation
             val times = LongArray(2)
+            val cpuTimes = LongArray(2)
             var text = ""
             for (i in 0..1) {
                 t = SystemClock.elapsedRealtime()
+                val cpuStart = Process.getElapsedCpuTime()
                 val stream = recognizer.createStream()
                 stream.acceptWaveform(samples, 16000)
                 recognizer.decode(stream)
                 text = recognizer.getResult(stream).text
                 stream.release()
                 times[i] = SystemClock.elapsedRealtime() - t
+                cpuTimes[i] = Process.getElapsedCpuTime() - cpuStart
                 peak = maxOf(peak, pssMb())
             }
             val run = JSONObject().put("wav", wav.name).put("audioMs", audioMs)
                 .put("firstMs", times[0]).put("secondMs", times[1])
+                .put("firstCpuMs", cpuTimes[0]).put("secondCpuMs", cpuTimes[1])
                 .put("rtf", times[1].toDouble() / audioMs).put("text", text)
             if (punctuation != null) {
                 t = SystemClock.elapsedRealtime()

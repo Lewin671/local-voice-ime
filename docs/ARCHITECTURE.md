@@ -43,7 +43,9 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
 | `VoiceSentence` | Keeps a sentence together across a pause: holds back the full stop of an utterance and, when speech resumes within a few seconds, has both transcribed as one. Pure Kotlin, unit-tested. |
+| `VoiceAudioBuffer` | Session-owned audio storage. Dropping prefixes advances an index; VAD windows reuse one array. Recognition snapshots remain independent copies. Pure Kotlin, unit-tested. |
 | `VoicePacing` | `PartialPacer`: when the utterance in progress is decoded again for a preview. Pure Kotlin, unit-tested. |
+| `VoiceRuntimeOptions` | Fixed ONNX worker-waiting options for background refinement, published atomically in private storage. Fallback to default CPU scheduling preserves recognition when storage is unavailable. Pure Kotlin, unit-tested. |
 | `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
@@ -60,14 +62,16 @@ times per second. `VoiceSession` therefore:
 2. while the model is still loading (cold start), keeps recording and reports `Preparing`;
    everything said meanwhile is queued and transcribed as soon as the model is ready;
 3. once speech starts, re-decodes the utterance so far every ≥300 ms (less often when decoding is
-   slow or the text did not change, see `PartialPacer`) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
+   slow, the text did not change, or the audio exceeds three seconds, see `PartialPacer`) and reports it as a **partial**, which `VoiceInput` shows in the editor as composing
    (underlined) text;
 4. when the VAD sees enough trailing silence (0.7 s hands-free, 1.2 s push-to-talk) or the
    utterance reaches 20 s, decodes the segment once more and reports a **final**, which
    `VoiceInput` commits to the editor in place of the preview;
 5. on stop, flushes the VAD so that speech in progress is not lost.
 
-The reader coroutine never waits for decoding, so audio is not dropped on slow devices.
+The reader coroutine never waits for decoding or waveform callbacks. Audio is queued losslessly;
+only level notifications use a conflated channel. A stopped or exhausted source suppresses pending
+previews, but its queued audio still goes through the VAD and full final recognition.
 
 Why not a true streaming model: the non-streaming model is markedly more accurate, already
 includes punctuation and inverse text normalization, and only one model has to be kept in memory.
@@ -104,18 +108,22 @@ What keeps it in check, and what to preserve when changing the pipeline:
 
 | Cost | Measure | Where |
 |---|---|---|
-| Previews: each one decodes the whole utterance so far | at most a third of the time is spent decoding, however long the utterance; half as often during a pause (unchanged text) | `PartialPacer` |
+| Previews: each one decodes the whole utterance so far | preview decode is followed by at least twice its cost in idle time; after 3 s of audio the minimum interval grows from 300 ms to 900 ms by 9 s; unchanged text waits twice as long; no previews once capture ends | `PartialPacer` |
 | Large model (if installed): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
+| Native background worker spinning | FireRedASR2 workers sleep instead of spinning when waiting for work; 4 threads and model math stay unchanged; corrected text takes longer to arrive | `VoiceRuntimeOptions`, `VoiceRefiner` |
 | Open microphone and VAD | hands-free listening turns itself off after 10 s without speech; the session stops when the keyboard is hidden | `VoiceSession`, `VoiceInput.stopCurrent` |
 | Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off, or while nobody speaks and the room is quiet | `WaveformView` |
 | Loading the model ahead of time | only within 30 minutes after dictation was used | `VoiceInput.warmUp` |
 
 When Battery Saver is on or the device reports severe thermal throttling (`VoicePower`), previews
-come half as often, the large model is not used and nothing is loaded ahead of time. Accuracy
-of the inserted text is that of the standard model then.
+use twice the normal minimum intervals, and nothing is loaded ahead of time. The selected final
+recognition models, including high-accuracy refinement, remain enabled. This preserves accuracy
+but costs more than the previous policy that skipped refinement entirely.
 
-Nothing runs while the keyboard is hidden: there is no service, wake lock, alarm or background
-work, and both model threads sleep until the next request.
+There is no separate service, wake lock or alarm. After the keyboard is hidden, pending final
+recognition and refinement can finish; both model threads then sleep until the next request or
+their idle release. Cancelled release timers are removed immediately rather than retained until
+their original deadline.
 
 `scripts/e2e-voice.sh` prints the CPU time the keyboard process used for the run; compare it
 before and after a change to the pipeline (`docs/TESTING.md`).
@@ -127,6 +135,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | Upstream file | Change |
 |---|---|
 | `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir (the VAD model), `noCompress onnx`, own `applicationId` |
+| `build-logic/convention/src/main/kotlin/Versions.kt` | release version codes are incremented so signed APKs upgrade previous versions |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download only), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models are excluded from backups |
@@ -180,3 +189,5 @@ continues. The directory is excluded from backups.
 - Audio is held in memory only for the utterance in progress and is never written to disk.
 - Dictated text is committed to the focused editor and is not logged or stored by the voice code.
 - The microphone button and push-to-talk are disabled on password fields.
+
+Performance findings and measurement limits: [PERFORMANCE.md](PERFORMANCE.md).

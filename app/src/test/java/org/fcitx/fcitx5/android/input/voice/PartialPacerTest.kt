@@ -11,6 +11,73 @@ import org.junit.Test
 
 class PartialPacerTest {
 
+    @Test
+    fun stoppingSkipsEvenAnOverduePreviewWithoutChangingNormalPacing() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-20f)
+        assertTrue(pacer.isDue(5000))
+        assertFalse(pacer.isDue(5000, stopping = true))
+        assertTrue(pacer.isDue(5000))
+    }
+
+    @Test
+    fun longAudioSpacesPreviewsOutWithoutChangingTheFirstPreview() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-20f)
+        assertTrue(pacer.isDue(300, audioDurationMs = 3000))
+        pacer.decoded(300, 300, changed = true)
+        pacer.heard(-20f)
+        assertFalse(pacer.isDue(899, audioDurationMs = 6000))
+        assertTrue(pacer.isDue(900, audioDurationMs = 6000))
+        pacer.decoded(900, 900, changed = true)
+        pacer.heard(-20f)
+        assertFalse(pacer.isDue(1799, audioDurationMs = 20_000))
+        assertTrue(pacer.isDue(1800, audioDurationMs = 20_000))
+    }
+
+    @Test
+    fun audioLengthPacingKeepsTheComputeBudgetAndDoublesIntervalsInBatterySaver() {
+        val normal = PartialPacer()
+        val saving = PartialPacer(PartialPacer.SAVING_INTERVAL_MS)
+        for (pacer in listOf(normal, saving)) {
+            pacer.speechStarted(0)
+            pacer.heard(-20f)
+        }
+        assertTrue(normal.isDue(900, audioDurationMs = 20_000))
+        assertFalse(saving.isDue(1799, audioDurationMs = 20_000))
+        assertTrue(saving.isDue(1800, audioDurationMs = 20_000))
+        normal.decoded(900, 1900, changed = true)
+        normal.heard(-20f)
+        assertFalse(normal.isDue(3899, audioDurationMs = 20_000))
+        assertTrue(normal.isDue(3900, audioDurationMs = 20_000))
+    }
+
+    @Test
+    fun longUtterancesSpendLessWorkOnPrefixesWithTheSameAudioAndModel() {
+        fun prefixWork(adaptive: Boolean, costOf: (Long) -> Long): Long {
+            val pacer = PartialPacer()
+            pacer.speechStarted(0)
+            var now = 0L
+            var work = 0L
+            while (now <= 20_000) {
+                pacer.heard(-20f)
+                if (pacer.isDue(now, audioDurationMs = if (adaptive) now else 0)) {
+                    work += now
+                    val cost = costOf(now)
+                    pacer.decoded(now, now + cost, changed = true)
+                    now += cost
+                }
+                now += 100
+            }
+            return work
+        }
+        assertTrue(prefixWork(true) { 0 } < prefixWork(false) { 0 } / 2)
+        // On slow hardware the existing decode-cost limit already dominates: no extra work.
+        assertTrue(prefixWork(true) { it / 10 } <= prefixWork(false) { it / 10 })
+    }
+
     /**
      * Speech that lasts [durationMs], checked for a preview every 100 ms (the size of an audio
      * chunk); each decode takes [costOf] the time since speech started and reports new text

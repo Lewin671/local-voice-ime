@@ -7,6 +7,7 @@
 #   <kind>   sensevoice | transducer | funasr_nano | firered_aed | qwen3
 #   WAVS     directory with 16 kHz mono WAV files (default: voice/test-wavs)
 #   THREADS  inference threads (default: 4)
+#   CPU_SPIN  optional 0 or 1: configure ONNX worker spinning for CPU A/B tests
 #
 # The model is copied into the app's private storage, benchmarked by VoiceBenchActivity, and
 # removed again. The result is printed and saved as build/device-bench/<key>.json.
@@ -18,6 +19,8 @@ source scripts/env.sh
 key=$1; model=$2; kind=$3; punct=${4:-}
 wavs=${WAVS:-voice/test-wavs}
 threads=${THREADS:-4}
+spin=${CPU_SPIN:-}
+[[ -z $spin || $spin == 0 || $spin == 1 ]] || { echo "CPU_SPIN must be 0 or 1" >&2; exit 1; }
 
 apk=$(ls -t app/build/outputs/apk/debug/*-debug.apk 2>/dev/null | head -1 || true)
 [[ -f $apk ]] || { echo "No debug APK; run scripts/build.sh first" >&2; exit 1; }
@@ -45,6 +48,11 @@ as_app rm -rf files/bench
 as_app mkdir -p files/bench
 as_app cp -r "$stage/." files/bench/
 adb shell rm -rf "$stage"
+
+if [[ -n $spin ]]; then
+    adb shell "printf 'SessionConfig.session.intra_op.allow_spinning=$spin\\nSessionConfig.session.inter_op.allow_spinning=$spin\\n' | run-as $pkg sh -c 'cat > $remote/cpu.config'"
+    extra+=(--es provider "cpu:$remote/cpu.config")
+fi
 
 adb shell am force-stop "$pkg"      # start from a clean process: memory numbers are comparable
 adb shell am start -W -n "$pkg/org.fcitx.fcitx5.android.debug.VoiceBenchActivity" \

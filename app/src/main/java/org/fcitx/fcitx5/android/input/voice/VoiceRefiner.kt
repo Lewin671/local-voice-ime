@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import timber.log.Timber
 import java.io.File
-import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
@@ -35,9 +35,9 @@ object VoiceRefiner {
     /** About 1.4 GB: freed again soon after the last use. */
     private const val IDLE_RELEASE_MINUTES = 3L
 
-    private val executor = Executors.newSingleThreadScheduledExecutor { r ->
+    private val executor = ScheduledThreadPoolExecutor(1) { r ->
         Thread(r, "voice-refiner").apply { isDaemon = true }
-    }
+    }.apply { removeOnCancelPolicy = true }
 
     private val dispatcher = executor.asCoroutineDispatcher()
 
@@ -78,7 +78,8 @@ object VoiceRefiner {
                 ),
                 tokens = File(dir, "tokens.txt").path,
                 numThreads = 4,
-                provider = "cpu"
+                // Background refinement trades a little latency for less CPU spinning.
+                provider = VoiceRuntimeOptions.sleepingCpuProvider(context.noBackupFilesDir)
             )
         )
         recognizer = OfflineRecognizer(null, config)

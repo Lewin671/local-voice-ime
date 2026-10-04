@@ -353,7 +353,7 @@
     <string name="punctuation_pos_numbers_top_right">Top Right (numbers only)</string>
     <string name="voice_refining">Refining…</string>
     <string name="voice_refine">High-accuracy refinement</string>
-    <string name="voice_refine_summary">Re-check dictated text with the high-accuracy model and correct it in place. Paused while Battery Saver is on or the device is hot.</string>
+    <string name="voice_refine_summary">Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</string>
     <string name="voice_privacy_title">Recognition runs on this phone</string>
     <string name="voice_privacy_summary">Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</string>
     <string name="voice_models">Speech models</string>

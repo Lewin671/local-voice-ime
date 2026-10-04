@@ -524,3 +524,13 @@ run checkpoints that have no sherpa-onnx export on the same utterances.
 `scripts/bench/punct_eval.py` (with `bench_fleurs.py`) and `scripts/bench/vad_eval.py` reproduce
 the punctuation and voice activity detection comparisons; each lists the extra models, data and
 packages it needs at the top of the file.
+
+## Refinement CPU scheduling (2026-10-03)
+
+The model weights, decoding parameters, 4 threads and CPU provider are unchanged. ONNX
+worker spinning is disabled for FireRedASR2 background refinement through the pinned runtime
+provider configuration file. A paired arm64-emulator experiment on four derived recordings
+returned identical raw text, used 35.3% less warm-decode process CPU time, and took 27.7% longer.
+SenseVoice keeps spinning enabled for preview responsiveness. This is a scheduling / latency
+tradeoff, not a new accuracy benchmark or a measured phone-battery gain. Full results and
+reproduction steps: [PERFORMANCE.md](PERFORMANCE.md#native-worker-spinning-ab-experiment).

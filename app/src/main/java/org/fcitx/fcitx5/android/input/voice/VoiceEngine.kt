@@ -17,7 +17,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
-import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
@@ -49,9 +49,9 @@ object VoiceEngine {
     /** The recognizer is freed after being unused for this long. */
     private const val IDLE_RELEASE_MINUTES = 5L
 
-    private val executor = Executors.newSingleThreadScheduledExecutor { r ->
+    private val executor = ScheduledThreadPoolExecutor(1) { r ->
         Thread(r, "voice-engine").apply { isDaemon = true }
-    }
+    }.apply { removeOnCancelPolicy = true }
 
     private val dispatcher = executor.asCoroutineDispatcher()
 

@@ -106,6 +106,7 @@ for signing.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workflow and rules for changes
 - [docs/design/](docs/design/DESIGN.md) — design spec and mockup of the keyboard and dictation UI
 - [docs/TESTING.md](docs/TESTING.md) — unit tests, automated end-to-end test, release builds
+- [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — performance bottlenecks, energy optimizations, measurement limits
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
 - [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original fcitx5-android README

@@ -11,9 +11,11 @@ package org.fcitx.fcitx5.android.input.voice
  * its energy on. They are therefore spaced out
  *
  * - by at least [minIntervalMs];
+ * - progressively farther apart after three seconds of audio, up to three times that interval:
+ *   re-decoding a long prefix is expensive even on a device that decodes it quickly;
  * - by [COST_FACTOR] times what the last decode took, which keeps the recognizer busy for at
  *   most a third of the time however long the utterance gets or however slow the device is;
- * - by twice the minimum after a decode that changed nothing: the speaker is pausing, and
+ * - by twice the current interval after a decode that changed nothing: the speaker is pausing, and
  *   decoding the same words again only produces heat;
  * - until something was said since the last one: what [heard] reports as far quieter than the
  *   utterance itself is a pause, and brings no new words. As loudness can mislead (a bang makes
@@ -46,9 +48,13 @@ class PartialPacer(private val minIntervalMs: Long = INTERVAL_MS) {
         if (db >= peakDb - QUIET_BELOW_PEAK_DB) spoken = true
     }
 
-    fun isDue(now: Long): Boolean {
+    /** Once capture is stopping, only the full final decode is useful. */
+    fun isDue(now: Long, stopping: Boolean = false, audioDurationMs: Long = 0): Boolean {
+        if (stopping) return false
         if (!spoken && now - lastEnd < QUIET_MAX_WAIT_MS) return false
-        val pause = if (unchanged) minIntervalMs * 2 else minIntervalMs
+        val interval = maxOf(minIntervalMs, minOf(minIntervalMs * MAX_INTERVAL_FACTOR,
+            audioDurationMs * minIntervalMs / FULL_RATE_AUDIO_MS))
+        val pause = if (unchanged) interval * 2 else interval
         return now - lastEnd >= maxOf(pause, lastCost * COST_FACTOR)
     }
 
@@ -61,13 +67,16 @@ class PartialPacer(private val minIntervalMs: Long = INTERVAL_MS) {
     }
 
     companion object {
-        /** About three previews per second while the words keep coming. */
+        /** About three previews per second for the beginning of an utterance. */
         const val INTERVAL_MS = 300L
 
         /** With the device asking to save energy ([VoicePower]), previews come half as often. */
         const val SAVING_INTERVAL_MS = 600L
 
         const val COST_FACTOR = 2
+
+        const val FULL_RATE_AUDIO_MS = 3000L
+        const val MAX_INTERVAL_FACTOR = 3L
 
         /** Audio this far below the loudest of the utterance is taken for a pause. */
         const val QUIET_BELOW_PEAK_DB = 20f
