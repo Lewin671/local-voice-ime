@@ -1,12 +1,26 @@
 # Privacy Policy
 
-Local Voice IME does not collect, transmit or share any data. What you say and what you type
-never leave your phone.
+Local Voice IME does not transmit or share any data. What you say and what you type never
+leave your phone, unless you copy them off it yourself.
 
 - **Voice input.** Audio from the microphone is processed entirely on your device by a speech
   model stored on it. Audio is kept in memory only while an utterance is being recognized;
-  it is never written to storage and never sent anywhere. The microphone is only used while you
-  hold the space bar or while the voice input panel is open and listening.
+  it is never sent anywhere, and never written to storage unless you turned on *Keep what I
+  dictate* (next point). The microphone is only used while you hold the space bar or while the
+  voice input panel is open and listening.
+- **Recordings, if you choose to keep them.** *Settings → Voice input → Keep what I dictate* is
+  off unless you turn it on, and asks before it does. It exists so that you can fine-tune a
+  speech model on your own voice and vocabulary, on a computer of yours. While it is on, the app
+  saves, for each sentence you dictate: the audio; what the speech models wrote; whether you
+  undid it; and how the dictated text read after you corrected it (only that passage, found by
+  comparing it with what was dictated, never the rest of the field); the time, and the versions
+  of the app and the models. It does not record which app you were dictating into, and saves
+  nothing in fields that apps mark as private/incognito. The files are in the app's private
+  storage, are left out of Android's backups and device transfers, and take at most 1 GB.
+  They leave the phone in one way only: *Export* writes them into one ZIP file at a place you
+  pick in Android's file dialog. *Delete* removes them from the phone, as does uninstalling the
+  app or clearing its data; turning the switch off stops saving and keeps what is there.
+  [docs/TRAINING_DATA.md](TRAINING_DATA.md) lists every field of the export.
 - **What you type.** Like any keyboard, the app sees the text you enter. Pinyin user dictionary
   and input history (used to improve predictions) and clipboard history are stored in the app's
   private storage on your device and can be cleared or disabled in the app's settings.
@@ -57,4 +71,6 @@ came inside a separate 1.4 GB APK, which was too large to install on some phones
 APK and that model is a download. Up to 0.4.1 the standard model was still part of the APK
 (about 300 MB); since then it is a download as well, for the same reason. Up to 0.6.2 the
 network was used for speech models only; updating from inside the app, on request, came after
-that, because the app is installed from a file and no store keeps it up to date.
+that, because the app is installed from a file and no store keeps it up to date. Up to the
+same version audio was never written to storage; keeping recordings, on request, came after it,
+for fine-tuning a model with one's own speech.

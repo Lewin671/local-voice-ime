@@ -8,11 +8,13 @@ import android.content.Context
 import android.os.Bundle
 import android.text.format.Formatter
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
+import androidx.preference.TwoStatePreference
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.FcitxApplication
 import org.fcitx.fcitx5.android.R
@@ -21,11 +23,14 @@ import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceFragment
 import org.fcitx.fcitx5.android.input.voice.VoiceModels.State
 import org.fcitx.fcitx5.android.utils.addCategory
 import org.fcitx.fcitx5.android.utils.setup
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * Settings → Voice input: what stays on the phone, which speech models are on it, and their
- * downloads. The only screen from which the app goes online; see
- * "Settings: voice input" in docs/design/mockup.html and docs/PRIVACY.md.
+ * Settings → Voice input: what stays on the phone, which speech models are on it, their
+ * downloads, and the recordings a user chose to keep. See "Settings: voice input" in
+ * docs/design/mockup.html and docs/PRIVACY.md.
  */
 class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().voiceInput) {
 
@@ -60,12 +65,47 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
 
     private lateinit var refine: Preference
 
+    private lateinit var recordings: VoiceSamplesPreference
+
+    /** Android's file dialog; the recordings go into the document it creates. */
+    private val pickExportTarget =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val ctx = requireContext().applicationContext
+            // not tied to this screen: it must finish even if the user leaves
+            FcitxApplication.getInstance().coroutineScope.launch { VoiceSamples.export(ctx, uri) }
+        }
+
     private fun size(bytes: Long) = Formatter.formatShortFileSize(requireContext(), bytes)
 
     override fun onPreferenceUiCreated(screen: PreferenceScreen) {
         val ctx = screen.context
         refine = screen.findPreference(AppPrefs.getInstance().voiceInput.voiceRefine.key)!!
         screen.removePreference(refine)
+        val keep = screen.findPreference<TwoStatePreference>(
+            AppPrefs.getInstance().voiceInput.keepRecordings.key
+        )!!
+        screen.removePreference(keep)
+        // turning it on asks first and says what is kept; turning it off needs no question
+        keep.setOnPreferenceChangeListener { _, on ->
+            if (on == false) return@setOnPreferenceChangeListener true
+            AlertDialog.Builder(ctx)
+                .setTitle(R.string.voice_samples_keep_title)
+                .setMessage(R.string.voice_samples_keep_message)
+                .setPositiveButton(R.string.voice_samples_keep_confirm) { _, _ -> keep.isChecked = true }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+            false
+        }
+        recordings = VoiceSamplesPreference(ctx).apply {
+            setTitle(R.string.voice_samples_kept)
+            setSummary(R.string.voice_samples_kept_summary)
+            onExport = {
+                val day = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+                pickExportTarget.launch(getString(R.string.voice_samples_export_name, day))
+            }
+            onDelete = ::confirmDeleteRecordings
+        }
 
         screen.addPreference(Preference(ctx).apply {
             setup(
@@ -92,6 +132,14 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             isIconSpaceReserved = false
             addPreference(refine)
         }
+        screen.addCategory(R.string.voice_samples) {
+            isIconSpaceReserved = false
+            // the switch first; it still carries its position in the list it was created in
+            keep.order = 0
+            recordings.order = 1
+            addPreference(keep)
+            addPreference(recordings)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -106,6 +154,28 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
                 }
             }
         }
+        VoiceSamples.refresh(requireContext())
+        viewLifecycleOwner.lifecycleScope.launch {
+            VoiceSamples.status.collect { recordings.status = it }
+        }
+    }
+
+    private fun confirmDeleteRecordings() {
+        val ctx = requireContext().applicationContext
+        val status = VoiceSamples.status.value
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.voice_samples_delete_title)
+            .setMessage(
+                resources.getQuantityString(
+                    R.plurals.voice_samples_delete_message, status.recordings,
+                    status.recordings, size(status.bytes)
+                )
+            )
+            .setPositiveButton(R.string.delete) { _, _ ->
+                FcitxApplication.getInstance().coroutineScope.launch { VoiceSamples.delete(ctx) }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** Going online is always the result of a tap that said what is fetched and from where. */

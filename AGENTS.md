@@ -57,7 +57,7 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 | `lib/`, `plugin/`, `codegen/`, `build-logic/` | Upstream native libraries, plugins and build logic; rarely touched |
 | `voice/` | Git-ignored: `libs/sherpa-onnx.aar`, `assets/voice/` (bundled: only the voice activity detection model), `models/` (the speech models the app downloads, for tests and benchmarks) |
 | `scripts/` | Setup, build, checks, end-to-end test, UI screenshots, model benchmark |
-| `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md`, `design/` (design spec and mockup) |
+| `docs/` | `ARCHITECTURE.md`, `TESTING.md`, `MODELS.md`, `PRIVACY.md`, `TRAINING_DATA.md` (recordings kept on request, and their export), `design/` (design spec and mockup) |
 
 ## Commands
 

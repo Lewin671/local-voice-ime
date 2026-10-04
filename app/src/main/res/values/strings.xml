@@ -358,6 +358,33 @@
     <string name="voice_privacy_summary">Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</string>
     <string name="voice_models">Speech models</string>
     <string name="voice_dictation">Dictation</string>
+    <string name="voice_samples">Recordings</string>
+    <string name="voice_samples_keep">Keep what I dictate</string>
+    <string name="voice_samples_keep_summary">Save the audio and text of each sentence on this phone, to fine-tune a speech model with on a computer of yours. Nothing is sent anywhere.</string>
+    <string name="voice_samples_keep_title">Keep recordings on this phone?</string>
+    <string name="voice_samples_keep_message">From now on each sentence you dictate is saved in the app\'s private storage: its audio, what the speech models wrote, and how the text read after you corrected it. Fields marked as private are left out. The files stay on this phone until you export or delete them. The app never sends them anywhere.</string>
+    <string name="voice_samples_keep_confirm">Keep recordings</string>
+    <string name="voice_samples_kept">Kept on this phone</string>
+    <string name="voice_samples_kept_summary">Export writes one ZIP file to a place you choose. Recordings stay here until you delete them.</string>
+    <string name="voice_samples_none">Nothing kept yet</string>
+    <plurals name="voice_samples_count">
+        <item quantity="one">%1$d recording · %2$s</item>
+        <item quantity="other">%1$d recordings · %2$s</item>
+    </plurals>
+    <string name="voice_samples_full">Limit of %s reached; nothing more is kept. Export, then delete.</string>
+    <string name="voice_samples_export">Export</string>
+    <string name="voice_samples_exporting">Exporting…</string>
+    <plurals name="voice_samples_exported">
+        <item quantity="one">Exported %d recording</item>
+        <item quantity="other">Exported %d recordings</item>
+    </plurals>
+    <string name="voice_samples_export_failed">Could not write the file. Pick another place, then export again.</string>
+    <string name="voice_samples_export_name" translatable="false">local-voice-ime-recordings-%s.zip</string>
+    <string name="voice_samples_delete_title">Delete the recordings?</string>
+    <plurals name="voice_samples_delete_message">
+        <item quantity="one">%1$d recording (%2$s) is deleted from this phone. Files you exported are not touched.</item>
+        <item quantity="other">%1$d recordings (%2$s) are deleted from this phone. Files you exported are not touched.</item>
+    </plurals>
     <string name="voice_model_standard">Standard</string>
     <string name="voice_model_standard_summary">Needed for voice input. Text appears while you speak, with punctuation and numbers.</string>
     <string name="voice_model_accurate">High accuracy</string>

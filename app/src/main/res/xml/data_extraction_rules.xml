@@ -16,6 +16,9 @@
         <exclude
             domain="file"
             path="voice-models" />
+        <exclude
+            domain="file"
+            path="voice-samples" />
     </cloud-backup>
     <device-transfer>
         <exclude
@@ -33,5 +36,8 @@
         <exclude
             domain="file"
             path="voice-models" />
+        <exclude
+            domain="file"
+            path="voice-samples" />
     </device-transfer>
 </data-extraction-rules>

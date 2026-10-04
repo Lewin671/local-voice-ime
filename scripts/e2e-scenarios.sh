@@ -126,9 +126,10 @@ wait_log() {
 }
 
 # fresh, empty text field with the keyboard up; sets $sx $sy (space bar) and $cancel_y
+# open_keyboard [extras for TestInputActivity]
 open_keyboard() {
     for i in $(seq 20); do
-        ((i % 7 == 1)) && adb shell am start -W --activity-clear-task -n "$activity" >/dev/null
+        ((i % 7 == 1)) && adb shell am start -W --activity-clear-task -n "$activity" "$@" >/dev/null
         sleep 1
         dump
         if ui center "$work/ui.xml" button_space >/dev/null 2>&1; then
@@ -333,6 +334,70 @@ open_keyboard
 dump
 expect "'Hold to talk' is gone after three uses" \
     '! ui has-text "$work/ui.xml" "Hold to talk"' "label still on the space bar"
+
+# ---- recordings for fine-tuning (docs/TRAINING_DATA.md)
+samples=files/voice-samples
+kept() { adb shell run-as "$pkg" ls "$samples/audio" 2>/dev/null | grep -c '\.wav' || true; }
+# records <type>: the lines of that type in the log, oldest first
+records() { adb shell run-as "$pkg" cat "$samples/log.jsonl" 2>/dev/null | tr -d '\r' | grep "\"type\":\"$1\"" || true; }
+# field_of <json line> <key>: the string value of a key
+field_of() { python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2], ""))' "$1" "$2"; }
+# say the sample by holding the space bar, and wait until it has been inserted
+dictate() {
+    adb logcat -c
+    adb shell input motionevent DOWN "$sx" "$sy"
+    wait_log "Voice final inserted"
+    adb shell input motionevent UP "$sx" "$sy"
+    sleep 3
+    settle
+}
+
+expect "nothing that was dictated so far has been kept" '[[ $(kept) == 0 ]]' "$(kept) recordings on the device"
+
+use_wav
+open_keyboard --ez keep_recordings true
+dictate
+text=$(field)
+line=$(records utterance | tail -1)
+expect "with the switch on, an utterance is kept as one recording" '[[ $(kept) == 1 ]]' "$(kept) recordings"
+expect "its record has the text of the fast model" \
+    '[[ -n $line ]] && { is_sentence "$(field_of "$line" text)。" || [[ "$(field_of "$line" text)。" == "$fast_alt" ]]; }' \
+    "record: $line"
+wav=$(field_of "$line" audio)
+size=$(adb shell run-as "$pkg" stat -c %s "$samples/$wav" 2>/dev/null | tr -d '\r')
+expect "its audio is a WAV file of the utterance" '[[ ${size:-0} -gt 60000 ]]' "$wav: ${size:-missing} bytes"
+if $hq; then
+    expect "the large model's transcript is recorded with it" '[[ -n $(records refined) ]]' "no 'refined' record"
+fi
+
+# correct the text the way a user would: delete the last two characters
+adb shell input keyevent KEYCODE_DEL
+adb shell input keyevent KEYCODE_DEL
+sleep 3
+line=$(records field | tail -1)
+expect "the corrected text is recorded next to what was dictated" \
+    '[[ -n $line && "$(field_of "$line" dictated)" == "$text" && "$(field_of "$line" text)" == "${text%??}" ]]' \
+    "field: '$text', record: $line"
+
+# at once: the pill offers Undo for a few seconds only
+open_keyboard
+adb logcat -c
+adb shell input motionevent DOWN "$sx" "$sy"
+wait_log "Voice final inserted"
+adb shell input motionevent UP "$sx" "$sy"
+dump
+adb shell input tap $(ui center "$work/ui.xml" "Undo dictation" 2>/dev/null)
+sleep 3
+expect "Undo is recorded for the session" '[[ -n $(records undone) ]]' "no 'undone' record"
+
+before=$(kept)
+open_keyboard --ez private true
+dictate
+expect "nothing is kept from a field marked private" '[[ $(kept) == "$before" ]]' "$before -> $(kept) recordings"
+
+open_keyboard --ez keep_recordings false
+dictate
+expect "nothing is kept after the switch is turned off" '[[ $(kept) == "$before" ]]' "$before -> $(kept) recordings"
 
 echo
 if ((failed > 0)); then

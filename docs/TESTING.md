@@ -4,7 +4,7 @@
 
 | What | Where | How long |
 |---|---|---|
-| Text post-processing, merging two transcripts, what may be edited in the text field, downloading a model (resume, verification) | JVM unit tests (`app/src/test/.../voice/`) | seconds |
+| Text post-processing, merging two transcripts, what may be edited in the text field, downloading a model (resume, verification), the files of kept recordings and finding a corrected passage in the field | JVM unit tests (`app/src/test/.../voice/`) | seconds |
 | Which model, how accurate, how fast | desktop benchmark (`scripts/bench/`, results in `MODELS.md`) | minutes |
 | That it is all wired together on Android | device scripts below | 5–10 minutes each |
 
@@ -76,7 +76,11 @@ Checks the rules of `docs/design/DESIGN.md` on a device: the live preview appear
 trailing punctuation, releasing inserts the punctuated text, the pill offers Undo and Undo
 removes it, sliding up cancels cleanly, backspace in the panel deletes exactly one character,
 moving the cursor mid-utterance does not duplicate text, silence turns the microphone off with
-the reason shown, and the "Hold to talk" hint goes away after three uses.
+the reason shown, and the "Hold to talk" hint goes away after three uses. It also checks the
+recordings for fine-tuning: nothing is kept until the switch is on; then an utterance is kept as
+a WAV file with its record, a correction made in the text field is recorded next to what was
+dictated, Undo is recorded, and nothing is kept from a field marked private or after the switch
+is turned off again.
 
 It reinstalls the debug build from scratch (its data is reset) and needs a microphone that
 delivers silence for the timeout scenario, e.g. an emulator started with `-no-audio`.
@@ -97,6 +101,9 @@ Compare them with the mockup as described in `docs/design/DESIGN.md`.
 - Start speaking immediately after a cold start (model not loaded yet): the beginning of the
   sentence must not be lost.
 - Password field: no microphone button, holding space does nothing.
+- *Settings → Voice input → Keep what I dictate*: turning it on asks first; dictate a few
+  sentences with the microphone, correct one of them, then *Export* to a folder, open the ZIP
+  on a computer and listen to a recording; *Delete* empties the row.
 
 Useful while debugging: `adb logcat | grep -i voice` shows model load time and the real-time
 factor of every decode (debug builds).

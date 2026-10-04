@@ -54,7 +54,7 @@ the app before they are used.
 | Audio and text stay on the phone | No code sends anything. The app's only network code is one file that downloads a speech model on request ([`VoiceModelFetch.kt`](app/src/main/java/org/fcitx/fcitx5/android/input/voice/VoiceModelFetch.kt)); `scripts/check-privacy.sh` verifies that for every APK |
 | Speech is recognized on the device | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) (and, if downloaded, [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S)) run on the CPU via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) |
 | Downloads cannot be tampered with | Every model file must match a SHA-256 fixed in the app |
-| Audio is not stored | Samples live in memory for the utterance in progress only |
+| Audio is not stored unless you ask for it | Samples live in memory for the utterance in progress only. Keeping recordings, to fine-tune a model on your own speech, is a switch that is off until you turn it on; they stay on the phone until you export or delete them ([docs/PRIVACY.md](docs/PRIVACY.md)) |
 
 Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
@@ -94,8 +94,10 @@ for signing.
 ## Roadmap
 
 - Benchmarks on real phones (load time, real-time factor, memory); see `docs/MODELS.md`.
-- User-defined corrections / hot words for names and technical terms
-  (the model tends to mis-spell English jargon inside Chinese sentences).
+- A speech model that knows the user's names and technical terms (the models tend to mis-spell
+  English jargon inside Chinese sentences). Hot word lists were measured and do not get there
+  (`docs/MODELS.md`); the way forward is fine-tuning on one's own speech, for which the app can
+  keep recordings on request (`docs/TRAINING_DATA.md`). The training scripts are still to come.
 - Enable Pinyin by default regardless of the system language.
 
 ## Documentation
@@ -108,6 +110,7 @@ for signing.
 - [docs/TESTING.md](docs/TESTING.md) — unit tests, automated end-to-end test, release builds
 - [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — performance bottlenecks, energy optimizations, measurement limits
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
+- [docs/TRAINING_DATA.md](docs/TRAINING_DATA.md) — keeping recordings to fine-tune a model, and the export format
 - [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original fcitx5-android README
 

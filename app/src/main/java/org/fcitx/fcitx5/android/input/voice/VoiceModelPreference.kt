@@ -56,6 +56,9 @@ class VoiceModelPreference(context: Context, private val model: VoiceModel) : Pr
             setOnClickListener { action() }
         }
 
+        // the recordings row uses the same layout (VoiceSamplesPreference); views are recycled
+        source.visibility = View.VISIBLE
+        progress.isIndeterminate = false
         source.text = context.getString(
             R.string.voice_model_source, model.name, size(model.size), model.host.removePrefix("www.")
         )

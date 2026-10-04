@@ -42,7 +42,10 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceModels` | Catalogue of the speech models, all of them downloads (files pinned by size and SHA-256), and the entry points the rest of the app uses. |
 | `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
 | `VoiceModelFetch` | Downloads one file, resumable, verified; also reads the short description of the newest release for the update check. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
-| `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
+| `VoiceSettingsFragment`, `VoiceModelPreference`, `VoiceSamplesPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch, and the recordings (switch, count, export, delete). |
+| `VoiceSamples` | Off unless switched on: keeps every dictated utterance for fine-tuning a model later (`docs/TRAINING_DATA.md`). Writes on a thread of its own; nothing is kept from fields marked private; the only way out of the phone is the user's export. |
+| `VoiceSampleStore` | The files of the kept recordings in `files/voice-samples/`: one WAV per utterance and an append-only `log.jsonl`; size limit, delete, export as ZIP. No Android classes, unit-tested. |
+| `VoiceFieldText` | Finds the dictated passage in the text field after the user corrected it, and nothing else of the field. Pure Kotlin, unit-tested. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
 | `VoiceSentence` | Keeps a sentence together across a pause: holds back the full stop of an utterance and, when speech resumes within a few seconds, has both transcribed as one. Pure Kotlin, unit-tested. |
 | `VoiceAudioBuffer` | Session-owned audio storage. Dropping prefixes advances an index; VAD windows reuse one array. Recognition snapshots remain independent copies. Pure Kotlin, unit-tested. |
@@ -104,6 +107,20 @@ keeps its accuracy and SenseVoice's formatting (numbers in `docs/MODELS.md`). Ut
 transcribed with 0.3 s of audio before and after what the VAD cut out: the large model in
 particular mishears a clipped first syllable.
 
+## Recordings for fine-tuning
+
+Off by default (`AppPrefs.voiceInput.keepRecordings`). When on, `VoiceInput` reports to
+`VoiceSamples` what it already has in hand: the audio and text of each final utterance, the
+large model's transcript when refinement produced one, and Undo. Nothing is decoded for it.
+
+How the user corrected the text is learned by reading the field back, not by watching keys:
+`FcitxInputMethodService.onUpdateSelection` tells `VoiceInput.onFieldChanged()` that something
+changed; 0.8 s after the last change, and when the keyboard is hidden or the next session
+starts, `checkField` reads as much text around the cursor as the session wrote (plus a margin)
+and `VoiceFieldText.locate` picks out the passage that is closest to what was dictated. Only
+that passage is recorded. This goes on for 10 minutes after a session, in the same text field,
+and stops for good when either no longer holds.
+
 ## Energy
 
 Recognition runs on the CPU, so dictation is by far the most expensive thing the keyboard does.
@@ -141,18 +158,18 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `build-logic/convention/src/main/kotlin/Versions.kt` | release version codes are incremented so signed APKs upgrade previous versions |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download and app update only), `REQUEST_INSTALL_PACKAGES` and `AppUpdateReceiver` (app update), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
-| `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models are excluded from backups |
+| `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models and kept recordings are excluded from backups |
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText`; `handleReturnKey()` made public for the dictation panel |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `handleReturnKey()` made public for the dictation panel |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
-| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` switch |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` switches |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |
@@ -209,8 +226,11 @@ remembered release is no longer newer, and the next start of the screen deletes 
   possible, or if a dependency that goes online is added. This replaces the guarantee the app
   had up to 0.3, when it held no `INTERNET` permission at all; `docs/PRIVACY.md` explains the
   trade to users.
-- Audio is held in memory only for the utterance in progress and is never written to disk.
-- Dictated text is committed to the focused editor and is not logged or stored by the voice code.
+- Audio is held in memory only for the utterance in progress. It is written to disk only if the
+  user switched on *Keep what I dictate* (see "Recordings for fine-tuning" above), into the
+  app's private storage, which is excluded from backups.
+- Dictated text is committed to the focused editor and is not logged; it is stored only with
+  the recordings, under the same switch.
 - The microphone button and push-to-talk are disabled on password fields.
 
 Performance findings and measurement limits: [PERFORMANCE.md](PERFORMANCE.md).

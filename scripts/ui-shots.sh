@@ -35,7 +35,7 @@ previous_night=$(adb shell cmd uimode night | tr -d '\r' | awk '{print $NF}')
 cleanup() {
     adb shell rm -f "$remote_wav" >/dev/null 2>&1 || true
     adb shell run-as "$pkg" mv "$model.aside" "$model" >/dev/null 2>&1 || true
-    adb shell run-as "$pkg" rm -rf files/app-update >/dev/null 2>&1 || true
+    adb shell run-as "$pkg" rm -rf files/app-update files/voice-samples >/dev/null 2>&1 || true
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO >/dev/null 2>&1 || true
     adb shell cmd uimode night "$previous_night" >/dev/null 2>&1 || true
     adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
@@ -87,6 +87,19 @@ open_update() {
     dump_ui
     adb shell input tap $(center "App update")
     sleep 2
+}
+
+# Settings -> Voice input, scrolled to its end, where the recordings are
+open_recordings() {
+    adb shell am force-stop "$pkg"
+    adb shell am start -W -n "$pkg/org.fcitx.fcitx5.android.ui.main.MainActivity" >/dev/null
+    sleep 2
+    dump_ui
+    adb shell input tap $(center "Voice input")
+    sleep 2
+    adb shell input swipe 500 1500 500 300 200
+    sleep 1
+    dump_ui
 }
 
 for theme in light dark; do
@@ -159,6 +172,32 @@ JSON
     open_update
     shot 10-settings-app-update-new-version
     adb shell run-as "$pkg" rm -rf files/app-update
+
+    # recordings, the lower part of Settings -> Voice input: nothing kept, the question asked
+    # when the switch is turned on, and one recording kept
+    adb shell run-as "$pkg" rm -rf files/voice-samples
+    open_recordings
+    shot 11-settings-recordings-off
+    adb shell input tap $(center "Keep what I dictate")
+    sleep 1
+    shot 12-settings-recordings-question
+    dump_ui
+    adb shell input tap $(center "KEEP RECORDINGS")
+    sleep 1
+    adb shell am force-stop "$pkg"
+    adb shell ime set "$ime" >/dev/null
+    open_keyboard
+    read -r sx sy < <(center button_space)
+    adb shell input motionevent DOWN "$sx" "$sy"
+    sleep 8
+    adb shell input motionevent UP "$sx" "$sy"
+    sleep 3
+    open_recordings
+    shot 13-settings-recordings-kept
+    # back to how a fresh install is: switch off, nothing kept
+    adb shell input tap $(center "Keep what I dictate")
+    sleep 1
+    adb shell run-as "$pkg" rm -rf files/voice-samples
     adb shell am force-stop "$pkg"
     adb shell ime set "$ime" >/dev/null
 done

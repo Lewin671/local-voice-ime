@@ -183,6 +183,19 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Installed</td><td>"Installed"</td><td>Delete (asks first, says how much is freed and what stops working)</td></tr>
   </table></div>
   <p class="note">Rules: the app never goes online by itself. A download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. Both models are rows of the same kind and behave alike. The standard model is the one voice input cannot do without: its row says "Needed for voice input", and deleting it says that voice input stops until it is downloaded again. The refinement switch is disabled until the high-accuracy model is installed. A further downloadable model is one more row of the same kind.</p>
+  <h3>Recordings</h3>
+  <p class="note">Further down the same screen. Somebody who wants a speech model that knows their voice and their vocabulary can fine-tune one on a computer; this is where the material for that is kept, and it is off until they turn it on.</p>
+  <div class="screens" id="recordings"></div>
+  <div class="tablewrap"><table>
+    <tr><th>State of the recordings</th><th>Status line</th><th>Actions</th></tr>
+    <tr><td>Nothing kept</td><td>"Nothing kept yet"</td><td>—</td></tr>
+    <tr><td>Some kept</td><td>"128 recordings · 42 MB"</td><td>Delete (asks first: how many, how much), Export (Android's file dialog)</td></tr>
+    <tr><td>Exporting</td><td>"Exporting…", a bar without a percentage</td><td>—</td></tr>
+    <tr><td>Exported</td><td>"Exported 128 recordings"</td><td>Delete, Export</td></tr>
+    <tr><td>Export failed</td><td>In the error colour: "Could not write the file. Pick another place, then export again."</td><td>Delete, Export</td></tr>
+    <tr><td>Limit reached</td><td>In the error colour: "Limit of 1 GB reached; nothing more is kept. Export, then delete."</td><td>Delete, Export</td></tr>
+  </table></div>
+  <p class="note">Rules: the switch is off on a fresh install and turning it on asks once, saying what is kept (audio, text, corrections), where (on this phone), and that nothing is sent. With it on, dictation looks and behaves exactly as before. Nothing is kept in a field that an app marked as private. The row counts what is on the phone whether the switch is on or off: turning it off stops saving and deletes nothing. Export writes one ZIP file to the place picked in Android's file dialog and leaves the recordings on the phone; Delete removes them and says how much first.</p>
 </section>
 
 <section>
@@ -339,6 +352,30 @@ const T = [
     k: settings(acts('Installed', '<div class="tbtn">Delete</div>'), true) },
 ];
 document.getElementById('settings').innerHTML = T.map(s => `<figure>
+  <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
+  <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
+
+// ---- recordings: the lower part of the voice input screen
+const recordings = (on, rest, extra = '') => `<div class="app">
+  <div class="appbar">${arrow}Voice input</div>
+  <div class="group">Dictation</div>
+  <div class="item lead" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</span></div><div class="switch on"></div></div>
+  <div class="group">Recordings</div>
+  <div class="item lead" style="justify-content:space-between"><div class="item" style="padding:0"><b>Keep what I dictate</b><span>Save the audio and text of each sentence on this phone, to fine-tune a speech model with on a computer of yours. Nothing is sent anywhere.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
+  <div class="item"><b>Kept on this phone</b><span>Export writes one ZIP file to a place you choose. Recordings stay here until you delete them.</span>${rest}</div>
+  ${extra}</div>`;
+const kept = [ '<div class="tbtn">Delete</div>', '<div class="btn">Export</div>' ];
+const RC = [
+  { t: 'Recordings: off', d: 'How the screen looks on every phone until somebody decides otherwise. The row below the switch says what is on the phone, which is nothing.',
+    k: recordings(false, acts('Nothing kept yet')) },
+  { t: 'Before keeping anything', d: 'Turning the switch on asks once. The dialog lists what is kept and where, and says what does not happen: nothing is sent, private fields are left out.',
+    k: recordings(false, acts('Nothing kept yet'), `<div class="scrim"><div class="dialog"><b>Keep recordings on this phone?</b><span>From now on each sentence you dictate is saved in the app's private storage: its audio, what the speech models wrote, and how the text read after you corrected it. Fields marked as private are left out. The files stay on this phone until you export or delete them. The app never sends them anywhere.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Keep recordings</div></div></div></div>`) },
+  { t: 'Keeping', d: 'How many and how much. Export is the accent: it is what the recordings are for. Delete asks first.',
+    k: recordings(true, acts('128 recordings · 42 MB', ...kept)) },
+  { t: 'Limit reached', d: 'Recordings never take more than 1 GB. At the limit nothing more is kept and the row says what to do about it; dictation itself is not affected.',
+    k: recordings(true, acts({ t: 'Limit of 1 GB reached; nothing more is kept. Export, then delete.', err: 1 }, ...kept)) },
+];
+document.getElementById('recordings').innerHTML = RC.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 

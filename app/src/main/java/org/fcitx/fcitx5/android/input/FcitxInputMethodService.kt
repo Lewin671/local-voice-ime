@@ -798,6 +798,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
             cursorUpdateIndex
         )
         inputView?.updateSelection(newSelStart, newSelEnd)
+        VoiceInput.onFieldChanged()
     }
 
     private val contentSize = floatArrayOf(0f, 0f)

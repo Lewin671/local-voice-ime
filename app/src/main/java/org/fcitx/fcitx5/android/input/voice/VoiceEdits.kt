@@ -56,6 +56,9 @@ class VoiceEdits(private val editor: Editor) {
 
     private var newSession = true
 
+    /** First thing written since [startSession], dictated or typed in the panel. */
+    private var sessionStart: Entry? = null
+
     val hasPendingRefinements get() = refinements.isNotEmpty()
 
     val canUndoSession get() = sessionFirst != null
@@ -64,6 +67,18 @@ class VoiceEdits(private val editor: Editor) {
     fun startSession() {
         sessionFirst = null
         newSession = true
+        sessionStart = null
+    }
+
+    /**
+     * Everything written since [startSession], as dictation left it (refinements included), or
+     * null if nothing was, or it was undone. Says nothing about whether the editor still shows
+     * it: [VoiceFieldText] looks for it there.
+     */
+    fun sessionText(): String? {
+        val index = entries.indexOf(sessionStart ?: return null)
+        if (index < 0) return null
+        return entries.subList(index, entries.size).joinToString("") { it.text }
     }
 
     /** Insert a dictated utterance. */
@@ -90,6 +105,7 @@ class VoiceEdits(private val editor: Editor) {
 
     private fun add(text: String) = Entry(text).also {
         entries += it
+        if (sessionStart == null) sessionStart = it
         while (entries.size > MAX_ENTRIES) entries.removeAt(0).retire()
     }
 

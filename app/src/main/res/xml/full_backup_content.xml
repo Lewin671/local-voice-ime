@@ -15,4 +15,7 @@
     <exclude
         domain="file"
         path="voice-models" />
+    <exclude
+        domain="file"
+        path="voice-samples" />
 </full-backup-content>

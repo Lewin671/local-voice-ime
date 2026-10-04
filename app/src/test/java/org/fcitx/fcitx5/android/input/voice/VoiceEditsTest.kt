@@ -274,4 +274,32 @@ class VoiceEditsTest {
         edits2.insertTyped("？")
         assertFalse(edits2.canUndoSession)
     }
+
+    @Test
+    fun sessionTextIsWhatTheSessionWroteAsDictationLeftIt() {
+        val editor = FakeEditor("typed ")
+        val edits = VoiceEdits(editor)
+        edits.insert("Earlier session.")
+        edits.startSession()
+        assertEquals(null, edits.sessionText())
+        val first = edits.insert("Frist.")
+        edits.insertTyped(" ")
+        edits.insert("Second")
+        assertEquals("Frist. Second", edits.sessionText())
+        // a refinement that was applied is part of it; an edit by the user is not
+        edits.refine(first, "First.")
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertEquals("First. Second", edits.sessionText())
+        editor.backspace()
+        assertEquals("First. Second", edits.sessionText())
+    }
+
+    @Test
+    fun sessionTextIsGoneAfterUndo() {
+        val edits = VoiceEdits(FakeEditor())
+        edits.startSession()
+        edits.insert("Said.")
+        assertTrue(edits.undoSession())
+        assertEquals(null, edits.sessionText())
+    }
 }

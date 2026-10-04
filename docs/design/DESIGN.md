@@ -23,7 +23,8 @@ The settings summary states this explicitly; final recognition keeps the same mo
 2. **One gesture, one meaning.** Hold space = talk, release = insert, slide up = discard.
    Microphone pill = hands-free. Nothing else starts the microphone.
 3. **Privacy is visible.** While the microphone is on, a lock and "On-device" are on screen.
-   Hands-free listening stops by itself after 10 s without speech. The app goes online only
+   Hands-free listening stops by itself after 10 s without speech. Nothing that was said is
+   kept unless the user turned that on in *Settings → Voice input*. The app goes online only
    after a tap on a button that says what is fetched and from where (a speech model, in
    *Settings → Voice input*; a new version of the app, in *Settings → App update*); it never
    does so by itself.
@@ -74,7 +75,8 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Waveform | `WaveformView` | live (follows level; at rest, without animation, while nobody speaks and the room is quiet), idle (dots), cancel (flat, error colour) |
 | Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
-| Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed) |
+| Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed), recordings (switch, off by default; what is kept) |
+| Recordings row (settings) | `VoiceSamplesPreference`, state from `VoiceSamples` | nothing kept / N recordings and their size / storage limit reached / exporting / exported / export failed |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
 | App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found; entry in the main settings list, after *Advanced* |
 | New version row (settings) | `AppUpdatePreference` | not downloaded / no package for this phone / downloading / paused / failed / downloaded / installing / not installed (cause) |
@@ -121,6 +123,15 @@ Behaviour rules that are easy to get wrong:
   and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
   process all keep what has arrived. A model is used only once every file matched its pinned
   checksum; a file that does not match is discarded and reported as such.
+- **Recordings**: nothing that was dictated is kept unless *Keep what I dictate* is on, and
+  turning it on asks first and says what is kept, where, and that it is not sent anywhere.
+  Dictation looks and behaves the same with it on: no indicator in the keyboard, no extra
+  decoding, and a failure to save never disturbs dictation. Nothing is saved in a field marked
+  private. Of the text field only the dictated passage is read back, to record how it was
+  corrected (`VoiceFieldText`). Saving stops at 1 GB, or when the phone has less than 500 MB
+  free, and the row says so. *Export* opens Android's file dialog and writes one ZIP file
+  there; *Delete* asks first and names how much is removed. Turning the switch off keeps what
+  is there. The export format is described in `docs/TRAINING_DATA.md`.
 - **App update**: only *Check for updates* / *Check again* asks github.com, and only *Download*
   and *Resume* fetch the package; there is no automatic check, badge, notification or reminder.
   A version that was found is remembered until it is installed or a later check finds another.

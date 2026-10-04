@@ -8,6 +8,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -47,6 +49,12 @@ object VoiceInput {
     private const val TEST_WAV = "voice-test.wav"
 
     private const val WARM_UP_WINDOW_MS = 30 * 60_000L
+
+    /** The field is read back this long after its last change, see [onFieldChanged]. */
+    private const val FIELD_SETTLE_MS = 800L
+
+    /** Corrections are looked for this long after a session; later edits are something else. */
+    private const val FIELD_WATCH_MS = 10 * 60_000L
 
     private var current: VoiceSession? = null
 
@@ -96,6 +104,54 @@ object VoiceInput {
     fun closeSentence() {
         sentence = null
         current?.closeSentence()
+    }
+
+    /**
+     * The recordings of the last session, if they are kept (see [VoiceSamples]) and its text
+     * may still be corrected in the field it was dictated into.
+     */
+    private var kept: VoiceSamples.Session? = null
+
+    /** When [kept]'s session ended; 0 while it runs. */
+    private var keptEndedAt = 0L
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    private val fieldCheck = Runnable { editsService?.let(::checkField) }
+
+    /**
+     * The text field changed: something was typed or deleted, or the cursor moved. Once it has
+     * been left alone for a moment, the dictated passage is read back (see [checkField]).
+     */
+    fun onFieldChanged() {
+        if (kept == null) return
+        handler.removeCallbacks(fieldCheck)
+        handler.postDelayed(fieldCheck, FIELD_SETTLE_MS)
+    }
+
+    /**
+     * Record how the text of the last session reads now, if recordings are kept: the user may
+     * have corrected it, and the corrected text is what a model should have written. Only the
+     * dictated passage is taken from the field, see [VoiceFieldText].
+     */
+    private fun checkField(service: FcitxInputMethodService) {
+        handler.removeCallbacks(fieldCheck)
+        val session = kept ?: return
+        // not while text is still being written, by dictation or by the pinyin engine
+        if (current != null || isRefining || service.hasComposingText) return
+        val expired = keptEndedAt != 0L && SystemClock.elapsedRealtime() - keptEndedAt > FIELD_WATCH_MS
+        if (expired || editsService !== service || !session.isIn(service.currentInputEditorInfo)) {
+            kept = null
+            return
+        }
+        val dictated = edits?.sessionText() ?: return
+        if (dictated.length > VoiceFieldText.MAX_LENGTH) return
+        val ic = service.currentInputConnection ?: return
+        val reach = VoiceFieldText.reach(dictated.length)
+        val before = ic.getTextBeforeCursor(reach, 0) ?: return
+        val after = ic.getTextAfterCursor(reach, 0) ?: return
+        val found = VoiceFieldText.locate(dictated, before.toString(), after.toString()) ?: return
+        VoiceSamples.field(session, dictated, found)
     }
 
     /** Typed in the dictation panel while an utterance was being previewed, see [type]. */
@@ -154,12 +210,17 @@ object VoiceInput {
         idleTimeoutMs: Long,
         listener: VoiceSession.Listener
     ): VoiceSession {
+        // before this session writes anything: how the previous one reads by now
+        checkField(service)
         current?.stop()
         lastUsedAt = SystemClock.elapsedRealtime()
         // drop unfinished pinyin composition, so that it doesn't interleave with dictated text
         service.postFcitxJob { reset() }
         val edits = editsFor(service)
         edits.startSession()
+        val recordings = VoiceSamples.begin(service, service.currentInputEditorInfo)
+        kept = recordings
+        keptEndedAt = 0
         sentence = null
         lastFinal = ""
         typedAhead.clear()
@@ -268,7 +329,10 @@ object VoiceInput {
                     joiner = null
                     Timber.d("Voice final inserted")
                     applyRefinements(service)
-                    if (refine && written != null) refine(service, written, samples)
+                    val recording = recordings?.let {
+                        VoiceSamples.utterance(it, text, samples, continues)
+                    }
+                    if (refine && written != null) refine(service, written, samples, recording)
                     insertTypedAhead(service)
                     listener.onFinal(text, samples, continues)
                 }
@@ -289,6 +353,8 @@ object VoiceInput {
                         insertTypedAhead(service)
                         applyRefinements(service)
                         if (current === session) current = null
+                        if (kept === recordings) keptEndedAt = SystemClock.elapsedRealtime()
+                        onFieldChanged()
                     }
                     listener.onState(state)
                 }
@@ -303,9 +369,12 @@ object VoiceInput {
      * With the large model installed: transcribe [samples], the last utterance of [sentence],
      * again with the large model and, if it heard different words, write the merged text over
      * what was inserted for the sentence. Earlier utterances of the sentence are not transcribed
-     * again: their words are taken from when they were refined.
+     * again: their words are taken from when they were refined. [recording] is the name under
+     * which the utterance is kept, if it is (see [VoiceSamples]).
      */
-    private fun refine(service: FcitxInputMethodService, sentence: Sentence, samples: FloatArray) {
+    private fun refine(
+        service: FcitxInputMethodService, sentence: Sentence, samples: FloatArray, recording: String?
+    ) {
         val earlier = sentence.accurate
         val words = service.lifecycleScope.async {
             if (!sentence.entry.canRefine) return@async null
@@ -316,6 +385,7 @@ object VoiceInput {
             }
                 .onFailure { Timber.w(it, "Voice refinement failed") }
                 .getOrNull() ?: return@async null
+            if (recording != null) VoiceSamples.refined(service, recording, tail)
             if (head == null) tail else head + VoiceText.joiner(head, tail) + tail
         }
         sentence.accurate = words
@@ -332,6 +402,7 @@ object VoiceInput {
             }
             applyRefinements(service)
             notifyRefining()
+            onFieldChanged()
         }
     }
 
@@ -366,6 +437,8 @@ object VoiceInput {
 
     /** Called when the keyboard is hidden: stop listening, but keep what was already said. */
     fun stopCurrent(discard: Boolean = false) {
+        // the last chance to see how the dictated text was corrected
+        editsService?.let(::checkField)
         current?.stop(discard)
     }
 
@@ -377,7 +450,10 @@ object VoiceInput {
      * (i.e. nothing else has edited the text since).
      * @return whether the text was removed
      */
-    fun undoLastSession(service: FcitxInputMethodService) = editsFor(service).undoSession()
+    fun undoLastSession(service: FcitxInputMethodService) =
+        editsFor(service).undoSession().also { undone ->
+            if (undone) kept?.let(VoiceSamples::undone)
+        }
 
     /**
      * Text typed from the dictation panel (punctuation, space). While an utterance is being
