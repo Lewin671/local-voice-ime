@@ -42,9 +42,11 @@ assert 'error' not in d, d
 assert d['sourceStopCalls'] == 1, d
 if sys.argv[2] == 'true':
     assert not d['finals'] and d['capturedSamples'] == 0, d
+    assert d['sourceStartCalls'] == 0, d
     assert not d['standardModelLoadedAtEnd'], d
 else:
     assert d['finals'], d
+    assert d['sourceStartCalls'] == 1, d
 print(sys.argv[1], 'capture_stopped_before_finishing=', d['captureStoppedBeforeFinishing'])
 PY
 done

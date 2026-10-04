@@ -36,11 +36,15 @@ class VoiceSessionProbeActivity : Activity() {
         val stops = JSONArray()
         val captured = MessageDigest.getInstance("SHA-256")
         var capturedSamples = 0L
+        var startCalls = 0
         var stopCalls = 0
         var captureStopped = false
         val delegate = WavFileSource(File(getExternalFilesDir(null), "voice-probe.wav"), 0)
         val source = object : AudioSource {
-            override fun start() = delegate.start()
+            override fun start() {
+                startCalls++
+                delegate.start()
+            }
             override suspend fun read(buffer: FloatArray): Int {
                 val n = delegate.read(buffer)
                 if (n > 0) {
@@ -72,6 +76,7 @@ class VoiceSessionProbeActivity : Activity() {
                             .put("capturedSamples", capturedSamples)
                             .put("capturedSha256", hex(captured.digest()))
                             .put("sourceStopCalls", stopCalls)
+                            .put("sourceStartCalls", startCalls)
                             .put("standardModelLoadedAtEnd", VoiceEngine.isLoaded)
                         val temporary = File(filesDir, "voice-probe-result.json.tmp")
                         temporary.writeText(result.toString(2))
