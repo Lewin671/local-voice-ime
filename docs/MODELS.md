@@ -114,11 +114,10 @@ utterances; forcing the language to `zh` does not help. Its model card reports a
 for Mandarin on FLEURS, so this is the model, not the export. It is a streaming model
 (`OnlineRecognizer`), which `bench_all.py` does not cover.
 
-Looked at and not measured (2026-10), with the reason: Qwen3-ASR 1.7B (heavier than the 0.6B
-model, whose peak memory is already 2.5 GB, and behind FireRedASR2 AED in the FireRedASR2S
-report), FireRedASR2-LLM and Xiaomi MiMo-V2.5-ASR (too large for a phone; MiMo is 8B), Cohere
+Looked at and not measured (2026-10), with the reason: FireRedASR2-LLM and Xiaomi MiMo-V2.5-ASR (too large for a phone; MiMo is 8B), Cohere
 Transcribe 03-2026 (2B; its model card says code-switched audio is handled inconsistently),
-GLM-ASR-Nano-2512 (1.5B; sherpa-onnx support not checked). No open model released up to
+GLM-ASR-Nano-2512 (1.5B; sherpa-onnx support not checked). Qwen3-ASR 1.7B was first skipped
+as too heavy and later measured on a Mac; see "Qwen3-ASR 1.7B" below. No open model released up to
 2026-10 was found that beats FireRedASR2 on Mandarin.
 Non-quantized SenseVoice and X-ASR score the same as their int8 versions: quantization is free.
 
@@ -268,6 +267,46 @@ A side result: the base model scored better here than in its sherpa-onnx int8 fo
 Qwen3-ASR about two points, unlike SenseVoice and X-ASR. The fp32 model is still behind
 FireRedASR2 on everything but code-switching, so this does not change any conclusion.
 
+### Qwen3-ASR 1.7B, 4-bit (2026-10)
+
+The larger Qwen3-ASR, to see what the size buys. There is no sherpa-onnx export; this is the MLX
+conversion [mlx-community/Qwen3-ASR-1.7B-4bit](https://huggingface.co/mlx-community/Qwen3-ASR-1.7B-4bit)
+(Apache-2.0, 1.6 GB) run with mlx-audio 0.5.7 on the GPU of an Apple M1 Pro, one utterance at a
+time, automatic language (`scripts/bench/bench_mlx.py`). MLX runs on Apple silicon only, so this
+measures the model, not something a phone can run. Same 300 utterances per set, common subset
+without digits (250–291 per set); the last two columns are differences with their 95 % bootstrap
+intervals.
+
+| Test set | Qwen3-ASR 1.7B 4-bit | FireRedASR2 AED | SenseVoice | Fun-ASR-nano | Qwen3-ASR 0.6B fp32 | 1.7B − FireRedASR2 | 1.7B − SenseVoice |
+|---|---|---|---|---|---|---|---|
+| AISHELL-1 | 1.75 | **0.85** | 2.84 | 2.23 | 2.20 | +0.90 (+0.51..+1.34) | −1.09 (−1.52..−0.64) |
+| WenetSpeech net | 9.12 | **5.79** | 9.58 | 7.65 | 7.78 | +3.32 (+2.24..+4.61) | −0.46 (−1.80..+0.93) |
+| WenetSpeech meeting | 8.07 | **6.29** | 9.68 | 8.47 | 9.07 | +1.78 (+1.08..+2.53) | −1.61 (−2.43..−0.82) |
+| ASCEND mixed | 12.10 | **11.24** | 14.85 | 11.92 | 12.59 | +0.86 (−0.71..+2.54) | −2.75 (−4.40..−0.93) |
+| LibriSpeech | 2.27 | **1.86** | 3.41 | 2.39 | 2.49 | +0.41 (−0.05..+0.84) | −1.14 (−1.75..−0.56) |
+| KeSpeech (accents) | 6.68 | **5.47** | 12.24 | 10.24 | 8.40 | +1.21 (+0.20..+2.35) | −5.56 (−7.14..−4.02) |
+| Common Voice zh-CN | 6.70 | **5.39** | 13.22 | 9.42 | 7.99 | +1.31 (+0.26..+2.38) | −6.51 (−7.91..−5.17) |
+
+Cost on the Mac: 2.7–4.4 s to load, 1.5 GB of weights in memory, 2.8 GB peak, RTF 0.08–0.12.
+Median / 95th percentile time per utterance: 0.30 / 0.41 s for audio under 3 s, 0.42 / 0.57 s
+for 3–6 s, 0.58 / 0.82 s for 6–12 s, 1.15 / 1.69 s above 12 s.
+
+- **Clearly better than SenseVoice, still behind FireRedASR2.** Errors are roughly halved on
+  accented speech and consumer microphones, and significantly lower on every set but WenetSpeech
+  net. Against FireRedASR2 it is 0.9–3.3 points worse on every Mandarin set and level, within
+  noise, on code-switching and English.
+- **Little gain over the 0.6B model**: 0.5–1.7 points better on five sets, level on ASCEND and
+  LibriSpeech within noise, and 1.3 points worse on WenetSpeech net (+0.30..+2.44). The fp32
+  1.7B model was not run, so whether 4-bit quantization causes that is not known.
+- **Its text is usable as typed**: punctuation, English casing, and the code-switching sample
+  came out exactly right ("我刚刚把代码 push 到 GitHub 上了，你帮我 review 一下这个 pull request。").
+  It still answers in Traditional Chinese now and then (13 of 2100 transcripts), spells numbers
+  out ("九点", "fifty"; digits in 6 transcripts), and never returned empty or looping output.
+
+Verdict: **not adopted.** As a refiner it is less accurate than FireRedASR2 on Mandarin and at
+least as heavy (the 0.6B int8 model already peaks at 2.5 GB on a device), and no phone runtime
+for it was measured. What it would save is the merge step, since it punctuates by itself.
+
 ## Punctuation from a separate model? (2026-10)
 
 FireRedASR2 belongs to a system, FireRedASR2S, that punctuates with a model of its own:
@@ -416,6 +455,8 @@ To evaluate a new model, run `scripts/bench/bench_all.py <key> <model_dir> <kind
 model families sherpa-onnx supports and runs all five sets), and record the numbers in the table above before changing `VoiceEngine.kt`. Then run
 `scripts/e2e-voice.sh` on a device: desktop numbers say nothing about load time and memory.
 
+`scripts/bench/bench_qwen_pt.py` (PyTorch) and `scripts/bench/bench_mlx.py` (MLX, Apple silicon)
+run checkpoints that have no sherpa-onnx export on the same utterances.
 `scripts/bench/punct_eval.py` (with `bench_fleurs.py`) and `scripts/bench/vad_eval.py` reproduce
 the punctuation and voice activity detection comparisons; each lists the extra models, data and
 packages it needs at the top of the file.
