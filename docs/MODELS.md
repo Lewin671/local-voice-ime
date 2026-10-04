@@ -268,6 +268,99 @@ A side result: the base model scored better here than in its sherpa-onnx int8 fo
 Qwen3-ASR about two points, unlike SenseVoice and X-ASR. The fp32 model is still behind
 FireRedASR2 on everything but code-switching, so this does not change any conclusion.
 
+## Punctuation from a separate model? (2026-10)
+
+FireRedASR2 belongs to a system, FireRedASR2S, that punctuates with a model of its own:
+FireRedPunc, a BERT-base token classifier (407 MB of PyTorch weights; a third-party weight-only
+8-bit ONNX export, `jiangzhuo9357/fireredpunc-onnx`, is 163 MB). sherpa-onnx does not run it; it
+ships the older CT-Transformer (64 MB int8). Would either punctuate better than SenseVoice, whose
+punctuation the refinement keeps?
+
+`scripts/bench/punct_eval.py` scores whole pipelines against references that carry punctuation:
+300 utterances each of FLEURS Mandarin, FLEURS English and Common Voice zh-CN. Hypothesis and
+reference are aligned on their words and the mark after each aligned word is compared. F1 over all
+marks:
+
+| Pipeline | FLEURS zh | Common Voice zh-CN | FLEURS en |
+|---|---|---|---|
+| SenseVoice alone | 84.8 | 89.1 | 77.7 |
+| **FireRedASR2 words, SenseVoice format (the app)** | **84.3** | **89.3** | **78.5** |
+| …punctuation replaced by FireRedPunc | 86.0 | 89.8 | 77.5 |
+| …punctuation replaced by CT-Transformer | 77.7 | 84.5 | 73.0 |
+| FireRedASR2 + FireRedPunc, no SenseVoice | 85.7 | 89.9 | 77.5 |
+| FireRedASR2 + CT-Transformer, no SenseVoice | 77.8 | 84.3 | 73.1 |
+| X-ASR offline alone | 86.7 | 79.9 | 81.1 |
+| Reference words + FireRedPunc (upper bound) | 88.7 | 90.4 | 81.3 |
+
+- **FireRedPunc is level with SenseVoice**: +1.7 and +0.5 on the Mandarin sets, −1.0 on English.
+  That does not pay for 163 MB more to download, 50–260 ms per utterance on a laptop (short
+  Common Voice sentences to long FLEURS ones), and a BERT tokenizer and a direct onnxruntime
+  session in Kotlin.
+- It could not replace the merge either: it knows four marks (`，。？！`, no `、；：`), and digits
+  and casing would still have to come from SenseVoice (capitalised words, F1 on FLEURS en: 14.6
+  for FireRedASR2 + FireRedPunc with sentence-initial capitals restored, 78.3 for the merge).
+- CT-Transformer is clearly worse than SenseVoice's own punctuation.
+- Not measured: question marks (none of the 900 references has one) and spontaneous dictation;
+  all three sets are read speech.
+
+Decision: keep SenseVoice's punctuation.
+
+## Voice activity detection: Silero, TEN-VAD or FireRedVAD? (2026-10)
+
+FireRedASR2S also has a detector, FireRedVAD (DFSMN, 2.3 MB), reported by its authors to beat
+Silero VAD and TEN-VAD on FLEURS (97.57 % F1 for the non-streaming model). Dictation needs the
+streaming one. sherpa-onnx runs Silero and TEN-VAD; FireRedVAD exists only as PyTorch weights
+and would need an ONNX export plus filterbank features and its state machine in Kotlin.
+
+`scripts/bench/vad_eval.py` runs the detectors as the app does (0.7 s trailing silence, 0.25 s
+minimum speech, 20 s maximum, segments padded by 0.3 s and transcribed by SenseVoice) and measures
+what the user would notice.
+
+**Noise without speech**: 400 clips of 5 s from ESC-50 (animals, weather, coughing and laughing,
+household and street noise), 33 minutes.
+
+| Detector | Clips that opened a segment | Segments per minute | Words inserted per minute |
+|---|---|---|---|
+| **Silero v5, threshold 0.5 (the app)** | **4.8 %** | **0.6** | **0.2** |
+| TEN-VAD, 0.5 | 24.2 % | 3.0 | 0.9 |
+| FireRedVAD stream, 0.5 | 41.5 % | 6.3 | 1.3 |
+| FireRedVAD stream, 0.3 (its documented setting) | 55.2 % | 8.5 | 1.4 |
+
+FireRedVAD takes 89 % of the animal clips and more than half of the human non-speech clips for
+speech; Silero 10 % of each.
+
+**Speech**: 200 utterances per set between 1 s of lead-in and 1.5 s of tail, clean and with a
+steady ESC-50 noise mixed in. Error rate (%) of SenseVoice on what the detector passed on, and in
+brackets the utterances it lost completely; "none" is the whole utterance without a detector.
+
+| Test set | Noise | none | Silero v5 | TEN-VAD | FireRedVAD 0.5 | FireRedVAD 0.3 |
+|---|---|---|---|---|---|---|
+| AISHELL-1 | clean | 2.79 | 2.58 | 2.89 | 2.68 | 2.61 |
+| | 10 dB SNR | 3.54 | 3.27 | 11.73 (7) | 3.44 | 3.58 |
+| | 0 dB SNR | 8.01 | 8.53 (1) | 47.28 (62) | 7.74 | 7.43 |
+| ASCEND mixed | clean | 14.31 | 12.43 | 13.61 (1) | 13.58 | 13.42 |
+| | 10 dB SNR | 18.74 | 18.29 | 25.97 (9) | 18.26 | 18.07 |
+| | 0 dB SNR | 33.01 | 33.49 (1) | 49.01 (47) | 32.31 (1) | 31.07 |
+| WenetSpeech meeting | clean | 9.99 | 12.30 | 44.22 (51) | 11.97 | 10.89 |
+| | 10 dB SNR | 14.69 | 16.91 | 72.76 (112) | 20.24 (1) | 16.65 |
+| | 0 dB SNR | 34.64 | 49.03 (28) | 88.89 (139) | 45.26 (19) | 39.18 (5) |
+
+- **TEN-VAD is out**: it loses whole utterances in noise and on far-field speech.
+- **On close-talking speech** (AISHELL-1, ASCEND: what dictating into a phone resembles) Silero
+  and FireRedVAD are mostly within a point of each other; at 0 dB FireRedVAD at 0.3 is up to
+  2.4 points ahead.
+- **On far-field speech** (meeting recordings) FireRedVAD at 0.3 is better, clearly so in loud
+  noise: 5 utterances lost against Silero's 28.
+- It buys that by calling more things speech: 10 to 14 times as many segments opened by noise
+  alone.
+- Silero itself costs 2.3 points on clean far-field speech and drops utterances at 0 dB. If
+  dictation is reported to miss quiet or distant speech, a lower Silero threshold is the first
+  thing to measure (not done here; it will raise the false triggers).
+- Not measured: endpoint delay (all three use the same trailing silence), real dictation on a
+  phone (the noise is mixed in digitally).
+
+Decision: keep Silero VAD v5.
+
 ## Cloud reference: Doubao streaming ASR 2.0 (2026-10)
 
 An evaluation only. The app never sends audio or text off the device, and nothing here changes
@@ -322,3 +415,7 @@ curl -L -o data/librispeech_test_clean.parquet $H/openslr/librispeech_asr/resolv
 To evaluate a new model, run `scripts/bench/bench_all.py <key> <model_dir> <kind>` (it covers all
 model families sherpa-onnx supports and runs all five sets), and record the numbers in the table above before changing `VoiceEngine.kt`. Then run
 `scripts/e2e-voice.sh` on a device: desktop numbers say nothing about load time and memory.
+
+`scripts/bench/punct_eval.py` (with `bench_fleurs.py`) and `scripts/bench/vad_eval.py` reproduce
+the punctuation and voice activity detection comparisons; each lists the extra models, data and
+packages it needs at the top of the file.
