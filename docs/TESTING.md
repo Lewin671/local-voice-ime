@@ -175,6 +175,9 @@ force-stops the debug app between clips. For paired builds compare `finals`, `se
 Do not interpret this WAV-source lifecycle check as physical AudioRecord or energy validation.
 Run `python3 scripts/bench/compare-session-probes.py <baseline-directory> <optimized-directory>`
 to enforce this comparison without a CER tolerance.
+For paired editor runs use `python3 scripts/bench/compare-editor-transcripts.py <baseline-log>
+<optimized-log>` with logs from `e2e-voice.sh` under the same installed-model configuration.
+The script's ordinary 15% error threshold alone does not establish unchanged accuracy.
 `CANCEL_BEFORE_START=1` with the probe verifies the cold cancelled-session wiring: no samples,
 no final text, one source stop, and no standard model loaded by the native worker.
 `PREPARING_STALL_MS=3000` blocks the initial main-thread state callback and asserts that audio

@@ -67,6 +67,24 @@ continuation flags and sentence stops exactly. All four changed capture release 
 `Finishing` from false to true, with exactly one source stop in both builds. The complete
 standard-model interaction suite passed, including the emulator AudioRecord silence timeout.
 These remain public smoke recordings, not independent speakers or physical-phone validation.
+The final startup-order build also passed the 83-test local/build/privacy checks, the complete
+24-check high-accuracy interaction suite (including Battery Saver refinement), and exact Chinese
+and English editor transcripts. With a three-second initial UI callback stall, all four probes
+read during the stall and still matched the baseline audio/text fields exactly. All four cold
+pre-cancelled probes opened no source, captured no samples, loaded no standard model and emitted
+no final text. Physical microphone tail/cold-start and target-phone energy checks remain pending.
+
+The final standard-model suite passed all 18 interaction checks as well. A stricter transcript
+review found SenseVoice alone rendered the English reference's "gold" as "code" in the warm
+editor scenario (4.5% normalized error, below the existing script's 15% passing threshold).
+The pre-optimization `08da3041` APK was rebuilt and tested on the same emulator with the
+refiner absent: it returned exactly the same Chinese and English editor text, including that
+error. The final exact-reference editor run after the high-accuracy suite had the large model
+available; that configuration returned the correct word on this sample.
+Do not confuse a threshold pass or refinement-enabled run with a perfect standard-model
+transcript. Cold standalone probes still matched raw final text and audio exactly; these
+different scenarios are reported separately. Paired logs and both APKs are retained in the
+workspace's `outputs/local-voice-ime-power-review/validation/` directory.
 
 ### Bounded-spinning experiment (not adopted)
 
