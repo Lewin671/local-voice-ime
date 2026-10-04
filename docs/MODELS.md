@@ -317,6 +317,65 @@ Verdict: **not adopted.** As a refiner it is less accurate than FireRedASR2 on M
 least as heavy (the 0.6B int8 model already peaks at 2.5 GB on a device), and no phone runtime
 for it was measured. What it would save is the merge step, since it punctuates by itself.
 
+## Hot words in the prompt: Fun-ASR-nano (2026-10)
+
+Neither model the app uses can be told which names and terms a user cares about: sherpa-onnx
+applies its hot word files to transducer models only. Fun-ASR-nano and Qwen3-ASR take a list of
+hot words in their prompt instead (`hotwords` in their sherpa-onnx configuration). Fun-ASR-nano
+was measured, as it formats its output and could take FireRedASR2's place as the refiner:
+`sherpa-onnx-funasr-nano-int8-2025-12-30`, sherpa-onnx 1.13.8, `scripts/bench/bench_hotwords.py`,
+on 300 ASCEND utterances (English terms in Mandarin sentences) and 1000 of AISHELL-1 (names of
+people, places and organisations). The lists are what a user would write down: the words of the
+reference transcripts that the model got wrong without hot words, 70 for ASCEND (said 144 times)
+and 44 for AISHELL-1 (said 62 times).
+
+| Hot word list | ASCEND: listed words right | utterances better / worse | broken | error rate | AISHELL-1: listed words right | better / worse | broken | error rate |
+|---|---|---|---|---|---|---|---|---|
+| none | 48 of 144 | – | 0 | 12.09 | 16 of 62 | – | 0 | 3.49 |
+| 10 words that nobody says (control) | 68 of 144 | 49 / 39 | 0 | 11.44 | 19 of 62 | 15 / 23 | 0 | 3.61 |
+| the list in slices of 10, summed | 82 of 144 | 45–53 / 29–49 each | 0–2 each | 11.27–21.16 | 19 of 56 (4 slices) | 12–15 / 22–27 each | 0–1 each | 3.55–3.63 |
+| the whole list (70 / 44 words) | 81 of 144 | 56 / 36 | 1 | 14.70 | 20 of 62 | 15 / 25 | 1 | 3.72 |
+| the list plus 50 unrelated words | 65 of 144 | 45 / 60 | 20 | 29.25 | 12 of 62 | 8 / 419 | 310 | 50.68 |
+| the list plus 119 unrelated words | 0 | 2 / 296 | 285 | 100 | 0 | 0 / 925 | 930 | 100 |
+| per utterance: only the listed words said in it | 86 of 144 | 43 / 12 | 0 | 10.71 | 32 of 62 | 14 / 1 | 1 | 3.37 |
+| the same plus 4 unrelated words | 91 of 144 | 43 / 11 | 0 | 10.49 | 34 of 62 | 15 / 2 | 1 | 3.37 |
+
+"Listed words right" counts, over the utterances where a listed word is said, how often the
+transcript has it; in the control row no listed word is said, and the figure is for the words
+of the full list. "Broken" is an empty transcript or a loop ("home home home …"). Error rates as
+in the tables above, on the utterances without digits in any transcript.
+
+- **A fixed list does little.** Most of what looks like a gain comes from the other prompt that
+  sherpa-onnx uses as soon as there is any hot word: with ten words that nobody says, the hard
+  words are right 68 times instead of 48, and with the right words on the list 82 times. For
+  Chinese names the list adds next to nothing over the control (5 more right of 56, against 3
+  of 62). It also changes one ASCEND utterance in three, for the worse nearly as often as for
+  the better, and switches some numbers between digits and characters.
+- **The list has to be short.** This export has 512 tokens for prompt and audio together. From
+  about a hundred words on, the transcripts are empty or loops; 70 words already cost accuracy.
+- **Hot words that were not said are not written**: at most a handful of cases per run, no more
+  than without hot words. The damage is to the rest of the text, not invented hot words.
+- **A list made for the utterance works**: with exactly the listed words that are said, half of
+  them come out right (86 of 144, 32 of 62), few utterances get worse, and nothing breaks. Four
+  unrelated words next to them do no harm. This is what the "retrieve, then prompt" designs in
+  the literature do: a first transcript is used to look up similar-sounding entries in a large
+  personal vocabulary, and only those go into the prompt. The numbers here are its upper bound,
+  with a retrieval step that never misses and never adds a similar-sounding wrong word.
+- **Against the current pipeline it is not an upgrade.** On the same 144 ASCEND occurrences,
+  FireRedASR2 without any hot word is right 89 times, and the merged text the app produces 88
+  times. Of the 80 occurrences of listable words that the merged text gets wrong, Fun-ASR-nano
+  is right on 26 without hot words and on 50 with the per-utterance list. On Mandarin it stays
+  far behind FireRedASR2 (AISHELL-1, 156 common utterances: 2.36 against 0.96).
+- A list of 10 to 70 words makes decoding 1.5 to 3 times slower (the prompt is longer); a list
+  of one to five words costs nothing measurable. The runs shared the machine, so this is rough.
+
+Verdict: **not adopted.** A fixed hot word list is not worth offering. A per-utterance list would
+fix about half of the words the user lists, but only as a third model next to FireRedASR2 (the
+two do not fit in memory together) or in exchange for FireRedASR2's accuracy on everything
+else. Not measured: a real retrieval step, a user's own vocabulary and recordings, an export
+with a longer context, Qwen3-ASR's `hotwords`, and whether sherpa-onnx can change the hot words
+per utterance (here a recognizer was created for each list).
+
 ## Punctuation from a separate model? (2026-10)
 
 FireRedASR2 belongs to a system, FireRedASR2S, that punctuates with a model of its own:
@@ -521,6 +580,7 @@ model families sherpa-onnx supports and runs all five sets), and record the numb
 `scripts/bench/bench_qwen_pt.py` (PyTorch) and `scripts/bench/bench_mlx.py` (MLX, Apple silicon)
 run checkpoints that have no sherpa-onnx export on the same utterances.
 `scripts/bench/bench_stream.py` runs streaming models (`OnlineRecognizer`) on the same utterances.
+`scripts/bench/bench_hotwords.py` measures hot words in Fun-ASR-nano's prompt (needs `jieba` as well).
 `scripts/bench/punct_eval.py` (with `bench_fleurs.py`) and `scripts/bench/vad_eval.py` reproduce
 the punctuation and voice activity detection comparisons; each lists the extra models, data and
 packages it needs at the top of the file.
