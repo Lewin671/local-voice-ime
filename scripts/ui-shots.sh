@@ -35,6 +35,7 @@ previous_night=$(adb shell cmd uimode night | tr -d '\r' | awk '{print $NF}')
 cleanup() {
     adb shell rm -f "$remote_wav" >/dev/null 2>&1 || true
     adb shell run-as "$pkg" mv "$model.aside" "$model" >/dev/null 2>&1 || true
+    adb shell run-as "$pkg" rm -rf files/app-update >/dev/null 2>&1 || true
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO >/dev/null 2>&1 || true
     adb shell cmd uimode night "$previous_night" >/dev/null 2>&1 || true
     adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1 || true
@@ -74,6 +75,18 @@ center() { python3 scripts/e2e/ui.py center "$work/ui.xml" "$1"; }
 shot() {
     adb exec-out screencap -p >"$out/$theme-$1.png"
     echo "$out/$theme-$1.png"
+}
+
+# Settings -> App update, the last entry of the main settings list
+open_update() {
+    adb shell am force-stop "$pkg"
+    adb shell am start -W -n "$pkg/org.fcitx.fcitx5.android.ui.main.MainActivity" >/dev/null
+    sleep 2
+    adb shell input swipe 500 1500 500 500 200
+    sleep 1
+    dump_ui
+    adb shell input tap $(center "App update")
+    sleep 2
 }
 
 for theme in light dark; do
@@ -133,5 +146,19 @@ for theme in light dark; do
     shot 8-settings-voice-input
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" mv "$model.aside" "$model"
+
+    # app update: not checked, then with a newer version. The app remembers what a check found
+    # in a file; writing that file shows the state without asking github.com
+    adb shell run-as "$pkg" rm -rf files/app-update
+    open_update
+    shot 9-settings-app-update
+    adb shell run-as "$pkg" mkdir -p files/app-update
+    adb shell "run-as $pkg sh -c 'cat > files/app-update/release.json'" <<'JSON'
+{"tag":"v99.0.0","notes":"Dictation keeps a sentence together across longer pauses.\nThe microphone is released sooner after you stop.\nFixes a preview that could stay behind after cancelling.\nFaster first result after the keyboard was idle.\nSmaller download.","apk":{"name":"local-voice-ime-v99.0.0-arm64-v8a.apk","size":72351744,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}}
+JSON
+    open_update
+    shot 10-settings-app-update-new-version
+    adb shell run-as "$pkg" rm -rf files/app-update
+    adb shell am force-stop "$pkg"
     adb shell ime set "$ime" >/dev/null
 done

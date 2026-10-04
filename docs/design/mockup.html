@@ -200,7 +200,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Downloading, paused, failed</td><td>As for a speech model</td><td>Pause; Resume, Delete</td></tr>
     <tr><td>Downloaded</td><td>"Downloaded and verified"</td><td>Delete, Install</td></tr>
     <tr><td>Installing</td><td>"Android is installing the update…"</td><td>—</td></tr>
-    <tr><td>Not installed</td><td>In the error colour, naming the cause: "Android did not install the update: not enough free storage." A file that is not signed like this app is discarded and reported as such.</td><td>Delete, Install</td></tr>
+    <tr><td>Not installed</td><td>In the error colour, naming the cause: "Android did not install the update: not enough free storage.", "…: the package is not signed like this app."</td><td>Delete, Install</td></tr>
   </table></div>
   <p class="note">Rules: the check is one request to github.com for the newest release of this project; it carries no identifier and nothing about the phone. What it found is remembered, so the new version is still listed when the screen is opened again; nothing else is, and there is no badge, notification or reminder anywhere else. The package is fetched from the same release and must match the checksum published with it. <em>Install</em> hands the file to Android, which asks for confirmation (the first time also whether this app may install apps) and accepts the package only if it is signed with the same key as the installed app. Declining is not an error: the row stays at "Downloaded and verified". Speech models and settings are kept. While Android replaces the app the keyboard is gone for a few seconds; afterwards the downloaded file is deleted and the screen shows the new version as installed.</p>
 </section>

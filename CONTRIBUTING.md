@@ -5,10 +5,10 @@ written by a person or by an AI agent. `AGENTS.md` is the orientation guide; rea
 
 ## Ground rules
 
-1. **The network is for downloading speech models, nothing else.** Audio and text never leave
-   the device. The only code that opens a connection is `VoiceModelFetch.kt`, on the user's
-   request, for a pinned file. Features that would send anything, or fetch anything else, are
-   out of scope (`AGENTS.md`, rule 1; `scripts/check-privacy.sh`).
+1. **The network is for downloading speech models and app updates, on request, nothing
+   else.** Audio and text never leave the device. The only code that opens a connection is
+   `VoiceModelFetch.kt`, on the user's request, for a fixed address. Features that would send
+   anything, fetch anything else, or connect without being asked are out of scope (`AGENTS.md`, rule 1; `scripts/check-privacy.sh`).
 2. **English only** in code, comments, docs, commit messages and `values/strings.xml`.
    Translations go to `values-<locale>/`.
 3. **Small diff against upstream.** New code goes into new files (voice code under

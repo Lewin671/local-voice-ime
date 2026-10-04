@@ -41,7 +41,7 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded, freed after 3 idle minutes. |
 | `VoiceModels` | Catalogue of the speech models, all of them downloads (files pinned by size and SHA-256), and the entry points the rest of the app uses. |
 | `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
-| `VoiceModelFetch` | Downloads one file, resumable, verified. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
+| `VoiceModelFetch` | Downloads one file, resumable, verified; also reads the short description of the newest release for the update check. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
 | `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
 | `VoiceSentence` | Keeps a sentence together across a pause: holds back the full stop of an utterance and, when speech resumes within a few seconds, has both transcribed as one. Pure Kotlin, unit-tested. |
@@ -140,9 +140,9 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir (the VAD model), `noCompress onnx`, own `applicationId` |
 | `build-logic/convention/src/main/kotlin/Versions.kt` | release version codes are incremented so signed APKs upgrade previous versions |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
-| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download only), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
+| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download and app update only), `REQUEST_INSTALL_PACKAGES` and `AppUpdateReceiver` (app update), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models are excluded from backups |
-| `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input*, and opening it from the keyboard |
+| `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
 | `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText`; `handleReturnKey()` made public for the dictation panel |
@@ -177,13 +177,33 @@ named `installed` is written last, so a directory that has it holds every file c
 verified; anything else in there is an unfinished download (`*.part`) that the next attempt
 continues. The directory is excluded from backups.
 
+## App update
+
+`app/src/main/java/org/fcitx/fcitx5/android/update/`. The app is installed from an APK published
+on GitHub, so it can replace itself with a newer one, but only on request: nothing here runs
+unless the user taps a button in *Settings → App update*.
+
+| File | Responsibility |
+|---|---|
+| `AppRelease` | A published version: parses GitHub's description of the newest release, picks the package for the device's processor (it must be an asset of this project's release and come with a SHA-256), turns release notes into plain text, compares versions. Pure Kotlin, unit-tested. |
+| `AppUpdateStore` | Asks for the newest release when told to, remembers a newer one in `files/app-update/` until it is installed, and downloads its package with a `VoiceModelStore` (resumable, verified). Pure Kotlin, unit-tested. |
+| `AppUpdate` | The process-wide store, and the hand-over of the verified package to Android's `PackageInstaller`, which asks the user and checks the signature. `AppUpdateReceiver` gets the installer's answer. |
+| `AppUpdateFragment`, `AppUpdatePreference` | *Settings → App update*; the row reuses the model row's layout. |
+
+The installed version is `BuildConfig.VERSION_NAME` (`git describe`, so a release build is
+`v0.7.0-0-g…`); a release is newer if its tag's numbers are greater. After an update the
+remembered release is no longer newer, and the next start of the screen deletes the package.
+
 ## Privacy model
 
-- The network is used for one thing: `VoiceModelFetch` downloads the files of a model listed in
-  `VoiceModels` when the user taps *Download* (or *Resume*) in the settings. It sends a GET for a
-  fixed HTTPS URL and nothing else, and what arrives is used only if it matches the pinned size
-  and SHA-256. Nothing starts a download by itself, and the dictation pipeline has no reference
-  to this code.
+- The network is used for two things, both only on a tap in the settings. `VoiceModelFetch`
+  downloads the files of a model listed in `VoiceModels` when the user taps *Download* (or
+  *Resume*): a GET for a fixed HTTPS URL and nothing else, and what arrives is used only if it
+  matches the pinned size and SHA-256. For *Settings → App update* it reads GitHub's description
+  of the newest release when the user taps *Check for updates*, and downloads that release's
+  package the same way as a model, verified against the SHA-256 GitHub publishes for it;
+  Android then installs it only if it is signed like the installed app. Nothing starts a
+  request by itself, and the dictation pipeline has no reference to this code.
 - `scripts/check-privacy.sh` fails the build check if another source file opens a connection,
   if a network-capable permission other than `INTERNET` appears, if cleartext traffic becomes
   possible, or if a dependency that goes online is added. This replaces the guarantee the app

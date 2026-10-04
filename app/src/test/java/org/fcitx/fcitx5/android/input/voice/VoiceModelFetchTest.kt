@@ -34,6 +34,9 @@ class VoiceModelFetchTest {
     /** `Range` header of each request the server saw. */
     private val ranges = mutableListOf<String?>()
 
+    /** `User-Agent` header of each request the server saw. */
+    private val agents = mutableListOf<String?>()
+
     // how the fake server behaves
     private var served = content
     private var honourRange = true
@@ -51,6 +54,7 @@ class VoiceModelFetchTest {
         server.createContext("/model.onnx") { exchange ->
             val range = exchange.requestHeaders.getFirst("Range")
             ranges += range
+            agents += exchange.requestHeaders.getFirst("User-Agent")
             val from = range?.takeIf { honourRange }?.removePrefix("bytes=")?.removeSuffix("-")?.toInt()
             val body = served.copyOfRange(from ?: 0, served.size)
             if (status != 0) {
@@ -77,6 +81,34 @@ class VoiceModelFetchTest {
         URL("http://127.0.0.1:${server.address.port}/model.onnx"),
         dest, content.size.toLong(), sha256, onProgress
     )
+
+    private fun read(limit: Int) =
+        VoiceModelFetch.read(URL("http://127.0.0.1:${server.address.port}/model.onnx"), limit)
+
+    @Test
+    fun readsAShortDocument() {
+        served = """{"tag_name": "v1.2.3", "body": "更新"}""".toByteArray()
+        assertEquals(served.toString(Charsets.UTF_8), read(served.size))
+    }
+
+    @Test
+    fun aDocumentLongerThanTheLimitIsRejected() {
+        assertThrows(VoiceModelFetch.WrongContentException::class.java) { read(content.size - 1) }
+    }
+
+    @Test
+    fun anErrorStatusIsReportedWithItsCode() {
+        status = 403
+        val e = assertThrows(VoiceModelFetch.HttpException::class.java) { read(1000) }
+        assertEquals(403, e.code)
+    }
+
+    @Test
+    fun requestsDoNotNameTheDevice() {
+        fetch()
+        read(content.size)
+        assertEquals(listOf<String?>("local-voice-ime", "local-voice-ime"), agents)
+    }
 
     @Test
     fun downloadsAndReportsProgress() {

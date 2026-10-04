@@ -17,19 +17,24 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 
 ## Non-negotiable rules
 
-1. **Audio and text never leave the device; the network is for downloading models only.**
-   The app holds `android.permission.INTERNET` for one purpose: fetching a speech model when
-   the user taps *Download* in *Settings → Voice input*. `VoiceModelFetch.kt` is the only file
-   that may open a connection; it sends a plain GET for a pinned URL and accepts only files that
-   match a pinned SHA-256. No other network use, no other network-capable permission, no
+1. **Audio and text never leave the device; the network is used only when the user asks, for
+   speech models and app updates.** The app holds `android.permission.INTERNET` for two things:
+   fetching a speech model when the user taps *Download* in *Settings → Voice input*, and, in
+   *Settings → App update*, asking GitHub for the newest release when the user taps *Check for
+   updates* and fetching its package when they tap *Download*. Nothing connects by itself: no
+   check at start-up or in the background. `VoiceModelFetch.kt` is the only file that may open
+   a connection; it sends a plain GET for a fixed URL and accepts only files that match a known
+   SHA-256 (pinned in the app for models, published with the release for an update, which
+   Android additionally installs only if it is signed like the installed app). No other network use, no other network-capable permission, no
    dependency that goes online (analytics, crash reporting, HTTP clients, WebView content).
    `scripts/check-privacy.sh` enforces this; run it after touching the manifest, dependencies
-   or anything under `input/voice/VoiceModel*`. `docs/PRIVACY.md` states the promise to users:
+   or anything under `input/voice/VoiceModel*` or `update/`. `docs/PRIVACY.md` states the promise to users:
    change it first if the promise has to change, and say so in the release notes.
 2. **Everything in the repo is written in English**: code, comments, docs, commit messages, UI
    source strings (`values/strings.xml`). Translations go in `values-*/`.
 3. **Keep the diff against upstream small.** New functionality goes into new files under
-   `app/src/main/java/org/fcitx/fcitx5/android/input/voice/`; changes to upstream files should be
+   `app/src/main/java/org/fcitx/fcitx5/android/input/voice/` (updating the app: `update/`, next
+   to `input/`); changes to upstream files should be
    minimal hooks. This keeps merging upstream releases cheap. `docs/ARCHITECTURE.md` lists every
    upstream file we touch.
 4. **Don't commit large binaries.** The speech runtime and models live in `voice/` (git-ignored)
@@ -46,6 +51,7 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 |---|---|
 | `app/` | The application (Kotlin). Upstream code plus our `input/voice/` package |
 | `app/src/main/java/.../input/voice/` | **All voice input code** — start here |
+| `app/src/main/java/.../update/` | Updating the app from *Settings → App update* |
 | `app/src/debug/` | Debug-only test hooks (`TestInputActivity`) |
 | `app/src/test/` | JVM unit tests |
 | `lib/`, `plugin/`, `codegen/`, `build-logic/` | Upstream native libraries, plugins and build logic; rarely touched |

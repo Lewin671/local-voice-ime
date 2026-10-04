@@ -355,7 +355,7 @@
     <string name="voice_refine">High-accuracy refinement</string>
     <string name="voice_refine_summary">Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</string>
     <string name="voice_privacy_title">Recognition runs on this phone</string>
-    <string name="voice_privacy_summary">Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</string>
+    <string name="voice_privacy_summary">Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</string>
     <string name="voice_models">Speech models</string>
     <string name="voice_dictation">Dictation</string>
     <string name="voice_model_standard">Standard</string>
@@ -378,4 +378,27 @@
     <string name="voice_model_standard_delete_message">Frees %s. Voice input stops working until the model is downloaded again.</string>
     <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
     <string name="voice_model_delete_message">Frees %s. Dictation keeps working with the standard model.</string>
+    <string name="app_update">App update</string>
+    <string name="update_privacy_title">Updates are looked for only when you ask</string>
+    <string name="update_privacy_summary">Check for updates asks %s for the newest release and sends nothing about you. The app never checks by itself.</string>
+    <string name="update_installed">Installed</string>
+    <string name="update_new_version">New version</string>
+    <string name="update_version">Version %s</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_check_again">Check again</string>
+    <string name="update_checking">Asking %s…</string>
+    <string name="update_newest">This is the newest version.</string>
+    <string name="update_check_failed">Could not reach %s. Check the connection, then try again.</string>
+    <string name="update_view_on_github">View on GitHub</string>
+    <string name="update_source">%1$s · from %2$s</string>
+    <string name="update_source_only">from %s</string>
+    <string name="update_no_package">This release has no package for this phone (%s).</string>
+    <string name="update_download_message">%1$s is fetched from %2$s over HTTPS and verified before it is installed. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</string>
+    <string name="update_downloaded">Downloaded and verified</string>
+    <string name="update_install">Install</string>
+    <string name="update_installing">Android is installing the update…</string>
+    <string name="update_refused">Android did not install the update.</string>
+    <string name="update_refused_storage">Android did not install the update: not enough free storage.</string>
+    <string name="update_refused_conflict">Android did not install the update: the package is not signed like this app.</string>
+    <string name="update_refused_incompatible">Android did not install the update: the package does not fit this phone.</string>
 </resources>

@@ -350,7 +350,7 @@
     <string name="voice_refine">高精度精修</string>
     <string name="voice_refine_summary">用高精度模型複核語音輸入的文字並原地修正。開啟省電模式或裝置過熱時暫停。</string>
     <string name="voice_privacy_title">辨識在本機完成</string>
-    <string name="voice_privacy_summary">音訊和文字不會離開這支手機。應用程式只在一種情況下連網：你點選「下載」取得語音模型時。</string>
+    <string name="voice_privacy_summary">音訊和文字不會離開這支手機。應用程式只在你要求時連網：在這裡，是下載語音模型。</string>
     <string name="voice_models">語音模型</string>
     <string name="voice_dictation">聽寫</string>
     <string name="voice_model_standard">標準</string>
@@ -373,4 +373,27 @@
     <string name="voice_model_standard_delete_message">可釋放 %s。重新下載之前，語音輸入將無法使用。</string>
     <string name="voice_model_delete_title">刪除高精度模型？</string>
     <string name="voice_model_delete_message">可釋放 %s。語音輸入會繼續使用標準模型。</string>
+    <string name="app_update">應用程式更新</string>
+    <string name="update_privacy_title">只在你要求時檢查更新</string>
+    <string name="update_privacy_summary">「檢查更新」會向 %s 詢問最新版本，不會傳送任何關於你的資訊。應用程式從不自行檢查。</string>
+    <string name="update_installed">已安裝</string>
+    <string name="update_new_version">新版本</string>
+    <string name="update_version">版本 %s</string>
+    <string name="update_check">檢查更新</string>
+    <string name="update_check_again">再次檢查</string>
+    <string name="update_checking">正在詢問 %s…</string>
+    <string name="update_newest">已是最新版本。</string>
+    <string name="update_check_failed">無法連線到 %s。請檢查網路後重試。</string>
+    <string name="update_view_on_github">在 GitHub 檢視</string>
+    <string name="update_source">%1$s · 來自 %2$s</string>
+    <string name="update_source_only">來自 %s</string>
+    <string name="update_no_package">此版本沒有適用於這支手機（%s）的安裝套件。</string>
+    <string name="update_download_message">%1$s 將透過 HTTPS 從 %2$s 下載，驗證通過後才會安裝。不會上傳任何內容。建議使用 Wi-Fi；離開此頁面後下載會繼續。</string>
+    <string name="update_downloaded">已下載並通過驗證</string>
+    <string name="update_install">安裝</string>
+    <string name="update_installing">Android 正在安裝更新…</string>
+    <string name="update_refused">Android 未安裝此更新。</string>
+    <string name="update_refused_storage">Android 未安裝此更新：儲存空間不足。</string>
+    <string name="update_refused_conflict">Android 未安裝此更新：安裝套件的簽章與本應用程式不一致。</string>
+    <string name="update_refused_incompatible">Android 未安裝此更新：安裝套件不適用於這支手機。</string>
 </resources>

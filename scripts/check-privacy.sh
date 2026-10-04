@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Keep the app's network use to what docs/PRIVACY.md promises: downloading a speech model when
-# the user asks for it, and nothing else.
+# Keep the app's network use to what docs/PRIVACY.md promises: downloading a speech model, and
+# looking for and downloading a new version of the app, each when the user asks for it, and
+# nothing else.
 #
 #   1. the APK holds INTERNET and no other network-capable permission, and refuses cleartext
 #   2. VoiceModelFetch.kt is the only source file that opens a connection
@@ -24,7 +25,7 @@ forbidden='android\.permission\.(ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE|CHANGE_N
 echo "$apk"
 echo "$permissions" | sed 's/^/  /'
 if echo "$permissions" | grep -Eq "$forbidden"; then
-    fail "permission beyond what downloading a model needs"
+    fail "permission beyond what downloading a model or an update needs"
 fi
 manifest=$("$BUILD_TOOLS/aapt2" dump xmltree --file AndroidManifest.xml "$apk")
 grep -q 'usesCleartextTraffic.*=false' <<<"$manifest" || fail "cleartext traffic is not disabled"

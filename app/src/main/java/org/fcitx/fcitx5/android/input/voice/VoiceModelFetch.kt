@@ -12,8 +12,10 @@ import java.net.URL
 import java.security.MessageDigest
 
 /**
- * Downloads one file of a speech model: resumable, and accepted only if its size and SHA-256
- * are the pinned ones. Pure Kotlin, see `VoiceModelFetchTest`.
+ * Downloads one file (of a speech model, or the package of a new version of the app):
+ * resumable, and accepted only if its size and SHA-256 are the expected ones. [read] asks for
+ * the short document that says which version is the newest. Pure Kotlin, see
+ * `VoiceModelFetchTest`.
  *
  * **This is the only code in the app that opens a network connection** (`docs/PRIVACY.md`).
  * It sends a plain GET for a fixed URL and nothing else: no identifiers, no request body.
@@ -25,6 +27,41 @@ object VoiceModelFetch {
 
     private const val TIMEOUT_MS = 30_000
     private const val BUFFER_SIZE = 1 shl 16
+
+    /** Instead of the platform's default, which names the phone's model and Android build. */
+    private const val USER_AGENT = "local-voice-ime"
+
+    /** The server answered, but not with the document asked for. */
+    class HttpException(val code: Int, url: URL) : IOException("HTTP $code for $url")
+
+    /** The body at [url] as text, which must not be longer than [limit] bytes. */
+    fun read(url: URL, limit: Int, timeoutMs: Int = TIMEOUT_MS): String {
+        val connection = url.openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = timeoutMs
+            connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
+            val code = connection.responseCode
+            if (code != HttpURLConnection.HTTP_OK) throw HttpException(code, url)
+            val body = connection.inputStream.use { it.readNBytesCompat(limit + 1) }
+            if (body.size > limit) throw WrongContentException("More than $limit bytes at $url")
+            return body.toString(Charsets.UTF_8)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** `InputStream.readNBytes` is not available before Android 13. */
+    private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(BUFFER_SIZE)
+        while (out.size() < max) {
+            val n = read(buffer, 0, minOf(buffer.size, max - out.size()))
+            if (n < 0) break
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
+    }
 
     /**
      * Download [url] to [dest]. Data is collected in `<dest>.part`, which survives a failure or
@@ -62,6 +99,7 @@ object VoiceModelFetch {
                 connection.readTimeout = TIMEOUT_MS
                 // the checksum is over the bytes as stored, so no transparent compression
                 connection.setRequestProperty("Accept-Encoding", "identity")
+                connection.setRequestProperty("User-Agent", USER_AGENT)
                 if (done > 0) connection.setRequestProperty("Range", "bytes=$done-")
                 val code = connection.responseCode
                 if (code == HttpURLConnection.HTTP_OK && done > 0) {

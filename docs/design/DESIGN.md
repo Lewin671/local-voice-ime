@@ -76,7 +76,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 | Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed) |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
-| App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found |
+| App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found; entry in the main settings list, after *Advanced* |
 | New version row (settings) | `AppUpdatePreference` | not downloaded / no package for this phone / downloading / paused / failed / downloaded / installing / not installed (cause) |
 
 Behaviour rules that are easy to get wrong:
@@ -127,7 +127,7 @@ Behaviour rules that are easy to get wrong:
   The package must match the checksum published with its release before *Install* is offered.
   *Install* hands it to Android's installer, which asks the user and verifies that the package
   is signed like the installed app; declining leaves the row at "Downloaded and verified", a
-  refusal is shown with its cause. A package signed with another key is deleted. Once the
+  refusal (no storage, another signature, wrong processor) is shown with its cause. Once the
   installed version is the downloaded one (or newer), the file is deleted. Versions compare by
   their numbers (`0.10.0` is newer than `0.9.2`); anything not newer than the installed version
   is "nothing newer". Release notes are shown as plain text, four lines at most.

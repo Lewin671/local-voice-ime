@@ -26,6 +26,7 @@ import org.fcitx.fcitx5.android.ui.main.PluginFragment
 import org.fcitx.fcitx5.android.ui.main.settings.addon.AddonConfigFragment
 import org.fcitx.fcitx5.android.ui.main.settings.addon.AddonListFragment
 import org.fcitx.fcitx5.android.input.voice.VoiceSettingsFragment
+import org.fcitx.fcitx5.android.update.AppUpdateFragment
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.AdvancedSettingsFragment
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.CandidatesSettingsFragment
 import org.fcitx.fcitx5.android.ui.main.settings.behavior.ClipboardSettingsFragment
@@ -89,6 +90,9 @@ sealed class SettingsRoute : Parcelable {
 
     @Serializable
     data object Advanced : SettingsRoute()
+
+    @Serializable
+    data object AppUpdate : SettingsRoute()
 
     @Serializable
     data object Developer : SettingsRoute()
@@ -231,6 +235,9 @@ sealed class SettingsRoute : Parcelable {
             }
             fragment<AdvancedSettingsFragment, Advanced> {
                 label = ctx.getString(R.string.advanced)
+            }
+            fragment<AppUpdateFragment, AppUpdate> {
+                label = ctx.getString(R.string.app_update)
             }
             fragment<DeveloperFragment, Developer> {
                 label = ctx.getString(R.string.developer)

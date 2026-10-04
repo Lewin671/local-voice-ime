@@ -3,8 +3,8 @@
 A privacy-first Android keyboard with **on-device voice dictation**.
 
 Speak Mandarin, English, or a mix of both; the text appears with punctuation, and **what you say
-and type never leaves your phone**: recognition runs on the device. The app goes online for one
-thing only, and only when you ask: downloading a speech model.
+and type never leaves your phone**: recognition runs on the device. The app goes online only
+when you ask: to download a speech model, or to update itself.
 
 It is also a complete everyday keyboard: 26-key pinyin with sentence-level prediction, English
 with spell check, clipboard history, symbol/emoji pickers and themes — all inherited from

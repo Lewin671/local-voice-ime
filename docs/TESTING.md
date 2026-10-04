@@ -148,7 +148,8 @@ updating an installed app with an APK signed by the same key. Never commit it.
 ./scripts/check-privacy.sh [apk]
 ```
 
-Fails if the app could use the network for anything but downloading a speech model: a
+Fails if the app could use the network for anything but what `docs/PRIVACY.md` lists (speech
+models and app updates, both on request): a
 network-capable permission other than `INTERNET`, cleartext traffic allowed, network code in a
 source file other than `VoiceModelFetch.kt`, or a dependency that goes online. Run it for every
 APK you hand to someone.

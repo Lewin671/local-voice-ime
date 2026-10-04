@@ -16,11 +16,13 @@
     <!-- On-device dictation: audio and text never leave the device. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!--
-      For one thing only: downloading a speech model when the user asks for it in the settings
-      (input/voice/VoiceModelFetch.kt, the only code that opens a connection). See docs/PRIVACY.md;
-      scripts/check-privacy.sh keeps it that way.
+      Only for what the user asks for in the settings: downloading a speech model, looking for a
+      new version of the app and downloading it (input/voice/VoiceModelFetch.kt, the only code
+      that opens a connection). See docs/PRIVACY.md; scripts/check-privacy.sh keeps it that way.
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Handing a downloaded update to Android's installer, which asks the user (update/AppUpdate.kt). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- remove intent queries merged from library manifest (namely Android-Image-Cropper) -->
     <queries tools:node="removeAll" />
@@ -136,6 +138,10 @@
             android:exported="false"
             android:taskAffinity=".input.voice.VoicePermissionActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <receiver
+            android:name=".update.AppUpdateReceiver"
+            android:exported="false" />
 
         <service
             android:name=".input.FcitxInputMethodService"
