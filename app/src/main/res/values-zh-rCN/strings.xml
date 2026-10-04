@@ -424,4 +424,7 @@
     <string name="update_refused_storage">Android 未安装此更新：存储空间不足。</string>
     <string name="update_refused_conflict">Android 未安装此更新：安装包的签名与本应用不一致。</string>
     <string name="update_refused_incompatible">Android 未安装此更新：安装包不适用于这部手机。</string>
+    <string name="update_install_permission">请在 Android 设置中允许本应用安装未知应用，然后返回此页面。</string>
+    <string name="update_allow_installation">允许安装</string>
+    <string name="update_refused_blocked">Android 阻止了安装。请检查安装权限和设备限制后重试。</string>
 </resources>

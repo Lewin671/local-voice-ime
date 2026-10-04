@@ -4,15 +4,20 @@
  */
 package org.fcitx.fcitx5.android.update
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
 import android.text.format.Formatter
 import android.view.View
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,6 +56,32 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
 
     private val host = AppRelease.HOST
 
+    private val installationPermission = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (AppUpdate.canInstall(requireContext())) AppUpdate.install(requireContext())
+        else AppUpdate.permissionRequired()
+    }
+
+    private fun requestInstallation() {
+        if (AppUpdate.canInstall(requireContext())) {
+            AppUpdate.install(requireContext())
+            return
+        }
+        AppUpdate.permissionRequired()
+        try {
+            installationPermission.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${requireContext().packageName}")))
+        } catch (_: ActivityNotFoundException) {
+            // Some vendor builds omit the per-app page; their security settings remain available.
+            try {
+                installationPermission.launch(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            } catch (_: ActivityNotFoundException) {
+                AppUpdate.permissionRequired()
+            }
+        }
+    }
+
     private fun size(bytes: Long) = Formatter.formatShortFileSize(requireContext(), bytes)
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -84,6 +115,13 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                AppUpdate.install.collect {
+                    if (it is Install.Confirmation) AppUpdate.confirmInstallation(requireActivity())
+                }
+            }
+        }
         // a row is updated several times per second while downloading; don't cross-fade it
         listView.itemAnimator = null
         val download = store.found.flatMapLatest { found ->
@@ -169,9 +207,15 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
                 secondary = Action(R.string.voice_model_pause, download::pause)
             )
             State.Installed -> when (install) {
-                Install.Starting -> Content(
+                Install.Starting, is Install.Confirmation -> Content(
                     source = source, progress = AppUpdatePreference.BUSY,
                     status = getString(R.string.update_installing)
+                )
+                Install.PermissionRequired -> Content(
+                    source = source,
+                    status = getString(R.string.update_install_permission),
+                    primary = Action(R.string.update_allow_installation) { requestInstallation() },
+                    secondary = delete
                 )
                 else -> Content(
                     source = source,
@@ -179,11 +223,12 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
                         Refusal.Storage -> getString(R.string.update_refused_storage)
                         Refusal.Conflict -> getString(R.string.update_refused_conflict)
                         Refusal.Incompatible -> getString(R.string.update_refused_incompatible)
+                        Refusal.Blocked -> getString(R.string.update_refused_blocked)
                         Refusal.Other -> getString(R.string.update_refused)
                         null -> getString(R.string.update_downloaded)
                     },
                     error = install is Install.Refused,
-                    primary = Action(R.string.update_install) { AppUpdate.install(requireContext()) },
+                    primary = Action(R.string.update_install) { requestInstallation() },
                     secondary = delete
                 )
             }

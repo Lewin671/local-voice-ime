@@ -428,4 +428,7 @@
     <string name="update_refused_storage">Android did not install the update: not enough free storage.</string>
     <string name="update_refused_conflict">Android did not install the update: the package is not signed like this app.</string>
     <string name="update_refused_incompatible">Android did not install the update: the package does not fit this phone.</string>
+    <string name="update_install_permission">Allow installation from this app in Android settings, then return here.</string>
+    <string name="update_allow_installation">Allow installation</string>
+    <string name="update_refused_blocked">Android blocked installation. Check installation permission and device restrictions, then try again.</string>
 </resources>

@@ -403,6 +403,8 @@ const U = [
     k: update(again, updateRow('0.7.0', '', '<div class="meter"><i style="width:33%"></i></div>' + acts('23 MB of 69 MB', '<div class="tbtn">Pause</div>'))) },
   { t: 'Ready to install', d: 'The file matched the checksum published with the release. Install hands it to Android, which asks for confirmation and checks the signature.',
     k: update(again, updateRow('0.7.0', notes, acts('Downloaded and verified', '<div class="tbtn">Delete</div>', '<div class="btn">Install</div>'))) },
+  { t: 'Installation permission needed', d: 'Android 8+ requires permission for this install source. Install opens Android settings; granting permission and returning continues to the system installer. Declining keeps the verified file.',
+    k: update(again, updateRow('0.7.0', notes, acts('Allow installation from this app in Android settings, then return here.', '<div class="tbtn">Delete</div>', '<div class="btn">Allow installation'))) },
   { t: 'Not installed', d: 'If Android refuses the package, the row says why in Android\'s terms and keeps the file, so that Install can be tried again once the cause is gone.',
     k: update(again, updateRow('0.7.0', notes, acts({ t: 'Android did not install the update: not enough free storage.', err: 1 }, '<div class="tbtn">Delete</div>', '<div class="btn">Install</div>'))) },
   { t: 'No package for this phone', d: 'A release may lack a build for the phone\'s processor. Then there is nothing to download, only the page to look at.',

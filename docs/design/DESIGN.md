@@ -136,6 +136,13 @@ Behaviour rules that are easy to get wrong:
   and *Resume* fetch the package; there is no automatic check, badge, notification or reminder.
   A version that was found is remembered until it is installed or a later check finds another.
   The package must match the checksum published with its release before *Install* is offered.
+  On Android 8+, *Install* first checks whether this app may request installation. If not,
+  it opens Android's permission screen for this app. The row says "Allow installation from
+  this app in Android settings, then return here." and offers *Allow installation*. Returning
+  with permission granted continues installation; declining keeps the verified package.
+  System confirmation is opened only while the update screen is resumed; a callback received
+  while the app is hidden waits until the user returns. Cancelling confirmation keeps the
+  package and allows retry. A blocked install names device restrictions as a possible cause.
   *Install* hands it to Android's installer, which asks the user and verifies that the package
   is signed like the installed app; declining leaves the row at "Downloaded and verified", a
   refusal (no storage, another signature, wrong processor) is shown with its cause. Once the
