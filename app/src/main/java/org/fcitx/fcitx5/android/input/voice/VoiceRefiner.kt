@@ -88,12 +88,17 @@ object VoiceRefiner {
 
     /**
      * Transcribe an utterance with the large model. The result is bare text (no punctuation,
-     * English in capitals); an empty string when nothing was recognized.
+     * English in capitals); an empty string when nothing was recognized, or null when the
+     * request's editor entry was permanently retired before decoding. [needed] runs on the
+     * native worker and must not access UI state.
      */
-    suspend fun transcribe(context: Context, samples: FloatArray): String {
-        ensureLoaded(context)
-        return withContext(dispatcher) {
-            val r = recognizer ?: return@withContext ""
+    suspend fun transcribe(
+        context: Context,
+        samples: FloatArray,
+        needed: () -> Boolean = { true }
+    ): String? = withContext(dispatcher) {
+        VoiceRefinementWork.run(needed, { ensureLoaded(context) }) {
+            val r = recognizer ?: return@run ""
             touch()
             val t0 = SystemClock.elapsedRealtime()
             val stream = r.createStream()

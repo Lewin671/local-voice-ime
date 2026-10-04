@@ -46,6 +46,7 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceAudioBuffer` | Session-owned audio storage. Dropping prefixes advances an index; VAD windows reuse one array. Recognition snapshots remain independent copies. Pure Kotlin, unit-tested. |
 | `VoicePacing` | `PartialPacer`: when the utterance in progress is decoded again for a preview. Pure Kotlin, unit-tested. |
 | `VoiceRuntimeOptions` | Fixed ONNX worker-waiting options for background refinement, published atomically in private storage. Fallback to default CPU scheduling preserves recognition when storage is unavailable. Pure Kotlin, unit-tested. |
+| `VoiceRefinementWork` | Worker-side eligibility checks before loading and decoding. Only permanently retired entries skip native work; valid text keeps the same refinement. Pure Kotlin, unit-tested. |
 | `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |

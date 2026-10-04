@@ -5,6 +5,27 @@ SenseVoice recognition and the selected FireRedASR2 refinement are retained. Thi
 preview latency and storage overhead, not model weights, quantization, language detection,
 inverse text normalization, VAD thresholds, audio rate, endpointing, margins or text merging.
 
+## v0.6.1 follow-up: retired refinement requests
+
+The published v0.6.0 still computes queued refinement after a successful undo, or after an
+entry is permanently evicted from the 64-entry edit history. `VoiceEdits.applyRefinements`
+already rejects these results because their entries are no longer tracked, so the native
+work cannot improve any text.
+
+Version 0.6.1 adds a permanent, volatile retirement flag
+to entries and checks it on the native worker before model loading and again before decoding.
+Useful requests retain the same samples, model settings and recognition result. Failed undo,
+temporary cursor movement, selections, previews and a new session do not retire entries;
+their eligibility can recover. An in-flight native call is allowed to finish normally.
+
+JVM regressions verify zero load/decode calls for requests retired while queued, zero decode
+calls if retirement occurs during loading, and identical output for retained requests. They
+also verify undo scope, history eviction, repeated identical text and recovery after a failed
+undo. The updated 71-test JVM suite, debug build, privacy check and complete high-accuracy
+end-to-end behavior suite passed, including Battery Saver refinement, undo, pauses and cursor
+movement. No additional percentage energy saving is claimed:
+this avoids the cost of unused queued work, with benefits depending on undo/history behavior.
+
 ## Findings and changes
 
 | Area | Evidence in the current pipeline | Change / decision |

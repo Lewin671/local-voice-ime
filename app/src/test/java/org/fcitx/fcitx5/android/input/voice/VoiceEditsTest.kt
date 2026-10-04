@@ -11,6 +11,61 @@ import org.junit.Test
 
 class VoiceEditsTest {
 
+    @Test
+    fun successfulUndoPermanentlyRetiresOnlyTheRemovedSession() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val retained = edits.insert("Previous session.")
+        edits.startSession()
+        val first = edits.insert("First.")
+        val second = edits.insert("Second.")
+        assertTrue(first.canRefine)
+        assertTrue(edits.undoSession())
+        assertFalse(first.canRefine)
+        assertFalse(second.canRefine)
+        assertTrue(retained.canRefine)
+        assertEquals("Previous session.|", editor.toString())
+        edits.startSession()
+        edits.insert("First.Second.") // identical new text must not revive old requests
+        assertFalse(first.canRefine)
+        assertFalse(second.canRefine)
+    }
+
+    @Test
+    fun historyEvictionRetiresEntriesThatCanNeverApplyAgain() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val first = edits.insert("Old.")
+        val second = edits.insert("Kept.")
+        repeat(62) { edits.insert("Next.") }
+        assertTrue(first.canRefine)
+        edits.insert("Newest.")
+        assertFalse(first.canRefine)
+        assertTrue(second.canRefine)
+        val before = editor.toString()
+        edits.refine(first, "Corrected.")
+        assertEquals(0 to 1, edits.applyRefinements())
+        assertEquals(before, editor.toString())
+    }
+
+    @Test
+    fun failedUndoAndTemporaryEditorChangesDoNotSkipUsefulRefinement() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("Old.")
+        editor.backspace()
+        assertFalse(edits.undoSession())
+        assertTrue(entry.canRefine)
+        editor.before += "."
+        editor.hasPreview = true
+        assertTrue(entry.canRefine)
+        edits.refine(entry, "Corrected.")
+        assertEquals(0 to 0, edits.applyRefinements())
+        editor.hasPreview = false
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertEquals("Corrected.|", editor.toString())
+    }
+
     /** A text field with a cursor; `|` in [toString] marks the cursor. */
     private class FakeEditor(text: String = "") : VoiceEdits.Editor {
         var before = text

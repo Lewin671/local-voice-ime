@@ -32,7 +32,18 @@ class VoiceEdits(private val editor: Editor) {
     }
 
     /** A piece of text that dictation inserted. */
-    class Entry internal constructor(internal var text: String)
+    class Entry internal constructor(internal var text: String) {
+        // Read on the native worker; only the editor thread retires an entry. Retirement is
+        // permanent, unlike a cursor move or a preview that might temporarily hide the text.
+        @Volatile
+        private var retired = false
+
+        internal val canRefine get() = !retired
+
+        internal fun retire() {
+            retired = true
+        }
+    }
 
     private class Refinement(val entry: Entry, var text: String)
 
@@ -79,7 +90,7 @@ class VoiceEdits(private val editor: Editor) {
 
     private fun add(text: String) = Entry(text).also {
         entries += it
-        while (entries.size > MAX_ENTRIES) entries.removeAt(0)
+        while (entries.size > MAX_ENTRIES) entries.removeAt(0).retire()
     }
 
     /** The text from [entry] to the cursor, if the editor still shows it as dictated. */
@@ -163,7 +174,9 @@ class VoiceEdits(private val editor: Editor) {
         val shown = stillInPlace(first) ?: return false
         editor.deleteBeforeCursor(shown.length)
         // what was removed can no longer be refined either
-        entries.subList(entries.indexOf(first), entries.size).clear()
+        val removed = entries.subList(entries.indexOf(first), entries.size)
+        removed.forEach { it.retire() }
+        removed.clear()
         return true
     }
 

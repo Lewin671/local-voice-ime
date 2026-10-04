@@ -304,9 +304,12 @@ object VoiceInput {
     private fun refine(service: FcitxInputMethodService, sentence: Sentence, samples: FloatArray) {
         val earlier = sentence.accurate
         val words = service.lifecycleScope.async {
+            if (!sentence.entry.canRefine) return@async null
             val head = earlier?.await()
             if (earlier != null && head == null) return@async null
-            val tail = runCatching { VoiceRefiner.transcribe(service, samples) }
+            val tail = runCatching {
+                VoiceRefiner.transcribe(service, samples) { sentence.entry.canRefine }
+            }
                 .onFailure { Timber.w(it, "Voice refinement failed") }
                 .getOrNull() ?: return@async null
             if (head == null) tail else head + VoiceText.joiner(head, tail) + tail
