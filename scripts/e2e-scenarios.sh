@@ -301,16 +301,36 @@ sleep 9
 tap_if_present "Stop listening"
 sleep 2
 settle
+# Keep speech active while the UI dump reads a preview. Trim only the public test fixture's
+# edge silence; short joins stay below the production endpoint threshold. Preview words can
+# be wrong: this check asserts editing behavior, not recognition of a cut-off prefix.
+python3 - "$work/cursor.wav" <<'PYWAV'
+import array, sys, wave
+with wave.open("voice/test-wavs/zh.wav", "rb") as w:
+    params = w.getparams()
+    samples = array.array("h", w.readframes(w.getnframes()))
+active = [i for i, v in enumerate(samples) if abs(v) > 100]
+assert active
+clip = samples[max(0, active[0] - 1600):min(len(samples), active[-1] + 1601)]
+with wave.open(sys.argv[1], "wb") as w:
+    w.setparams(params)
+    w.writeframes((clip * 4).tobytes())
+PYWAV
+adb push "$work/cursor.wav" "$remote_wav" >/dev/null
 tap "Start listening"
-sleep 3
+sleep 2
+before_move=$(field)
+preview=${before_move#"$refined"}; preview=${preview#"$fast_alt"}
+expect "moving the cursor starts with a nonempty preview" \
+    '[[ -n $preview && $preview != "$before_move" ]]' "field: '$before_move'"
 adb shell input tap 20 100          # cursor to the very beginning of the field
 sleep 9
 text=$(field)
-rest=${text#"$refined"}; rest=${rest#"$fast_alt"}
 expect "moving the cursor mid-utterance: nothing is written at the new position" \
     'is_sentence "${text:0:${#refined}}"' "field: '$text'"
 expect "moving the cursor mid-utterance: the preview stays once, dictation stops" \
-    '[[ -n $rest && ${#rest} -lt ${#refined} && $refined == "${rest:0:1}"* ]]' "after the first sentence: '$rest'"
+    '[[ $text == "$before_move" ]]' "before: '$before_move', after: '$text'"
+use_wav
 dump
 expect "moving the cursor mid-utterance turns the microphone off" \
     'ui center "$work/ui.xml" "Start listening" >/dev/null 2>&1' "still listening"
