@@ -13,6 +13,10 @@
             android:name=".debug.VoiceBenchActivity"
             android:exported="true"
             android:label="Voice model benchmark" />
+        <activity
+            android:name=".debug.VoiceSessionProbeActivity"
+            android:exported="true"
+            android:label="Voice session regression probe" />
     </application>
 
 </manifest>
