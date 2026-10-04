@@ -6,6 +6,7 @@ package org.fcitx.fcitx5.android.debug
 
 import android.app.Activity
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 /** Debug-only production-pipeline probe: exact audio fingerprints, text and capture teardown. */
 class VoiceSessionProbeActivity : Activity() {
@@ -39,6 +41,8 @@ class VoiceSessionProbeActivity : Activity() {
         var startCalls = 0
         var stopCalls = 0
         var captureStopped = false
+        val firstReadAt = AtomicLong(0)
+        val preparingStallMs = intent.getIntExtra("preparingStallMs", 0).coerceIn(0, 5000)
         val delegate = WavFileSource(File(getExternalFilesDir(null), "voice-probe.wav"), 0)
         val source = object : AudioSource {
             override fun start() {
@@ -46,6 +50,7 @@ class VoiceSessionProbeActivity : Activity() {
                 delegate.start()
             }
             override suspend fun read(buffer: FloatArray): Int {
+                firstReadAt.compareAndSet(0, SystemClock.elapsedRealtime())
                 val n = delegate.read(buffer)
                 if (n > 0) {
                     captured.update(bytes(buffer, n))
@@ -68,6 +73,10 @@ class VoiceSessionProbeActivity : Activity() {
                 override fun onSentenceEnd(stop: String) { stops.put(stop) }
                 override fun onError(e: Throwable) { result.put("error", e.toString()) }
                 override fun onState(state: VoiceSession.State) {
+                    if (state == VoiceSession.State.Preparing && preparingStallMs > 0) {
+                        Thread.sleep(preparingStallMs.toLong())
+                        result.put("readDuringPreparingStall", firstReadAt.get() > 0)
+                    }
                     if (state == VoiceSession.State.Finishing) {
                         result.put("captureStoppedBeforeFinishing", captureStopped)
                     }

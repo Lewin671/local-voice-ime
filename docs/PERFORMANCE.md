@@ -36,6 +36,10 @@ outer error cleanup. The last read is enqueued even if stop is requested during 
 chunks retain independent sample arrays. EOF is signalled before source release so that no
 extra preview is requested during teardown. `MicrophoneSource` attempts release even if its
 stop call fails. The recognition, VAD, sentence and preview policies are unchanged.
+The reader also starts before the initial main-thread state callback, so a busy main thread
+cannot delay draining AudioRecord at startup. Level reporting starts after that callback to
+retain the existing state-before-level notification order. The probe can block this callback
+for three seconds and verify that reads proceed meanwhile.
 
 Both model workers recheck demand when a queued load actually starts. A discarded session can
 skip a queued standard-model load; normal release still requires full final recognition.

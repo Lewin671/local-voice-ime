@@ -177,6 +177,9 @@ Run `python3 scripts/bench/compare-session-probes.py <baseline-directory> <optim
 to enforce this comparison without a CER tolerance.
 `CANCEL_BEFORE_START=1` with the probe verifies the cold cancelled-session wiring: no samples,
 no final text, one source stop, and no standard model loaded by the native worker.
+`PREPARING_STALL_MS=3000` blocks the initial main-thread state callback and asserts that audio
+reading proceeds during the stall. Compare its audio fingerprints/text as well. This uses a
+WAV source; it checks scheduling, not a physical phone's recording buffer or tail audio.
 
 `VoiceCaptureTest` covers lossless queued audio, the final partial read when stopping, empty
 reads, cancellation/errors, EOF-before-release ordering and one-time cleanup. `VoiceModelLoadTest`

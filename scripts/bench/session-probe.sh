@@ -11,6 +11,9 @@ out=${1:?Specify an output directory}
 wavs=${2:-voice/test-wavs}
 cancel=false
 [[ ${CANCEL_BEFORE_START:-0} != 1 ]] || cancel=true
+stall=${PREPARING_STALL_MS:-0}
+[[ $stall =~ ^[0-9]+$ && $stall -le 5000 ]] || { echo "Invalid PREPARING_STALL_MS" >&2; exit 1; }
+[[ $cancel == false || $stall == 0 ]] || { echo "Use cancellation or a UI stall, not both" >&2; exit 1; }
 mkdir -p "$out"
 apk=$(ls -t app/build/outputs/apk/debug/*-debug.apk | head -1)
 pkg=$("$BUILD_TOOLS/aapt2" dump packagename "$apk")
@@ -25,7 +28,8 @@ for wav in "$wavs"/*.wav; do
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" rm -f files/voice-probe-result.json
     adb push "$wav" "$remote" >/dev/null 2>&1
-    adb shell am start -W -n "$activity" --ez cancelBeforeStart "$cancel" >/dev/null
+    adb shell am start -W -n "$activity" --ez cancelBeforeStart "$cancel" \
+        --ei preparingStallMs "$stall" >/dev/null
     completed=false
     for _ in $(seq 120); do
         if adb shell run-as "$pkg" cat files/voice-probe-result.json >"$out/$name.json" 2>/dev/null; then
@@ -35,7 +39,7 @@ for wav in "$wavs"/*.wav; do
         sleep 1
     done
     $completed || { echo "Timed out: $name" >&2; exit 1; }
-    python3 - "$out/$name.json" "$cancel" <<'PY'
+    python3 - "$out/$name.json" "$cancel" "$stall" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert 'error' not in d, d
@@ -47,6 +51,8 @@ if sys.argv[2] == 'true':
 else:
     assert d['finals'], d
     assert d['sourceStartCalls'] == 1, d
+    if int(sys.argv[3]):
+        assert d['readDuringPreparingStall'], d
 print(sys.argv[1], 'capture_stopped_before_finishing=', d['captureStoppedBeforeFinishing'])
 PY
 done

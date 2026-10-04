@@ -154,14 +154,10 @@ class VoiceSession(
         // and whatever is said meanwhile is queued in `chunks` instead of being lost.
         capture.start()
         val cold = !VoiceEngine.isLoaded
-        emit { onState(if (cold) State.Preparing else State.Listening) }
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
         // Only visual feedback may be conflated. Audio remains lossless even if the main
         // thread stalls; the microphone reader must never wait for a waveform redraw.
         val levels = Channel<Float>(Channel.CONFLATED)
-        val levelReporter = launch {
-            for (level in levels) emit { onLevel(level) }
-        }
         // reader: never waits for decoding, so no audio is dropped on slow devices
         val reader = launch(Dispatchers.IO) {
             val chunkSize = VoiceEngine.SAMPLE_RATE / 10
@@ -183,6 +179,13 @@ class VoiceSession(
                 chunks.close()
                 levels.close()
             }
+        }
+
+        // Capture must already be draining AudioRecord if the main thread stalls here.
+        // Start the level reporter afterwards to preserve state-before-level callback order.
+        emit { onState(if (cold) State.Preparing else State.Listening) }
+        val levelReporter = launch {
+            for (level in levels) emit { onLevel(level) }
         }
 
         val vad = try {
