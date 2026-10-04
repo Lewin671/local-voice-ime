@@ -324,12 +324,19 @@ preview=${before_move#"$refined"}; preview=${preview#"$fast_alt"}
 expect "moving the cursor starts with a nonempty preview" \
     '[[ -n $preview && $preview != "$before_move" ]]' "field: '$before_move'"
 adb shell input tap 20 100          # cursor to the very beginning of the field
+sleep 5
+dump
+expect "cursor movement stops dictation before checking late writes" \
+    'ui center "$work/ui.xml" "Start listening" >/dev/null 2>&1' "still listening"
+# Selection notifications cross the editor/IME boundary asynchronously. A preview may advance
+# between the earlier UI snapshot and the tap. Compare after stopping, then wait for late work.
+stopped_text=$(field)
 sleep 9
 text=$(field)
 expect "moving the cursor mid-utterance: nothing is written at the new position" \
     'is_sentence "${text:0:${#refined}}"' "field: '$text'"
 expect "moving the cursor mid-utterance: the preview stays once, dictation stops" \
-    '[[ $text == "$before_move" ]]' "before: '$before_move', after: '$text'"
+    '[[ $text == "$stopped_text" ]]' "at stop: '$stopped_text', later: '$text'"
 use_wav
 dump
 expect "moving the cursor mid-utterance turns the microphone off" \
