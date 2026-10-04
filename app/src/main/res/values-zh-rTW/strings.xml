@@ -334,6 +334,7 @@
     <string name="voice_start">開始聆聽</string>
     <string name="voice_stop">停止聆聽</string>
     <string name="voice_enter">換行</string>
+    <string name="voice_space">空格</string>
     <string name="voice_permission_title">需要麥克風權限</string>
     <string name="voice_permission_body">音訊只留在本機，不會被儲存或上傳。</string>
     <string name="voice_allow_microphone">允許使用麥克風</string>
@@ -368,8 +369,8 @@
     <string name="voice_model_error_content">下載的檔案未通過驗證，已捨棄。請重試。</string>
     <string name="voice_model_download_title">下載 %s？</string>
     <string name="voice_model_download_message">%1$s 將透過 HTTPS 從 %2$s 下載，驗證通過後才會使用。不會上傳任何內容。建議使用 Wi-Fi；離開此頁面後下載會繼續。</string>
-    <string name="voice_model_delete_title">刪除高精度模型？</string>
     <string name="voice_model_standard_delete_title">刪除標準模型？</string>
     <string name="voice_model_standard_delete_message">可釋放 %s。重新下載之前，語音輸入將無法使用。</string>
+    <string name="voice_model_delete_title">刪除高精度模型？</string>
     <string name="voice_model_delete_message">可釋放 %s。語音輸入會繼續使用標準模型。</string>
 </resources>

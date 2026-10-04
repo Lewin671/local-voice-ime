@@ -11,6 +11,8 @@ import android.content.pm.PackageManager
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.input.FcitxInputMethodService
@@ -28,6 +30,12 @@ object VoiceInput {
 
     /** While the user holds the key, pauses are more likely to be mid-sentence. */
     const val SILENCE_PUSH_TO_TALK = 1.2f
+
+    /**
+     * Speech that resumes within this many seconds continues the sentence instead of starting a
+     * new one, see [VoiceSentence]. Long enough for somebody who stops to think.
+     */
+    const val SENTENCE_GAP = 4f
 
     /** Hands-free listening turns the microphone off after this long without speech. */
     const val HANDS_FREE_IDLE_TIMEOUT_MS = 10_000L
@@ -68,6 +76,37 @@ object VoiceInput {
             edits = it
             editsService = service
         }
+    }
+
+    /** A sentence as it stands in the text field, which the next utterance may continue. */
+    private class Sentence(val entry: VoiceEdits.Entry, val separator: String, var text: String) {
+        /** The large model's words for the utterances of this sentence so far; null if it failed. */
+        var accurate: Deferred<String?>? = null
+    }
+
+    private var sentence: Sentence? = null
+
+    /** The transcript of the last utterance, including what it continued. */
+    private var lastFinal = ""
+
+    /**
+     * Something other than dictation changed the text (a key of the dictation panel): what is
+     * said next is a new utterance, and the last one gets no full stop.
+     */
+    fun closeSentence() {
+        sentence = null
+        current?.closeSentence()
+    }
+
+    /** Typed in the dictation panel while an utterance was being previewed, see [type]. */
+    private val typedAhead = StringBuilder()
+
+    private fun insertTypedAhead(service: FcitxInputMethodService) {
+        if (typedAhead.isEmpty()) return
+        val text = typedAhead.toString()
+        typedAhead.clear()
+        closeSentence()
+        editsFor(service).insertTyped(text)
     }
 
     private var refiningJobs = 0
@@ -121,6 +160,9 @@ object VoiceInput {
         service.postFcitxJob { reset() }
         val edits = editsFor(service)
         edits.startSession()
+        sentence = null
+        lastFinal = ""
+        typedAhead.clear()
         val saving = VoicePower.isSaving(service)
         val refine = VoiceRefiner.isActive(service) && !saving
         // The large model is loaded when the first words are heard rather than when the session
@@ -165,6 +207,7 @@ object VoiceInput {
             createSource(service),
             minSilence,
             idleTimeoutMs,
+            SENTENCE_GAP,
             if (saving) PartialPacer.SAVING_INTERVAL_MS else PartialPacer.INTERVAL_MS,
             object : VoiceSession.Listener by listener {
                 override fun onPartial(text: String) {
@@ -172,6 +215,7 @@ object VoiceInput {
                     val shown = VoiceText.stripTrailingPunctuation(text)
                     if (shown.isEmpty()) {
                         clearPreview()
+                        insertTypedAhead(service)
                         applyRefinements(service)
                     } else {
                         service.setVoicePreview(joinerFor(shown) + shown)
@@ -186,23 +230,58 @@ object VoiceInput {
                     listener.onPartial(shown)
                 }
 
-                override fun onFinal(text: String, samples: FloatArray) {
+                override fun onFinal(text: String, samples: FloatArray, continues: Boolean) {
                     if (previewWasDetached()) return
-                    val separator = joinerFor(text)
-                    // replaces the composing preview, if there is one
-                    val entry = edits.insert(separator + text)
+                    val ic = service.currentInputConnection
+                    ic?.beginBatchEdit()
+                    var written = sentence.takeIf { continues }
+                    if (written != null) {
+                        // the sentence is rewritten where it stands, which the preview would hide
+                        if (previewShown) service.setVoicePreview("")
+                        if (edits.replace(written.entry, written.separator + text)) {
+                            written.text = text
+                        } else {
+                            written = null
+                        }
+                    }
+                    if (written == null) {
+                        // What this utterance continues is no longer as dictation left it: only
+                        // add what is new.
+                        val added = if (continues) VoiceText.continuation(lastFinal, text) else text
+                        if (added.isNotEmpty()) {
+                            val separator = joinerFor(added)
+                            // replaces the composing preview, if there is one
+                            written = Sentence(edits.insert(separator + added), separator, added)
+                        } else {
+                            clearPreview()
+                        }
+                    }
+                    ic?.endBatchEdit()
+                    lastFinal = text
+                    sentence = written
                     previewShown = false
                     joiner = null
                     Timber.d("Voice final inserted")
                     applyRefinements(service)
-                    if (refine) refine(service, entry, separator, text, samples)
-                    listener.onFinal(text, samples)
+                    if (refine && written != null) refine(service, written, samples)
+                    insertTypedAhead(service)
+                    listener.onFinal(text, samples, continues)
+                }
+
+                override fun onSentenceEnd(stop: String) {
+                    val ended = sentence
+                    sentence = null
+                    if (ended != null && stop.isNotEmpty() && !abandoned) {
+                        if (edits.append(ended.entry, stop)) ended.text += stop
+                    }
+                    listener.onSentenceEnd(stop)
                 }
 
                 override fun onState(state: VoiceSession.State) {
                     if (state == VoiceSession.State.Stopped) {
                         // never leave a preview behind, e.g. after cancelling
                         clearPreview()
+                        insertTypedAhead(service)
                         applyRefinements(service)
                         if (current === session) current = null
                     }
@@ -216,25 +295,32 @@ object VoiceInput {
     }
 
     /**
-     * With the large model installed: transcribe [samples] again with the large model and, if it heard
-     * different words, write the merged text over what was inserted for this utterance.
+     * With the large model installed: transcribe [samples], the last utterance of [sentence],
+     * again with the large model and, if it heard different words, write the merged text over
+     * what was inserted for the sentence. Earlier utterances of the sentence are not transcribed
+     * again: their words are taken from when they were refined.
      */
-    private fun refine(
-        service: FcitxInputMethodService,
-        entry: VoiceEdits.Entry,
-        separator: String,
-        fast: String,
-        samples: FloatArray
-    ) {
+    private fun refine(service: FcitxInputMethodService, sentence: Sentence, samples: FloatArray) {
+        val earlier = sentence.accurate
+        val words = service.lifecycleScope.async {
+            val head = earlier?.await()
+            if (earlier != null && head == null) return@async null
+            val tail = runCatching { VoiceRefiner.transcribe(service, samples) }
+                .onFailure { Timber.w(it, "Voice refinement failed") }
+                .getOrNull() ?: return@async null
+            if (head == null) tail else head + VoiceText.joiner(head, tail) + tail
+        }
+        sentence.accurate = words
         refiningJobs++
         notifyRefining()
         service.lifecycleScope.launch {
-            val accurate = runCatching { VoiceRefiner.transcribe(service, samples) }
-                .onFailure { Timber.w(it, "Voice refinement failed") }
-                .getOrNull()
+            val accurate = words.await()
             refiningJobs--
-            if (!accurate.isNullOrEmpty()) {
-                editsFor(service).refine(entry, separator + VoiceRefine.refine(fast, accurate))
+            // unless the sentence went on meanwhile: its next utterance then brings all the words
+            if (!accurate.isNullOrEmpty() && sentence.accurate === words) {
+                editsFor(service).refine(
+                    sentence.entry, sentence.separator + VoiceRefine.refine(sentence.text, accurate)
+                )
             }
             applyRefinements(service)
             notifyRefining()
@@ -285,6 +371,16 @@ object VoiceInput {
      */
     fun undoLastSession(service: FcitxInputMethodService) = editsFor(service).undoSession()
 
-    /** Text typed from the dictation panel (punctuation). */
-    fun type(service: FcitxInputMethodService, text: String) = editsFor(service).insertTyped(text)
+    /**
+     * Text typed from the dictation panel (punctuation, space). While an utterance is being
+     * previewed it waits until that is final: inserting it now would replace the preview.
+     */
+    fun type(service: FcitxInputMethodService, text: String) {
+        if (current != null && service.hasComposingText) {
+            typedAhead.append(text)
+            return
+        }
+        closeSentence()
+        editsFor(service).insertTyped(text)
+    }
 }

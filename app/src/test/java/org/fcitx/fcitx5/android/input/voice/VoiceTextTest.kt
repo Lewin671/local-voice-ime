@@ -43,6 +43,17 @@ class VoiceTextTest {
         assertEquals("", VoiceText.joiner("Hello", "你好"))
         assertEquals("", VoiceText.joiner("", "Hello"))
         assertEquals("", VoiceText.joiner(null, "Hello"))
+        // a space typed from the dictation panel is not doubled
+        assertEquals("", VoiceText.joiner("word ", "next"))
+    }
+
+    @Test
+    fun continuationIsWhatTheWholeSentenceAdds() {
+        assertEquals("把话说完。", VoiceText.continuation("不是一下子", "不是一下子把话说完。"))
+        assertEquals("，记得带电脑。", VoiceText.continuation("3点开会", "3点开会，记得带电脑。"))
+        // the earlier part was heard differently this time: only the common beginning is skipped
+        assertEquals("字把话说完。", VoiceText.continuation("不是一下子", "不是一下字把话说完。"))
+        assertEquals("", VoiceText.continuation("Hello", "Hello"))
     }
 
     @Test

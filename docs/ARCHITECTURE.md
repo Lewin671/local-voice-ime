@@ -42,6 +42,7 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceModelFetch` | Downloads one file, resumable, verified. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
 | `VoiceSettingsFragment`, `VoiceModelPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch. |
 | `VoiceRefine` | Merges the large model's words into the fast model's formatted text. Pure Kotlin, unit-tested. |
+| `VoiceSentence` | Keeps a sentence together across a pause: holds back the full stop of an utterance and, when speech resumes within a few seconds, has both transcribed as one. Pure Kotlin, unit-tested. |
 | `VoicePacing` | `PartialPacer`: when the utterance in progress is decoded again for a preview. Pure Kotlin, unit-tested. |
 | `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
@@ -132,7 +133,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input*, and opening it from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText` |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `setVoicePreview()`, `hasComposingText`; `handleReturnKey()` made public for the dictation panel |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |

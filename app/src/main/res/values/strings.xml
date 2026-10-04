@@ -339,6 +339,7 @@
     <string name="voice_start">Start listening</string>
     <string name="voice_stop">Stop listening</string>
     <string name="voice_enter">Enter</string>
+    <string name="voice_space">Space</string>
     <string name="voice_permission_title">Microphone access needed</string>
     <string name="voice_permission_body">Audio stays on this phone. It is never stored or sent.</string>
     <string name="voice_allow_microphone">Allow microphone</string>
@@ -373,8 +374,8 @@
     <string name="voice_model_error_content">The download did not pass verification and was discarded. Try again.</string>
     <string name="voice_model_download_title">Download %s?</string>
     <string name="voice_model_download_message">%1$s is fetched from %2$s over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</string>
-    <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
     <string name="voice_model_standard_delete_title">Delete the standard model?</string>
     <string name="voice_model_standard_delete_message">Frees %s. Voice input stops working until the model is downloaded again.</string>
+    <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
     <string name="voice_model_delete_message">Frees %s. Dictation keeps working with the standard model.</string>
 </resources>

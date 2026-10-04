@@ -88,6 +88,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .key.held { background: var(--primary); color: var(--on-primary); box-shadow: 0 0 0 4px var(--container); }
 .pad { flex: .5; }
 .w15 { flex: 1.5; }
+.w2 { flex: 2; color: var(--text2); }
 /* listening surface */
 .surface { position: absolute; inset: 40px 0 0 0; background: var(--kb); display: flex; flex-direction: column; align-items: center; }
 .surface.over { background: color-mix(in srgb, var(--kb) 94%, transparent); }
@@ -211,9 +212,9 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><th>You do</th><th>The keyboard does</th><th>Ends when</th></tr>
     <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field, without closing punctuation until it is final. If the speech model is not in memory yet, the status reads "Getting ready. Keep talking" and nothing said meanwhile is lost.</td><td>You release: remaining speech is recognized and inserted. Keys return.</td></tr>
     <tr><td>Slide up while holding</td><td>Crossing the cancel line turns the hint and waveform red: "Release to cancel".</td><td>Release above the line: nothing is inserted, the preview is removed. Slide back down to keep talking.</td></tr>
-    <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. Each sentence is inserted when you pause.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
+    <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. What you said is inserted when you pause, without a full stop yet: go on within 4 s and it stays one sentence, punctuated as a whole; the full stop follows once you have stopped for longer.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
     <tr><td>Tap ⌫ in the panel</td><td>Deletes one character, always. Hold to repeat.</td><td></td></tr>
-    <tr><td>Tap ， 。 ？ or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
+    <tr><td>Tap ， 。 ？, space or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
     <tr><td>(High-accuracy model installed) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. The pill reads "Refining…" until this is done, the panel's status row likewise once listening has stopped.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
     <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
@@ -239,6 +240,7 @@ const I = {
   globe: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.900 6h-2.900a15.600 15.600 0 0 0-1.400-3.600A8 8 0 0 1 18.900 8zM12 4c.800 1.200 1.500 2.500 1.900 4h-3.800c.400-1.500 1.100-2.800 1.900-4zM4.300 14a8.200 8.200 0 0 1 0-4h3.400a16.500 16.500 0 0 0 0 4zm.8 2h2.900c.300 1.300.800 2.500 1.400 3.600A8 8 0 0 1 5.100 16zm2.900-8H5.100a8 8 0 0 1 4.300-3.600C8.800 5.500 8.300 6.700 8 8zm4 12c-.800-1.200-1.500-2.500-1.900-4h3.800c-.400 1.500-1.100 2.800-1.900 4zm2.300-6H9.700a14.700 14.700 0 0 1 0-4h4.600a14.700 14.700 0 0 1 0 4zm.300 5.600c.600-1.100 1.100-2.300 1.400-3.600h2.900a8 8 0 0 1-4.300 3.600zm1.800-5.600a16.500 16.500 0 0 0 0-4h3.400a8.200 8.200 0 0 1 0 4z"/></svg>',
   kb: '<svg viewBox="0 0 24 24"><path d="M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-9 3h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zm-1 2H5v-2h2zm0-3H5V8h2zm9 7H8v-2h8zm0-4h-2v-2h2zm0-3h-2V8h2zm3 3h-2v-2h2zm0-3h-2V8h2z"/></svg>',
   undo: '<svg viewBox="0 0 24 24"><path d="M12.5 8c-2.650 0-5.050.990-6.900 2.600L2 7v9h9l-3.620-3.620c1.390-1.160 3.160-1.880 5.120-1.880 3.540 0 6.550 2.310 7.600 5.500l2.370-.780C21.080 11.030 17.150 8 12.500 8z"/></svg>',
+  space: '<svg viewBox="0 0 24 24"><path d="M18 9v4H6V9H4v6h16V9z"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   close: '<svg viewBox="0 0 24 24"><path d="M19 6.400 17.600 5 12 10.600 6.400 5 5 6.400 10.600 12 5 17.600 6.400 19 12 13.400 17.600 19 19 17.600 13.400 12z"/></svg>',
 };
@@ -256,7 +258,7 @@ const wave = (cls = 'live') => { const h = [8,14,10,22,16,30,24,40,28,48,36,54,4
 const status = (text, err) => `<div class="bar"><span class="chip"><span class="dot" ${err ? 'style="background:var(--error)"' : ''}></span>${text}</span><span class="grow"></span><span class="chip">${I.lock}On-device</span></div>`;
 const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.down}</span></div>`;
 const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
-const util = `<div class="util">${key(I.kb, 'alt w15')}${key('，')}${key('。')}${key('？')}${key(I.back, 'alt w15')}${key(I.enter, 'accent w15')}</div>`;
+const util = `<div class="util">${key(I.kb, 'alt w15')}${key('，')}${key(I.space, 'w2')}${key('。')}${key('？')}${key(I.back, 'alt w15')}${key(I.enter, 'accent w15')}</div>`;
 
 const S = [
   { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill opens hands-free dictation.',
@@ -271,25 +273,25 @@ const S = [
     e: '周五下午把报告发我，我周末 review 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', I.undo + 'Undo') + keys('拼音') },
   { t: 'Hold space: about to cancel', d: 'Above the cancel line everything that was teal turns red and the waveform goes flat. Releasing here inserts nothing.',
     e: '周五下午把报告发我，<span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone hot">${I.close}Release to cancel</div>${wave('flat')}${held.replace('Release to insert', 'Slide down to keep')}</div>` + keys('') },
-  { t: 'Hands-free dictation', d: 'Tap the pill. Stop is the one large control; punctuation, delete and enter stay within reach so a whole message can be finished without the keyboard.',
+  { t: 'Hands-free dictation', d: 'Tap the pill. Stop is the one large control; punctuation, space, delete and enter stay within reach so a whole message can be finished without the keyboard.',
     e: 'Please send me the report by Friday. <u>I will review it over the</u><span class="caret"></span>', k: status('Listening') + `<div class="surface">${wave()}<div class="fab">${I.stop}</div>${util}</div>` + keys('') },
   { t: 'Paused', d: 'After stop, or 10 s without speech. The microphone is off and the screen says so. One tap resumes.',
     e: 'Please send me the report by Friday. I will review it over the weekend.<span class="caret"></span>', k: status('Microphone off') .replace('class="dot"', 'class="dot" style="background:var(--text2)"') + `<div class="surface">${wave('idle')}<div class="fab paused">${I.mic}</div>${util}</div>` + keys('') },
   { t: 'Microphone access needed', d: 'Shown in place of the waveform the first time, or after access was revoked. States the reason in one sentence and offers the fix.',
     e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Microphone access needed</b><span>Audio stays on this phone. It is never stored or sent.</span><div class="btn">Allow microphone</div></div>${util}</div>` + keys('') },
-];
-document.getElementById('screens').innerHTML = S.map(s => `<figure>
   { t: 'Speech model needed', d: 'A fresh install has no speech model: it is a 240 MB download, kept out of the app so that the app itself stays small. The microphone pill and hold-to-talk are there from the start and lead here. The button opens Settings → Voice input, the only place a download can start.',
     e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Speech model needed</b><span>Voice input runs on this phone. Download its speech model (240 MB) once in the settings.</span><div class="btn">Open settings</div></div>${util}</div>` + keys('') },
+];
+document.getElementById('screens').innerHTML = S.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}"><div class="editor">${s.e}</div><div class="kbd">${s.k}</div></div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 
 // ---- settings screens
 const arrow = '<svg viewBox="0 0 24 24"><path d="M20 11H7.800l5.600-5.600L12 4l-8 8 8 8 1.400-1.400L7.800 13H20z"/></svg>';
-const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
-  <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
 const standardRow = (rest) => `<div class="item"><b>Standard</b><span>SenseVoice Small · 240 MB · from modelscope.cn</span>
   <span style="margin-top:4px">Needed for voice input. Text appears while you speak, with punctuation and numbers.</span>${rest}</div>`;
+const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
+  <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
 const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>')) => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
   <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</span></div></div>
@@ -311,7 +313,7 @@ const T = [
     k: settings('<div class="meter"><i style="width:34%"></i></div>' + acts('412 MB of 1.2 GB', '<div class="tbtn">Pause</div>'), false) },
   { t: 'Interrupted', d: 'A lost connection, or a pause, keeps what has arrived. The message names the cause and the fix; Resume continues from the same byte.',
     k: settings(acts({ t: 'Download interrupted. Check the connection, then resume.', err: 1 }, '<div class="tbtn">Delete</div>', '<div class="btn">Resume</div>'), false) },
-  { t: 'Installed', d: 'Verified and in use: the switch is live. Delete frees the space again; dictation then continues with the standard model.',
+  { t: 'Installed', d: 'Both verified and in use: the switch is live. Deleting the high-accuracy model frees the space again and dictation continues with the standard model; deleting the standard one turns voice input off until it is downloaded again.',
     k: settings(acts('Installed', '<div class="tbtn">Delete</div>'), true) },
 ];
 document.getElementById('settings').innerHTML = T.map(s => `<figure>

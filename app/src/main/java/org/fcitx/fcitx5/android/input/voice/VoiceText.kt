@@ -65,6 +65,13 @@ object VoiceText {
     }
 
     /**
+     * For an utterance that continues a sentence whose earlier part, [before], can no longer be
+     * replaced in the text field: what [joined], the transcript of the whole sentence, adds to it.
+     */
+    fun continuation(before: String, joined: String): String =
+        joined.substring(before.commonPrefixWith(joined).length)
+
+    /**
      * Text to insert between [before] (text already in the editor, left of the cursor) and a newly
      * recognized segment: a space is only needed between two Latin words/sentences.
      */

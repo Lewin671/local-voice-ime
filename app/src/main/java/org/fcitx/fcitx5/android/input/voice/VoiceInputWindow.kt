@@ -103,7 +103,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             }
         }
 
-        override fun onFinal(text: String, samples: FloatArray) {
+        override fun onFinal(text: String, samples: FloatArray, continues: Boolean) {
             InputFeedbacks.hapticFeedback(ui.root)
             // offer the punctuation of the language that was just spoken
             ui.setPunctuation(punctuationFor(text.any { it in '\u4e00'..'\u9fff' }))
@@ -173,17 +173,24 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
         ui.punctuationKeys.forEach { key ->
             key.setOnClickListener { VoiceInput.type(service, key.tag as String) }
         }
+        ui.spaceKey.setOnClickListener { VoiceInput.type(service, " ") }
         ui.backspaceKey.apply {
             // always exactly one character; removing a whole utterance must be an explicit undo
-            setOnClickListener { service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL) }
+            setOnClickListener {
+                VoiceInput.closeSentence()
+                service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            }
             repeatEnabled = true
             onRepeatListener = {
+                VoiceInput.closeSentence()
                 service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                 if (hapticOnRepeat) InputFeedbacks.hapticFeedback(it)
             }
         }
         ui.returnKey.setOnClickListener {
-            service.sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+            VoiceInput.closeSentence()
+            // send, search or a new line: whatever the text field asks for
+            service.handleReturnKey()
         }
     }
 
@@ -295,9 +302,14 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             )
         }
 
-        private fun iconKey(@DrawableRes icon: Int, @StringRes description: Int, accent: Boolean) =
+        private fun iconKey(
+            @DrawableRes icon: Int,
+            @StringRes description: Int,
+            accent: Boolean,
+            color: Int = if (accent) palette.primary else palette.functionKey
+        ) =
             CustomGestureView(ctx).apply {
-                styleAsKey(if (accent) palette.primary else palette.functionKey)
+                styleAsKey(color)
                 contentDescription = ctx.getString(description)
                 addView(ImageView(ctx).apply {
                     setImageResource(icon)
@@ -333,6 +345,10 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
 
         val punctuationKeys = punctuation.map(::textKey)
 
+        // types text like the punctuation keys, so it is drawn as one of them
+        val spaceKey =
+            iconKey(R.drawable.ic_baseline_space_bar_24, R.string.voice_space, false, palette.key)
+
         val backspaceKey = iconKey(R.drawable.ic_baseline_backspace_24, R.string.backspace, false)
 
         val returnKey = iconKey(R.drawable.ic_baseline_keyboard_return_24, R.string.voice_enter, true)
@@ -344,7 +360,9 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
             fun add(v: View, weight: Float) = addView(v, LinearLayout.LayoutParams(0, -1, weight)
                 .apply { setMargins(gap, 0, gap, 0) })
             add(keyboardKey, 1.5f)
-            punctuationKeys.forEach { add(it, 1f) }
+            add(punctuationKeys[0], 1f)
+            add(spaceKey, 2f)
+            punctuationKeys.drop(1).forEach { add(it, 1f) }
             add(backspaceKey, 1.5f)
             add(returnKey, 1.5f)
         }

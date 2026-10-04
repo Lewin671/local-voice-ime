@@ -39,6 +39,8 @@ class VoiceSession(
     private val minSilence: Float,
     /** Stop by itself after this long without speech; 0 to keep listening. */
     private val idleTimeoutMs: Long,
+    /** A pause (seconds) up to which the next utterance continues the sentence, see [VoiceSentence]. */
+    sentenceGap: Float,
     /** Shortest time between two previews, see [PartialPacer]. */
     private val previewIntervalMs: Long,
     private val listener: Listener
@@ -60,8 +62,18 @@ class VoiceSession(
         /** Preview of the utterance being spoken; replaced by the next partial or final. */
         fun onPartial(text: String) {}
 
-        /** A finished utterance and the audio it was recognized from. */
-        fun onFinal(text: String, samples: FloatArray) {}
+        /**
+         * A finished utterance and its audio. If it [continues] the utterance before it, [text]
+         * is the transcript of both and replaces what was delivered for that one. A closing full
+         * stop is not part of [text]; it comes with [onSentenceEnd].
+         */
+        fun onFinal(text: String, samples: FloatArray, continues: Boolean) {}
+
+        /**
+         * No utterance will continue the last one any more: the pause got too long, or the
+         * session is ending. [stop] is the full stop that was held back, if there was one.
+         */
+        fun onSentenceEnd(stop: String) {}
 
         /** Input level in [0, 1], for visual feedback. */
         fun onLevel(level: Float) {}
@@ -76,6 +88,9 @@ class VoiceSession(
 
     @Volatile
     private var discard = false
+
+    @Volatile
+    private var sentenceCloseRequested = false
 
     val isRunning get() = job?.isActive == true
 
@@ -109,6 +124,14 @@ class VoiceSession(
     fun stop(discard: Boolean = false) {
         this.discard = discard
         stopRequested = true
+    }
+
+    /**
+     * Something else was typed after the last utterance: the next one starts on its own, and no
+     * full stop is added to the last.
+     */
+    fun closeSentence() {
+        sentenceCloseRequested = true
     }
 
     private suspend inline fun emit(crossinline block: Listener.() -> Unit) =
@@ -157,6 +180,7 @@ class VoiceSession(
             emit { onState(State.Finishing) }
             vad.flush()
             drain(vad)
+            if (sentence.isOpen) endSentence()
         } finally {
             vad.release()
         }
@@ -174,6 +198,19 @@ class VoiceSession(
     private var speaking = false
     private var lastPartial = ""
     private val pacer = PartialPacer(previewIntervalMs)
+    private val sentence = VoiceSentence(VoiceEngine.SAMPLE_RATE, sentenceGap, MAX_SENTENCE_SECONDS)
+
+    private suspend fun endSentence() {
+        val stop = sentence.close()
+        emit { onSentenceEnd(stop) }
+    }
+
+    private fun closeSentenceIfRequested() {
+        if (sentenceCloseRequested) {
+            sentenceCloseRequested = false
+            sentence.close()
+        }
+    }
 
     private fun dropFromBuffer(n: Int) {
         val drop = n.coerceIn(0, buffer.size)
@@ -199,13 +236,21 @@ class VoiceSession(
             speaking = vad.isSpeechDetected()
             // what is left in the buffer belongs to the next utterance
             pacer.speechStarted(SystemClock.elapsedRealtime())
-            var text = if (discard) "" else VoiceEngine.transcribe(samples)
+            closeSentenceIfRequested()
+            if (sentence.isOpen && !sentence.continuesWith(segment.start.toLong(), samples.size)) endSentence()
+            // after a short pause, the sentence so far is transcribed again together with this
+            val continues = sentence.isOpen
+            val audio = sentence.join(samples)
+            var text = if (discard) "" else VoiceEngine.transcribe(audio)
             if (segment.samples.size >= FORCED_SPLIT_SAMPLES) {
-                // cut off by the length limit, not by a pause: the sentence goes on
+                // cut off by the length limit, not by a pause: the sentence goes on at once
                 text = VoiceText.stripTrailingFullStop(text)
+                sentence.close()
+            } else if (text.isNotEmpty()) {
+                text = sentence.keep(audio, segment.start.toLong() + segment.samples.size, text)
             }
             lastPartial = ""
-            if (text.isNotEmpty()) emit { onFinal(text, samples) } else emit { onPartial("") }
+            if (text.isNotEmpty()) emit { onFinal(text, samples, continues) } else emit { onPartial("") }
         }
     }
 
@@ -216,10 +261,17 @@ class VoiceSession(
         for (first in chunks) {
             // take everything that queued up while we were decoding
             var chunk: FloatArray? = first
+            var sumSquares = 0.0
+            var count = 0
             while (chunk != null) {
                 buffer.append(chunk)
+                for (v in chunk) sumSquares += v * v
+                count += chunk.size
                 chunk = chunks.tryReceive().getOrNull()
             }
+
+            closeSentenceIfRequested()
+            if (!speaking && sentence.isOver(bufferStart + fed)) endSentence()
 
             while (fed + window <= buffer.size) {
                 vad.acceptWaveform(buffer.copyOfRange(fed, fed + window))
@@ -242,6 +294,7 @@ class VoiceSession(
                 continue
             }
             lastSpeechAt = now
+            pacer.heard(dbOf(sumSquares, count))
             if (pacer.isDue(now)) {
                 val text = VoiceEngine.transcribe(buffer.toArray())
                 val changed = text != lastPartial
@@ -258,9 +311,13 @@ class VoiceSession(
     private fun levelOf(samples: FloatArray): Float {
         var sumSquares = 0.0
         for (v in samples) sumSquares += v * v
-        val rms = sqrt(sumSquares / samples.size.coerceAtLeast(1)).toFloat()
-        val db = 20f * log10(rms.coerceAtLeast(1e-6f))
-        return ((db + 55f) / 45f).coerceIn(0f, 1f)
+        return ((dbOf(sumSquares, samples.size) + 55f) / 45f).coerceIn(0f, 1f)
+    }
+
+    /** RMS level in decibels of [count] samples whose squares add up to [sumSquares]. */
+    private fun dbOf(sumSquares: Double, count: Int): Float {
+        val rms = sqrt(sumSquares / count.coerceAtLeast(1)).toFloat()
+        return 20f * log10(rms.coerceAtLeast(1e-6f))
     }
 
     private companion object {
@@ -273,6 +330,9 @@ class VoiceSession(
 
         // the VAD cuts slightly before the limit; anything this long was not ended by a pause
         const val MARGIN_SAMPLES = VoiceEngine.SAMPLE_RATE * 3 / 10
+
+        /** A resumed sentence is decoded again from its beginning; beyond this, a new one starts. */
+        const val MAX_SENTENCE_SECONDS = 15f
 
         const val FORCED_SPLIT_SAMPLES =
             ((VoiceEngine.MAX_SPEECH_SECONDS - 1f) * VoiceEngine.SAMPLE_RATE).toInt()

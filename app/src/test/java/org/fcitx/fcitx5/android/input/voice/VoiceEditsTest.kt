@@ -61,6 +61,64 @@ class VoiceEditsTest {
     }
 
     @Test
+    fun anUtteranceThatGoesOnIsRewrittenFromWhereItDiffers() {
+        val editor = FakeEditor("好的，")
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("用户可能不是一下子")
+        assertTrue(edits.replace(entry, "用户可能不是一下子把话说完"))
+        assertEquals("好的，用户可能不是一下子把话说完|", editor.toString())
+        assertTrue(edits.replace(entry, "用户可能不是一下，把话说完了"))
+        assertEquals("好的，用户可能不是一下，把话说完了|", editor.toString())
+        assertTrue(edits.append(entry, "。"))
+        assertEquals("好的，用户可能不是一下，把话说完了。|", editor.toString())
+        // still one entry: refinement and undo cover the whole sentence
+        edits.refine(entry, "用户可能不是一下，把话说完。")
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertTrue(edits.undoSession())
+        assertEquals("好的，|", editor.toString())
+    }
+
+    @Test
+    fun anUtteranceIsOnlyExtendedWhileItIsTheLastThingDictatedAndInPlace() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val typedAfter = edits.insert("第一句")
+        edits.insertTyped("，")
+        assertFalse(edits.replace(typedAfter, "第一句第二句"))
+        assertFalse(edits.append(typedAfter, "。"))
+        val edited = edits.insert("第二句")
+        editor.backspace()
+        assertFalse(edits.replace(edited, "第二句第三句"))
+        assertFalse(edits.append(edited, "。"))
+        val previewed = edits.insert("第三句")
+        editor.hasPreview = true
+        assertFalse(edits.append(previewed, "。"))
+        assertEquals("第一句，第二第三句|", editor.toString())
+    }
+
+    @Test
+    fun aRefinementFromBeforeTheSentenceWentOnIsDropped() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("开饭时间")
+        edits.refine(entry, "开放时间")
+        assertTrue(edits.replace(entry, "开饭时间早上9点"))
+        assertEquals(0 to 0, edits.applyRefinements())
+        assertEquals("开饭时间早上9点|", editor.toString())
+    }
+
+    @Test
+    fun aWaitingRefinementKeepsTheFullStopAddedMeanwhile() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("开饭时间")
+        edits.refine(entry, "开放时间")
+        assertTrue(edits.append(entry, "。"))
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertEquals("开放时间。|", editor.toString())
+    }
+
+    @Test
     fun editedTextIsNeverTouched() {
         val editor = FakeEditor()
         val edits = VoiceEdits(editor)

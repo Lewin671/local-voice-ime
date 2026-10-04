@@ -61,7 +61,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field) |
 | Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
-| Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs permission, unavailable |
+| Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs the speech model, needs permission; utility row in every state: keyboard, ， space 。 ？, ⌫, ↵ |
 | Waveform | `WaveformView` | live (follows level; at rest, without animation, while nobody speaks and the room is quiet), idle (dots), cancel (flat, error colour) |
 | Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
@@ -70,6 +70,19 @@ also looks right with the other built-in themes, Monet, and user themes.
 
 Behaviour rules that are easy to get wrong:
 
+- **A pause is not the end of a sentence.** An utterance is inserted when the speaker pauses
+  (0.7 s in the panel, 1.2 s while holding space), but without its closing full stop. If speech
+  resumes within 4 s, the sentence goes on: both parts are transcribed again as one and the text
+  is rewritten in place, so the pause gets the punctuation the whole sentence calls for (often
+  none). The full stop appears once 4 s pass without speech, or when dictation stops. Question
+  and exclamation marks are not held back. A key of the panel (punctuation, space, ⌫, ↵) ends
+  the sentence where it stands, without a full stop: the user is punctuating by hand. Text that
+  was edited meanwhile is never rewritten; only the new words are added. Nothing is decoded
+  during the pause, and a sentence is extended up to 15 s of audio (`VoiceSentence`).
+- ↵ in the panel does what the keyboard's enter key does in that field: send, search, or a new
+  line.
+- A punctuation key or space tapped while an utterance is still underlined is inserted after
+  that utterance, once it is final: text can only be written at the cursor, where the preview is.
 - The preview never ends in punctuation: the model closes every intermediate result with a full
   stop, which would flicker. Punctuation appears with the final text.
 - If the user moves the cursor while a preview is showing, the editor keeps the preview as
@@ -87,6 +100,12 @@ Behaviour rules that are easy to get wrong:
   an explicit Undo (a first version made ⌫ do it in the panel; users read that as a bug).
 - Haptics: tick on start, tick on insert, double tick on cancel — through `InputFeedbacks`, so the
   user's haptic settings apply.
+- **No speech model yet** (a fresh install, or the standard model was deleted): the microphone
+  pill, the space bar's glyph and "Hold to talk" are shown as usual, so that voice input can be
+  found. Both gestures open the dictation panel, which shows the "Speech model needed" card
+  instead of listening; its button opens *Settings → Voice input*. The keyboard never starts a
+  download itself. When the panel becomes visible again and the model is installed, it starts
+  listening.
 - **Downloads**: only *Download* and *Resume* in the model row start one; *Download* asks first
   and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
   process all keep what has arrived. A model is used only once every file matched its pinned
@@ -100,12 +119,6 @@ Behaviour rules that are easy to get wrong:
 ```
 
 `ui-shots.sh` drives a debug build on a device or emulator through every state in the mockup, in
-- **No speech model yet** (a fresh install, or the standard model was deleted): the microphone
-  pill, the space bar's glyph and "Hold to talk" are shown as usual, so that voice input can be
-  found. Both gestures open the dictation panel, which shows the "Speech model needed" card
-  instead of listening; its button opens *Settings → Voice input*. The keyboard never starts a
-  download itself. When the panel becomes visible again and the model is installed, it starts
-  listening.
 both themes. Compare each screenshot with its drawing: what is visible, where it sits, which
 element carries the accent, and the wording. Offsets under 2 dp are not defects. Attach the
 screenshots to the pull request.

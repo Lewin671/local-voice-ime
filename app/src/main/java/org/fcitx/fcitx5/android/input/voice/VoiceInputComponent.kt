@@ -261,7 +261,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
             }
         }
 
-        override fun onFinal(text: String, samples: FloatArray) {
+        override fun onFinal(text: String, samples: FloatArray, continues: Boolean) {
             InputFeedbacks.hapticFeedback(view)
         }
 

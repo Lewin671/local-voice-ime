@@ -34,7 +34,7 @@ class VoiceEdits(private val editor: Editor) {
     /** A piece of text that dictation inserted. */
     class Entry internal constructor(internal var text: String)
 
-    private class Refinement(val entry: Entry, val text: String)
+    private class Refinement(val entry: Entry, var text: String)
 
     private val entries = ArrayList<Entry>()
 
@@ -67,7 +67,7 @@ class VoiceEdits(private val editor: Editor) {
     }
 
     /**
-     * Insert text typed by hand from the dictation panel (punctuation). It becomes part of the
+     * Insert text typed by hand from the dictation panel (punctuation, space). It becomes part of the
      * dictated run, so earlier utterances can still be refined; undo no longer applies after it.
      */
     fun insertTyped(text: String) {
@@ -89,6 +89,37 @@ class VoiceEdits(private val editor: Editor) {
         val expected = entries.subList(index, entries.size).joinToString("") { it.text }
         if (expected.isEmpty()) return null
         return expected.takeIf { editor.textBeforeCursor(it.length) == it }
+    }
+
+    private fun isLastAndInPlace(entry: Entry) =
+        entries.lastOrNull() === entry && !editor.hasPreview && stillInPlace(entry) != null
+
+    /**
+     * Write [text] over [entry]: the utterance went on after a pause and was transcribed again
+     * as a whole (see [VoiceSentence]). Only what differs is rewritten.
+     * @return false, with nothing changed, unless [entry] is the last thing dictated and in place
+     */
+    fun replace(entry: Entry, text: String): Boolean {
+        if (!isLastAndInPlace(entry)) return false
+        // a refinement of the shorter text would undo this
+        refinements.removeAll { it.entry === entry }
+        val keep = entry.text.commonPrefixWith(text).length
+        if (keep < entry.text.length) editor.deleteBeforeCursor(entry.text.length - keep)
+        if (keep < text.length) editor.insert(text.substring(keep))
+        entry.text = text
+        return true
+    }
+
+    /**
+     * Add [text] to the end of [entry]: the full stop of a sentence that turned out to be over.
+     * @return false, with nothing changed, unless [entry] is the last thing dictated and in place
+     */
+    fun append(entry: Entry, text: String): Boolean {
+        if (!isLastAndInPlace(entry)) return false
+        editor.insert(text)
+        entry.text += text
+        refinements.forEach { if (it.entry === entry) it.text += text }
+        return true
     }
 
     /** A better version of [entry] is available; it is written by [applyRefinements]. */

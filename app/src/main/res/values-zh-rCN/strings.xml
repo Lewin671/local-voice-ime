@@ -339,6 +339,7 @@
     <string name="voice_start">开始聆听</string>
     <string name="voice_stop">停止聆听</string>
     <string name="voice_enter">回车</string>
+    <string name="voice_space">空格</string>
     <string name="voice_permission_title">需要麦克风权限</string>
     <string name="voice_permission_body">音频只留在本机，不会被保存或上传。</string>
     <string name="voice_allow_microphone">允许使用麦克风</string>
@@ -373,8 +374,8 @@
     <string name="voice_model_error_content">下载的文件未通过校验，已丢弃。请重试。</string>
     <string name="voice_model_download_title">下载 %s？</string>
     <string name="voice_model_download_message">%1$s 将通过 HTTPS 从 %2$s 下载，校验通过后才会使用。不会上传任何内容。建议使用 Wi-Fi；离开此页面后下载会继续。</string>
-    <string name="voice_model_delete_title">删除高精度模型？</string>
     <string name="voice_model_standard_delete_title">删除标准模型？</string>
     <string name="voice_model_standard_delete_message">可释放 %s。重新下载之前，语音输入将无法使用。</string>
+    <string name="voice_model_delete_title">删除高精度模型？</string>
     <string name="voice_model_delete_message">可释放 %s。语音输入会继续使用标准模型。</string>
 </resources>

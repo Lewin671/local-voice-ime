@@ -27,6 +27,7 @@ class PartialPacerTest {
         pacer.speechStarted(0)
         var now = 0L
         while (now <= durationMs) {
+            pacer.heard(-20f)
             if (pacer.isDue(now)) {
                 decodes += now
                 val cost = costOf(now)
@@ -42,8 +43,37 @@ class PartialPacerTest {
     fun firstPreviewComesOneIntervalAfterSpeechStarts() {
         val pacer = PartialPacer()
         pacer.speechStarted(1000)
+        pacer.heard(-20f)
         assertFalse(pacer.isDue(1200))
         assertTrue(pacer.isDue(1300))
+    }
+
+    @Test
+    fun aPauseIsNotDecoded() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-25f)
+        assertTrue(pacer.isDue(300))
+        pacer.decoded(300, 300, changed = true)
+        // the room, 30 dB below the voice
+        pacer.heard(-55f)
+        assertFalse(pacer.isDue(600))
+        assertFalse(pacer.isDue(1700))
+        // the voice again, somewhat softer
+        pacer.heard(-40f)
+        assertTrue(pacer.isDue(1700))
+    }
+
+    @Test
+    fun loudnessAloneNeverHoldsAPreviewBackForLong() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        // a door slams, then somebody speaks softly
+        pacer.heard(-5f)
+        pacer.decoded(300, 300, changed = true)
+        pacer.heard(-40f)
+        assertFalse(pacer.isDue(1700))
+        assertTrue(pacer.isDue(1800))
     }
 
     @Test
@@ -81,6 +111,7 @@ class PartialPacerTest {
         pacer.decoded(300, 300, changed = false)
         assertFalse(pacer.isDue(600))
         pacer.decoded(900, 900, changed = true)
+        pacer.heard(-20f)
         assertTrue(pacer.isDue(1200))
     }
 
@@ -90,6 +121,7 @@ class PartialPacerTest {
         pacer.speechStarted(0)
         pacer.decoded(5000, 6000, changed = false)
         pacer.speechStarted(6100)
+        pacer.heard(-20f)
         assertFalse(pacer.isDue(6300))
         assertTrue(pacer.isDue(6400))
     }
