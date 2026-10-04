@@ -89,6 +89,22 @@ P
     adb push "$work/long.wav" "$remote_wav" >/dev/null 2>&1
 }
 
+# The sample with 2.5 s of silence put into its quietest spot near the middle: somebody who stops
+# to think in the middle of a sentence.
+use_paused_wav() {
+    python3 - voice/test-wavs/zh.wav "$work/paused.wav" <<'P'
+import sys, wave, array
+src = wave.open(sys.argv[1]); a = array.array("h", src.readframes(src.getnframes()))
+loud = [i for i, v in enumerate(a) if abs(v) > 600]
+first, last = loud[0], loud[-1]
+lo, hi = first + (last - first) * 2 // 5, first + (last - first) * 3 // 5
+cut = min(range(lo, hi, 160), key=lambda i: sum(abs(v) for v in a[i:i + 800])) + 400
+out = wave.open(sys.argv[2], "w"); out.setparams(src.getparams())
+out.writeframes((a[:cut] + array.array("h", [0] * 40000) + a[cut:]).tobytes())
+P
+    adb push "$work/paused.wav" "$remote_wav" >/dev/null 2>&1
+}
+
 # Wait until the app has logged <pattern> (debug builds log what dictation does). Reading the
 # screen is too slow and too irregular to catch states that last a second or two.
 wait_log() {
@@ -227,6 +243,24 @@ sleep 1
 text=$(field)
 expect "backspace in the panel deletes exactly one character" \
     '[[ $text == "${sentence%?}" ]]' "field: '$text'"
+
+# a pause in the middle of a sentence must not split it in two
+use_paused_wav
+open_keyboard
+tap "Voice input"
+sleep 5
+text=$(field)
+expect "after a pause, what was said is inserted without a full stop yet" \
+    '[[ -n $text && $text != *。* ]]' "field: '$text'"
+sleep 8
+tap_if_present "Stop listening"
+sleep 3
+settle
+text=$(field)
+stops=${text//[^。]/}
+expect "speech that resumes after a pause continues the sentence" \
+    '[[ $text == *9点*5点。 && ${#stops} -eq 1 ]]' "field: '$text'"
+use_wav
 
 # moving the cursor while a preview is showing must not write the words twice
 open_keyboard

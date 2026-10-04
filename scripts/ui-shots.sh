@@ -101,8 +101,10 @@ for theme in light dark; do
     adb shell input tap $(center "Voice input")
     sleep 4
     shot 4-panel-listening
+    # the test recording ends about now, and listening with it: only tap stop if it has not
+    sleep 4
     dump_ui
-    adb shell input tap $(center "Stop listening")
+    if stop=$(center "Stop listening" 2>/dev/null); then adb shell input tap $stop; fi
     sleep 3
     shot 5-panel-paused
 
