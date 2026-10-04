@@ -25,7 +25,8 @@ The settings summary states this explicitly; final recognition keeps the same mo
 3. **Privacy is visible.** While the microphone is on, a lock and "On-device" are on screen.
    Hands-free listening stops by itself after 10 s without speech. The app goes online only
    after a tap on a button that says what is fetched and from where (a speech model, in
-   *Settings → Voice input*); it never does so by itself.
+   *Settings → Voice input*; a new version of the app, in *Settings → App update*); it never
+   does so by itself.
 4. **Quiet surface, one accent.** Neutral keys; the primary colour only on things that act:
    enter, the microphone, the waveform, the first candidate.
 
@@ -75,6 +76,8 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 | Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed) |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
+| App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found |
+| New version row (settings) | `AppUpdatePreference` | not downloaded / no package for this phone / downloading / paused / failed / downloaded / installing / not installed (cause) |
 
 Behaviour rules that are easy to get wrong:
 
@@ -118,6 +121,16 @@ Behaviour rules that are easy to get wrong:
   and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
   process all keep what has arrived. A model is used only once every file matched its pinned
   checksum; a file that does not match is discarded and reported as such.
+- **App update**: only *Check for updates* / *Check again* asks github.com, and only *Download*
+  and *Resume* fetch the package; there is no automatic check, badge, notification or reminder.
+  A version that was found is remembered until it is installed or a later check finds another.
+  The package must match the checksum published with its release before *Install* is offered.
+  *Install* hands it to Android's installer, which asks the user and verifies that the package
+  is signed like the installed app; declining leaves the row at "Downloaded and verified", a
+  refusal is shown with its cause. A package signed with another key is deleted. Once the
+  installed version is the downloaded one (or newer), the file is deleted. Versions compare by
+  their numbers (`0.10.0` is newer than `0.9.2`); anything not newer than the installed version
+  is "nothing newer". Release notes are shown as plain text, four lines at most.
 - Every string on screen comes from `values/strings.xml`; wording in `mockup.html` is the source.
 
 ## Accepting an implementation
@@ -133,8 +146,8 @@ screenshots to the pull request.
 
 ## Out of scope for v1
 
-The settings app other than *Voice input*, and the setup wizard (still upstream's; the voice
-input screen uses the same list components and theme), a notification for a running download,
+The settings app other than *Voice input* and *App update*, and the setup wizard (still upstream's; the voice
+input screen uses the same list components and theme), a notification for a running download, checking for updates without being asked,
 landscape and tablet layouts for the voice
 surfaces (they must work, but have no dedicated design), and theming of the candidate window for
 physical keyboards.

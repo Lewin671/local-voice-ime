@@ -125,6 +125,8 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .group { padding: 18px 16px 4px; font: 500 13px var(--device); color: var(--primary); }
 .meter { height: 4px; border-radius: 2px; background: var(--alt); margin-top: 10px; overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--primary); }
+.item span.notes { margin-top: 4px; white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.meter.busy i { width: 30%; margin-left: 35%; }
 .actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; min-height: 36px; }
 .actions span { flex: 1; }
 .tbtn { height: 36px; padding: 0 12px; display: grid; place-items: center; font: 500 14px var(--device); color: var(--text2); }
@@ -157,7 +159,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <div class="principles">
     <div><h3>Text goes where text lives</h3><p>Live dictation is written straight into the text field, underlined until final. No transcript bubbles to read and then re-read.</p></div>
     <div><h3>One gesture, one meaning</h3><p>Hold space to talk, release to insert, slide up to discard. Tap the mic to talk hands-free. Nothing else starts the microphone.</p></div>
-    <div><h3>Privacy is visible</h3><p>While the microphone is on, a lock and the words "On-device" stay on screen. The microphone never stays open after 10 s of silence. The app goes online only after a tap on a button that says what is fetched and from where.</p></div>
+    <div><h3>Privacy is visible</h3><p>While the microphone is on, a lock and the words "On-device" stay on screen. The microphone never stays open after 10 s of silence. The app goes online only after a tap on a button that says what is fetched and from where: a speech model, or a new version of the app.</p></div>
     <div><h3>Quiet surface, one accent</h3><p>Neutral keys, generous radius, a single teal used only for the things that act: enter, the microphone, the waveform.</p></div>
   </div>
 </section>
@@ -180,7 +182,27 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Failed</td><td>In the error colour, naming the cause and the fix: connection, free storage, or a file that did not pass verification</td><td>Resume or Download, Delete if something is kept</td></tr>
     <tr><td>Installed</td><td>"Installed"</td><td>Delete (asks first, says how much is freed and what stops working)</td></tr>
   </table></div>
-  <p class="note">Rules: the app never goes online by itself, a download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. Both models are rows of the same kind and behave alike. The standard model is the one voice input cannot do without: its row says "Needed for voice input", and deleting it says that voice input stops until it is downloaded again. The refinement switch is disabled until the high-accuracy model is installed. A further downloadable model is one more row of the same kind.</p>
+  <p class="note">Rules: the app never goes online by itself. A download starts with a tap on <em>Download</em> or <em>Resume</em> and at no other time. What was downloaded is never fetched twice: pausing, losing the connection or leaving the app keeps it. A model is used only after every file matched its pinned checksum. Both models are rows of the same kind and behave alike. The standard model is the one voice input cannot do without: its row says "Needed for voice input", and deleting it says that voice input stops until it is downloaded again. The refinement switch is disabled until the high-accuracy model is installed. A further downloadable model is one more row of the same kind.</p>
+</section>
+
+<section>
+  <h2>Settings: app update</h2>
+  <p class="note">The app is installed from a file, not from a store, so it brings its own way to get a newer one: <em>Settings → App update</em>, a destination in the main settings list. The app does not look for updates by itself, not at start-up and not in the background; the screen asks github.com when <em>Check for updates</em> is tapped and at no other time. A new version is a row of the same kind as a speech model, with one more step at the end: Android installs it.</p>
+  <div class="screens" id="update"></div>
+  <div class="tablewrap"><table>
+    <tr><th>State</th><th>Status line</th><th>Actions</th></tr>
+    <tr><td>Not checked</td><td>—</td><td>Check for updates</td></tr>
+    <tr><td>Checking</td><td>"Asking github.com…", a bar without a percentage</td><td>—</td></tr>
+    <tr><td>Nothing newer</td><td>"This is the newest version."</td><td>Check again</td></tr>
+    <tr><td>Check failed</td><td>In the error colour: "Could not reach github.com. Check the connection, then try again."</td><td>View on GitHub (opens the releases page in the browser), Check again</td></tr>
+    <tr><td>New version, not downloaded</td><td>Size and source; the first lines of its release notes, if it has any</td><td>View on GitHub, Download (asks first: size, source, "nothing is uploaded")</td></tr>
+    <tr><td>New version without a package for this phone</td><td>"This release has no package for this phone (x86_64)."</td><td>View on GitHub</td></tr>
+    <tr><td>Downloading, paused, failed</td><td>As for a speech model</td><td>Pause; Resume, Delete</td></tr>
+    <tr><td>Downloaded</td><td>"Downloaded and verified"</td><td>Delete, Install</td></tr>
+    <tr><td>Installing</td><td>"Android is installing the update…"</td><td>—</td></tr>
+    <tr><td>Not installed</td><td>In the error colour, naming the cause: "Android did not install the update: not enough free storage." A file that is not signed like this app is discarded and reported as such.</td><td>Delete, Install</td></tr>
+  </table></div>
+  <p class="note">Rules: the check is one request to github.com for the newest release of this project; it carries no identifier and nothing about the phone. What it found is remembered, so the new version is still listed when the screen is opened again; nothing else is, and there is no badge, notification or reminder anywhere else. The package is fetched from the same release and must match the checksum published with it. <em>Install</em> hands the file to Android, which asks for confirmation (the first time also whether this app may install apps) and accepts the package only if it is signed with the same key as the installed app. Declining is not an error: the row stays at "Downloaded and verified". Speech models and settings are kept. While Android replaces the app the keyboard is gone for a few seconds; afterwards the downloaded file is deleted and the screen shows the new version as installed.</p>
 </section>
 
 <section>
@@ -294,7 +316,7 @@ const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedA
   <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
 const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>')) => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
-  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online for one thing only: downloading a speech model when you tap Download.</span></div></div>
+  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</span></div></div>
   <div class="group">Speech models</div>
   ${standardRow(standard)}
   ${modelRow(row)}
@@ -303,9 +325,9 @@ const settings = (row, on, extra = '', standard = acts('Installed', '<div class=
   ${extra}</div>`;
 const acts = (status, ...btns) => `<div class="actions"><span${status.err ? ' class="err"' : ''}>${status.t || status}</span>${btns.join('')}</div>`;
 const T = [
-  { t: 'Voice input settings: first visit', d: 'The first thing on the screen is the promise, including its one exception. Models are listed with what they do, how large they are and where they come from. Nothing is on the phone yet; the standard model is the one to download.',
+  { t: 'Voice input settings: first visit', d: 'The first thing on the screen is the promise, and what going online is for on this screen. Models are listed with what they do, how large they are and where they come from. Nothing is on the phone yet; the standard model is the one to download.',
     k: settings(acts('', '<div class="btn">Download</div>'), false, '', acts('', '<div class="btn">Download</div>')) },
-  { t: 'Before going online', d: 'Tapping Download asks once. The dialog says how much, from where, and that nothing is sent. This tap is the only way the app ever opens a connection.',
+  { t: 'Before going online', d: 'Tapping Download asks once. The dialog says how much, from where, and that nothing is sent. No download starts any other way.',
     k: settings(acts('', '<div class="btn">Download</div>'), false, `<div class="scrim"><div class="dialog"><b>Download 240 MB?</b><span>SenseVoice Small is fetched from modelscope.cn over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Download</div></div></div></div>`, acts('', '<div class="btn">Download</div>')) },
   { t: 'Ready to dictate', d: 'With the standard model installed, voice input works. The high-accuracy model stays an offer; until it is there, its switch is disabled.',
     k: settings(acts('', '<div class="btn">Download</div>'), false) },
@@ -317,6 +339,39 @@ const T = [
     k: settings(acts('Installed', '<div class="tbtn">Delete</div>'), true) },
 ];
 document.getElementById('settings').innerHTML = T.map(s => `<figure>
+  <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
+  <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
+
+// ---- app update screens
+const updateRow = (version, notes, rest, source = '69 MB · from github.com') => `<div class="group">New version</div>
+  <div class="item"><b>Version ${version}</b><span>${source}</span>${notes ? `<span class="notes">${notes}</span>` : ''}${rest}</div>`;
+const update = (installed, next = '', extra = '') => `<div class="app">
+  <div class="appbar">${arrow}App update</div>
+  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Updates are looked for only when you ask</b><span>Check for updates asks github.com for the newest release and sends nothing about you. The app never checks by itself.</span></div></div>
+  <div class="group">Installed</div>
+  <div class="item"><b>Version 0.6.2</b>${installed}</div>
+  ${next}${extra}</div>`;
+const again = acts('', '<div class="tbtn">Check again</div>');
+const notes = 'Dictation keeps a sentence together across longer pauses.\nThe microphone is released sooner after you stop.\nFixes a preview that could stay behind after cancelling.\nFaster first result after the keyboard was idle.\nSmaller download.';
+const U = [
+  { t: 'App update: not checked', d: 'The promise first, as on the voice input screen: who is asked, and that nothing is sent. Below it the installed version and the one button that goes online.',
+    k: update(acts('', '<div class="btn">Check for updates</div>')) },
+  { t: 'Nothing newer', d: 'The answer in one sentence. Checking again is possible but no longer the accent.',
+    k: update(acts('This is the newest version.', '<div class="tbtn">Check again</div>')) },
+  { t: 'Check failed', d: 'github.com is not reachable from every network. The message names the host; the releases page can be opened in the browser instead, which may have a route the app does not.',
+    k: update(acts({ t: 'Could not reach github.com. Check the connection, then try again.', err: 1 }, '<div class="tbtn">View on GitHub</div>', '<div class="btn">Check again</div>')) },
+  { t: 'New version', d: 'What it is, how large and from where, and the first four lines of its release notes; the rest is on GitHub. Download asks once, like a speech model does.',
+    k: update(again, updateRow('0.7.0', notes, acts('', '<div class="tbtn">View on GitHub</div>', '<div class="btn">Download</div>'))) },
+  { t: 'Downloading', d: 'The same row as a model download: amounts, Pause, and nothing is lost by leaving the screen. A release without notes simply has none.',
+    k: update(again, updateRow('0.7.0', '', '<div class="meter"><i style="width:33%"></i></div>' + acts('23 MB of 69 MB', '<div class="tbtn">Pause</div>'))) },
+  { t: 'Ready to install', d: 'The file matched the checksum published with the release. Install hands it to Android, which asks for confirmation and checks the signature.',
+    k: update(again, updateRow('0.7.0', notes, acts('Downloaded and verified', '<div class="tbtn">Delete</div>', '<div class="btn">Install</div>'))) },
+  { t: 'Not installed', d: 'If Android refuses the package, the row says why in Android\'s terms and keeps the file, so that Install can be tried again once the cause is gone.',
+    k: update(again, updateRow('0.7.0', notes, acts({ t: 'Android did not install the update: not enough free storage.', err: 1 }, '<div class="tbtn">Delete</div>', '<div class="btn">Install</div>'))) },
+  { t: 'No package for this phone', d: 'A release may lack a build for the phone\'s processor. Then there is nothing to download, only the page to look at.',
+    k: update(again, updateRow('0.7.0', '', acts({ t: 'This release has no package for this phone (x86_64).' }, '<div class="tbtn">View on GitHub</div>'), 'from github.com')) },
+];
+document.getElementById('update').innerHTML = U.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 
