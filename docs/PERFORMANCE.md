@@ -5,6 +5,33 @@ SenseVoice recognition and the selected FireRedASR2 refinement are retained. Thi
 preview latency and storage overhead, not model weights, quantization, language detection,
 inverse text normalization, VAD thresholds, audio rate, endpointing, margins or text merging.
 
+## Follow-up: preview scheduling across a pause (2026-10-04)
+
+Two pacing states could make a pause feel sluggish. A voiced audio observation remained
+latched until the next preview, authorizing a decode after newer audio had become quiet.
+Conversely, an unchanged transcript retained double-length backoff when speech resumed.
+
+`PartialPacer` now gates previews on the latest observed level, retaining the existing
+1.5-second relative-loudness fallback for a soft voice after a loud transient. Quiet-to-voiced
+resumption clears unchanged-result backoff, including after a quiet fallback decode. It
+still waits for the ordinary audio-length interval and twice the previous decode cost;
+stopping still suppresses every preview. Continuous voiced audio without a pause keeps
+exactly the previous policy, including unchanged-result backoff and Battery Saver pacing.
+No models, endpoint thresholds, final decoding, refinement or sample storage are changed.
+
+The five added JVM regressions cover stale voiced observations, normal/saving resumption,
+resumption after a quiet fallback, compute/stopping limits and sustained voiced backoff.
+A controlled state with 12 seconds of audio and negligible decode cost allows the next
+preview 900 ms after an unchanged decode following resumption, rather than 1,800 ms;
+Battery Saver allows it after 1,800 ms rather than 3,600 ms. These are scheduling thresholds,
+not measured phone latency. Existing native decodes cannot be interrupted.
+
+This avoids previews authorized only by stale speech and moves useful work closer to new
+speech. It is not a guarantee of lower total energy for every pattern: clearing backoff can
+produce an additional useful preview or change the lengths of decoded prefixes. The existing
+per-preview compute idle limit remains. Real-phone energy and timing remain unmeasured;
+do not describe deterministic scheduling tests as a battery benchmark.
+
 ## v0.6.1 follow-up: retired refinement requests
 
 The published v0.6.0 still computes queued refinement after a successful undo, or after an

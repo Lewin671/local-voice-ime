@@ -15,8 +15,8 @@ package org.fcitx.fcitx5.android.input.voice
  *   re-decoding a long prefix is expensive even on a device that decodes it quickly;
  * - by [COST_FACTOR] times what the last decode took, which keeps the recognizer busy for at
  *   most a third of the time however long the utterance gets or however slow the device is;
- * - by twice the current interval after a decode that changed nothing: the speaker is pausing, and
- *   decoding the same words again only produces heat;
+ * - by twice the current interval after a decode that changed nothing, until speech resumes
+ *   after quiet audio: a pause must not leave the next words waiting at the slower rate;
  * - until something was said since the last one: what [heard] reports as far quieter than the
  *   utterance itself is a pause, and brings no new words. As loudness can mislead (a bang makes
  *   everything after it look quiet), a preview is decoded after [QUIET_MAX_WAIT_MS] regardless.
@@ -29,9 +29,10 @@ class PartialPacer(private val minIntervalMs: Long = INTERVAL_MS) {
     private var lastCost = 0L
     private var unchanged = false
 
-    // loudest audio of the utterance, and whether any came near it since the last preview
+    // Loudest audio of the utterance and whether the latest observed audio came near it.
     private var peakDb = Float.NEGATIVE_INFINITY
     private var spoken = false
+    private var wasQuiet = false
 
     /** A new utterance began: its first preview is due one interval from [now]. */
     fun speechStarted(now: Long) {
@@ -40,12 +41,18 @@ class PartialPacer(private val minIntervalMs: Long = INTERVAL_MS) {
         unchanged = false
         peakDb = Float.NEGATIVE_INFINITY
         spoken = false
+        wasQuiet = false
     }
 
     /** Audio of the utterance arrived; [db] is its level (RMS, decibels). */
     fun heard(db: Float) {
         if (db > peakDb) peakDb = db
-        if (db >= peakDb - QUIET_BELOW_PEAK_DB) spoken = true
+        val voiced = db >= peakDb - QUIET_BELOW_PEAK_DB
+        if (voiced && wasQuiet) unchanged = false
+        wasQuiet = !voiced
+        // A voiced chunk must not keep authorizing previews after the speaker becomes quiet.
+        // Keep the fallback below: relative loudness alone can misclassify a soft voice.
+        spoken = voiced
     }
 
     /** Once capture is stopping, only the full final decode is useful. */

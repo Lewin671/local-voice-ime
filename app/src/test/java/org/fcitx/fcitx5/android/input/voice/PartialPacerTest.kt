@@ -78,6 +78,75 @@ class PartialPacerTest {
         assertTrue(prefixWork(true) { it / 10 } <= prefixWork(false) { it / 10 })
     }
 
+    @Test
+    fun latestQuietAudioSuppressesAStaleVoicedChunkBeforeEndpointing() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-20f)
+        pacer.decoded(300, 300, changed = true)
+        pacer.heard(-20f)
+        pacer.heard(-55f)
+        assertFalse(pacer.isDue(600))
+        assertFalse(pacer.isDue(1700))
+        // A loud transient must never suppress quieter speech indefinitely.
+        assertTrue(pacer.isDue(1800))
+    }
+
+    @Test
+    fun resumedSpeechLeavesUnchangedBackoffButKeepsTheLongAudioInterval() {
+        for (base in listOf(300L, 600L)) {
+            val pacer = PartialPacer(base)
+            pacer.speechStarted(0)
+            pacer.heard(-20f)
+            pacer.decoded(1000, 1000, changed = false)
+            pacer.heard(-55f)
+            pacer.heard(-20f)
+            val due = 1000 + base * 3
+            assertFalse(pacer.isDue(due - 1, audioDurationMs = 12_000))
+            assertTrue(pacer.isDue(due, audioDurationMs = 12_000))
+        }
+    }
+
+    @Test
+    fun quietStateSurvivesAFallbackDecodeSoTheNextWordsCanResume() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-20f)
+        pacer.decoded(300, 300, changed = true)
+        pacer.heard(-55f)
+        assertTrue(pacer.isDue(1800, audioDurationMs = 12_000))
+        pacer.decoded(1800, 1800, changed = false)
+        pacer.heard(-20f)
+        assertTrue(pacer.isDue(2700, audioDurationMs = 12_000))
+    }
+
+    @Test
+    fun resumptionDoesNotBypassComputeBudgetOrStopping() {
+        val pacer = PartialPacer()
+        pacer.speechStarted(0)
+        pacer.heard(-20f)
+        pacer.decoded(1000, 2000, changed = false)
+        pacer.heard(-55f)
+        pacer.heard(-20f)
+        assertFalse(pacer.isDue(3999, audioDurationMs = 12_000))
+        assertTrue(pacer.isDue(4000, audioDurationMs = 12_000))
+        assertFalse(pacer.isDue(4000, stopping = true, audioDurationMs = 12_000))
+    }
+
+    @Test
+    fun continuedVoicedAudioRetainsUnchangedBackoffAndSavingPolicy() {
+        for (base in listOf(300L, 600L)) {
+            val pacer = PartialPacer(base)
+            pacer.speechStarted(0)
+            pacer.heard(-20f)
+            pacer.decoded(1000, 1000, changed = false)
+            repeat(10) { pacer.heard(-20f) }
+            val due = 1000 + base * 6
+            assertFalse(pacer.isDue(due - 1, audioDurationMs = 12_000))
+            assertTrue(pacer.isDue(due, audioDurationMs = 12_000))
+        }
+    }
+
     /**
      * Speech that lasts [durationMs], checked for a preview every 100 ms (the size of an audio
      * chunk); each decode takes [costOf] the time since speech started and reports new text
