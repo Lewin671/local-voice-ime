@@ -8,6 +8,7 @@
 #   WAVS     directory with 16 kHz mono WAV files (default: voice/test-wavs)
 #   THREADS  inference threads (default: 4)
 #   CPU_SPIN  optional 0 or 1: configure ONNX worker spinning for CPU A/B tests
+#   CPU_CONFIG optional local session-options file; mutually exclusive with CPU_SPIN
 #
 # The model is copied into the app's private storage, benchmarked by VoiceBenchActivity, and
 # removed again. The result is printed and saved as build/device-bench/<key>.json.
@@ -20,7 +21,10 @@ key=$1; model=$2; kind=$3; punct=${4:-}
 wavs=${WAVS:-voice/test-wavs}
 threads=${THREADS:-4}
 spin=${CPU_SPIN:-}
+cpu_config=${CPU_CONFIG:-}
 [[ -z $spin || $spin == 0 || $spin == 1 ]] || { echo "CPU_SPIN must be 0 or 1" >&2; exit 1; }
+[[ -z $spin || -z $cpu_config ]] || { echo "Use CPU_SPIN or CPU_CONFIG, not both" >&2; exit 1; }
+[[ -z $cpu_config || -f $cpu_config ]] || { echo "CPU_CONFIG does not exist" >&2; exit 1; }
 
 apk=$(ls -t app/build/outputs/apk/debug/*-debug.apk 2>/dev/null | head -1 || true)
 [[ -f $apk ]] || { echo "No debug APK; run scripts/build.sh first" >&2; exit 1; }
@@ -31,14 +35,15 @@ mkdir -p "$out"
 # Files pushed by adb belong to the shell user and are not readable by the app, so they are staged
 # in /data/local/tmp and copied into the app's private storage with run-as (debug builds only).
 stage=/data/local/tmp/lvi-bench
-home=$(adb shell run-as "$pkg" pwd | tr -d '\r')
-remote=$home/files/bench
+bench_home=$(adb shell run-as "$pkg" pwd | tr -d '\r')
+remote=$bench_home/files/bench
 as_app() { adb shell run-as "$pkg" "$@"; }
 
 adb shell rm -rf "$stage"
 adb shell mkdir -p "$stage/wavs"
 adb push "$model" "$stage/model" >/dev/null 2>&1
 adb push "$wavs"/*.wav "$stage/wavs/" >/dev/null 2>&1
+[[ -z $cpu_config ]] || adb push "$cpu_config" "$stage/cpu.config" >/dev/null 2>&1
 extra=()
 if [[ -n $punct ]]; then
     adb push "$punct" "$stage/punct.onnx" >/dev/null 2>&1
@@ -51,6 +56,8 @@ adb shell rm -rf "$stage"
 
 if [[ -n $spin ]]; then
     adb shell "printf 'SessionConfig.session.intra_op.allow_spinning=$spin\\nSessionConfig.session.inter_op.allow_spinning=$spin\\n' | run-as $pkg sh -c 'cat > $remote/cpu.config'"
+    extra+=(--es provider "cpu:$remote/cpu.config")
+elif [[ -n $cpu_config ]]; then
     extra+=(--es provider "cpu:$remote/cpu.config")
 fi
 

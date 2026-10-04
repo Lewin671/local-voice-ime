@@ -161,6 +161,8 @@ explicit baseline. Requires the newest debug APK installed; `VoiceBenchActivity`
 wall time and process CPU time for each of its two decodes. The configuration is private to
 the benchmark and does not change normal dictation. Compare raw transcripts before interpreting
 performance. Repeating and alternating order reduces initialization and ordering bias.
+`CPU_CONFIG=<local-file>` accepts a session-options file for bounded-spinning/backoff experiments;
+it is mutually exclusive with `CPU_SPIN` and affects only the benchmark, never normal dictation.
 
 ## Performance and energy regression
 
