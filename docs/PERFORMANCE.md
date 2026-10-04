@@ -28,6 +28,33 @@ this avoids the cost of unused queued work, with benefits depending on undo/hist
 
 ## Findings and changes
 
+### Follow-up: capture lifetime and obsolete speculative loads
+
+The microphone reader now releases its source after its last completed read, independently of
+queued/final recognition. `VoiceCapture` owns teardown and guards against a second release in
+outer error cleanup. The last read is enqueued even if stop is requested during the read; all
+chunks retain independent sample arrays. EOF is signalled before source release so that no
+extra preview is requested during teardown. `MicrophoneSource` attempts release even if its
+stop call fails. The recognition, VAD, sentence and preview policies are unchanged.
+
+Both model workers recheck demand when a queued load actually starts. A discarded session can
+skip a queued standard-model load; normal release still requires full final recognition.
+Speculative refiner loading is withdrawn once the requesting session stops. Committed text's
+refinement has its own independent required-load path. Active native loads/decodes are never
+interrupted; cancelling the session does not release a model used by another request.
+
+Further preview throttling and shorter warm-up/residency windows were not adopted: they can
+increase preview or cold-start latency. Native VAD copying and CPU-pool tuning remain candidates
+requiring separate runtime and target-phone measurements. These changes exhaust the confirmed
+unnecessary work addressed by this follow-up, not every theoretically possible optimization.
+
+`scripts/bench/session-probe.sh` exercises the production session, VAD and standard recognizer
+with controlled WAV input. It records captured/final-audio SHA-256 values, continuation flags,
+final transcripts, sentence punctuation, source stop count and whether capture is released
+before the finishing phase. This establishes input/output equivalence on the supplied clips,
+not broad spontaneous-speech accuracy or physical microphone/battery behavior. Probe JSON and
+transcripts stay in debug-only test artifacts; the release build contains no probe activity.
+
 | Area | Evidence in the current pipeline | Change / decision |
 |---|---|---|
 | Whole-prefix previews | Every preview creates a stream and runs SenseVoice on all audio retained for the current utterance. Fast hardware can repeat increasingly long audio every 300 ms. | Keep 300 ms minimum for the first 3 seconds, then increase proportionally to audio length, capped at 900 ms from 9 seconds. Battery Saver doubles these intervals. The existing minimum idle time of twice the last decode cost and quiet-audio gate still apply. Full final recognition is independent of this pacing. |

@@ -224,7 +224,11 @@ object VoiceInput {
                         if (refine && !refinerRequested) {
                             refinerRequested = true
                             service.lifecycleScope.launch {
-                                runCatching { VoiceRefiner.ensureLoaded(service) }
+                                runCatching {
+                                    VoiceRefiner.ensureLoaded(service) {
+                                        session.needsSpeculativeRefiner
+                                    }
+                                }
                             }
                         }
                     }

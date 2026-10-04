@@ -34,7 +34,7 @@ import kotlin.math.sqrt
 class VoiceSession(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val source: AudioSource,
+    source: AudioSource,
     /** Trailing silence (seconds) that ends an utterance. */
     private val minSilence: Float,
     /** Stop by itself after this long without speech; 0 to keep listening. */
@@ -83,11 +83,18 @@ class VoiceSession(
 
     private var job: Job? = null
 
+    private val capture = VoiceCapture(source)
+
     @Volatile
     private var stopRequested = false
 
     @Volatile
     private var discard = false
+
+    /** Read only by queued native loading requests, without touching editor/UI state. */
+    internal val needsRecognition get() = !discard
+
+    internal val needsSpeculativeRefiner get() = !stopRequested && !discard
 
     @Volatile
     private var sentenceCloseRequested = false
@@ -111,8 +118,11 @@ class VoiceSession(
                 }
             } finally {
                 withContext(NonCancellable) {
-                    source.stop()
-                    emit { onState(State.Stopped) }
+                    try {
+                        capture.close()
+                    } finally {
+                        emit { onState(State.Stopped) }
+                    }
                 }
             }
         }
@@ -140,7 +150,7 @@ class VoiceSession(
     private suspend fun run() = coroutineScope {
         // Start capturing right away: loading the model can take seconds after a cold start,
         // and whatever is said meanwhile is queued in `chunks` instead of being lost.
-        source.start()
+        capture.start()
         val cold = !VoiceEngine.isLoaded
         emit { onState(if (cold) State.Preparing else State.Listening) }
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
@@ -155,13 +165,11 @@ class VoiceSession(
             val chunkSize = VoiceEngine.SAMPLE_RATE / 10
             var lastLevel = 0f
             try {
-                while (isActive && !stopRequested) {
-                    val buf = FloatArray(chunkSize)
-                    val n = source.read(buf)
-                    if (n < 0) break
-                    if (n == 0) continue
-                    val chunk = if (n == buf.size) buf else buf.copyOf(n)
-                    chunks.send(chunk)
+                capture.pump(chunkSize, chunks, { isActive && !stopRequested }, onStopped = {
+                    stopRequested = true
+                    chunks.close()
+                    levels.close()
+                }) { chunk ->
                     // reported from here, so that the level is live even while the model loads
                     val level = levelOf(chunk).let { if (it < QUIET_LEVEL && !speaking) 0f else it }
                     // nothing to report while it stays silent: the UI has nothing to redraw then
@@ -176,7 +184,7 @@ class VoiceSession(
         }
 
         val vad = try {
-            VoiceEngine.ensureLoaded(context)
+            if (!VoiceEngine.ensureLoaded(context) { needsRecognition }) return@coroutineScope
             VoiceEngine.createVad(context, minSilence)
         } catch (e: CancellationException) {
             throw e

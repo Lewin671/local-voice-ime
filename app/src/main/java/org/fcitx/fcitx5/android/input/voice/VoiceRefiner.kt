@@ -65,25 +65,30 @@ object VoiceRefiner {
         recognizer = null
     }
 
-    suspend fun ensureLoaded(context: Context) = withContext(dispatcher) {
-        touch()
-        if (recognizer != null || !isAvailable(context)) return@withContext
-        val t0 = SystemClock.elapsedRealtime()
-        val dir = VoiceModels.dir(context, model)
-        val config = OfflineRecognizerConfig(
-            modelConfig = OfflineModelConfig(
-                fireRedAsr = OfflineFireRedAsrModelConfig(
-                    encoder = File(dir, "encoder.int8.onnx").path,
-                    decoder = File(dir, "decoder.int8.onnx").path
-                ),
-                tokens = File(dir, "tokens.txt").path,
-                numThreads = 4,
-                // Background refinement trades a little latency for less CPU spinning.
-                provider = VoiceRuntimeOptions.sleepingCpuProvider(context.noBackupFilesDir)
+    suspend fun ensureLoaded(
+        context: Context,
+        needed: () -> Boolean = { true }
+    ) = withContext(dispatcher) {
+        VoiceModelLoad.run(needed) {
+            touch()
+            if (recognizer != null || !isAvailable(context)) return@run
+            val t0 = SystemClock.elapsedRealtime()
+            val dir = VoiceModels.dir(context, model)
+            val config = OfflineRecognizerConfig(
+                modelConfig = OfflineModelConfig(
+                    fireRedAsr = OfflineFireRedAsrModelConfig(
+                        encoder = File(dir, "encoder.int8.onnx").path,
+                        decoder = File(dir, "decoder.int8.onnx").path
+                    ),
+                    tokens = File(dir, "tokens.txt").path,
+                    numThreads = 4,
+                    // Background refinement trades a little latency for less CPU spinning.
+                    provider = VoiceRuntimeOptions.sleepingCpuProvider(context.noBackupFilesDir)
+                )
             )
-        )
-        recognizer = OfflineRecognizer(null, config)
-        Timber.i("Voice refiner loaded in ${SystemClock.elapsedRealtime() - t0} ms")
+            recognizer = OfflineRecognizer(null, config)
+            Timber.i("Voice refiner loaded in ${SystemClock.elapsedRealtime() - t0} ms")
+        }
     }
 
     /**

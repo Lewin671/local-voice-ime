@@ -80,28 +80,34 @@ object VoiceEngine {
     private val numThreads: Int
         get() = if (Runtime.getRuntime().availableProcessors() >= 8) 4 else 2
 
-    suspend fun ensureLoaded(context: Context) = withContext(dispatcher) {
-        touch()
-        if (recognizer != null) return@withContext
-        check(isAvailable(context)) { "The speech model is not installed" }
-        val t0 = SystemClock.elapsedRealtime()
-        val dir = VoiceModels.dir(context, model)
-        val config = OfflineRecognizerConfig(
-            modelConfig = OfflineModelConfig(
-                senseVoice = OfflineSenseVoiceModelConfig(
-                    model = File(dir, "model.int8.onnx").path,
-                    // auto-detect, so that Mandarin, English and code-switching all work
-                    language = "auto",
-                    // spoken numbers -> digits, and punctuation
-                    useInverseTextNormalization = true
-                ),
-                tokens = File(dir, "tokens.txt").path,
-                numThreads = numThreads,
-                provider = "cpu"
+    /** Recheck demand on the worker; an already running native load is never interrupted. */
+    suspend fun ensureLoaded(
+        context: Context,
+        needed: () -> Boolean = { true }
+    ): Boolean = withContext(dispatcher) {
+        VoiceModelLoad.run(needed) {
+            touch()
+            if (recognizer != null) return@run
+            check(isAvailable(context)) { "The speech model is not installed" }
+            val t0 = SystemClock.elapsedRealtime()
+            val dir = VoiceModels.dir(context, model)
+            val config = OfflineRecognizerConfig(
+                modelConfig = OfflineModelConfig(
+                    senseVoice = OfflineSenseVoiceModelConfig(
+                        model = File(dir, "model.int8.onnx").path,
+                        // auto-detect, so that Mandarin, English and code-switching all work
+                        language = "auto",
+                        // spoken numbers -> digits, and punctuation
+                        useInverseTextNormalization = true
+                    ),
+                    tokens = File(dir, "tokens.txt").path,
+                    numThreads = numThreads,
+                    provider = "cpu"
+                )
             )
-        )
-        recognizer = OfflineRecognizer(null, config)
-        Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
+            recognizer = OfflineRecognizer(null, config)
+            Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
+        }
     }
 
     /**

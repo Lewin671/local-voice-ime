@@ -164,6 +164,18 @@ performance. Repeating and alternating order reduces initialization and ordering
 
 ## Performance and energy regression
 
+`scripts/bench/session-probe.sh <output-directory> [wav-directory]` runs controlled WAV files
+through the production `VoiceSession`, VAD and standard recognizer in a debug-only activity.
+Use a dedicated device. It installs the newest debug APK, copies the standard model, and
+force-stops the debug app between clips. For paired builds compare `finals`, `sentenceStops`,
+`capturedSamples` and `capturedSha256` exactly; the capture-lifetime optimization should change
+`captureStoppedBeforeFinishing` from false to true while `sourceStopCalls` remains one.
+Do not interpret this WAV-source lifecycle check as physical AudioRecord or energy validation.
+
+`VoiceCaptureTest` covers lossless queued audio, the final partial read when stopping, empty
+reads, cancellation/errors, EOF-before-release ordering and one-time cleanup. `VoiceModelLoadTest`
+covers demand withdrawn while queued, independent required refinement and active-load completion.
+
 `./scripts/bench/audio-buffer.sh` runs the old storage implementation and production buffer
 against the same 10 minutes of synthetic audio, verifies matching window checksums, and reports
 JVM allocations and median elapsed time. It also simulates preview pacing on a 20-second

@@ -87,11 +87,15 @@ class MicrophoneSource : AudioSource {
     }
 
     override fun stop() {
-        record?.runCatching {
-            stop()
-            release()
-        }
+        val r = record ?: return
         record = null
+        r.runCatching {
+            try {
+                stop()
+            } finally {
+                release()
+            }
+        }
     }
 }
 
