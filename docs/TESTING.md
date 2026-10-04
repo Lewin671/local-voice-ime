@@ -207,3 +207,30 @@ mode and resets the simulated battery override. Use a dedicated test device: thi
 
 These measurements do not measure battery consumption. See [PERFORMANCE.md](PERFORMANCE.md)
 for interpretation, remaining bottlenecks, and the real-phone measurement procedure.
+
+## System installer regression
+
+On a dedicated arm64 emulator (`emulator-5554`), after building debug and signed release APKs:
+
+```sh
+python3 scripts/e2e-update-install.py <debug-apk> <signed-release-apk> build/update-install
+```
+
+The script seeds the debug app with the supplied signed APK and its exact checksum as a
+verified update fixture; it does not test downloading from GitHub. It exercises denied
+install-source permission, retry, permission granted in Android settings, foreground
+confirmation, cancellation/retry, hiding the app before confirmation and resuming it, and
+actual system installation. It requires both the APK's version code and a successful
+PackageInstaller callback; pressing the confirmation button alone is not a passing result.
+If Play Protect requests a scan, the script requests it and approves installation only
+after an explicitly safe result. It does not disable or bypass system verification.
+This changes the debug app's install-source permission and installs the supplied production
+APK; use a dedicated emulator, not a daily-use device. Brand-specific permission pages and
+physical phones remain manual checks.
+
+The permission preflight follows Android's
+[install-source permission documentation](https://android-developers.googleblog.com/2017/08/making-it-safer-to-get-apps-on-android-o.html).
+Pending confirmation is consumed only by a resumed update screen, following
+[foreground activity-launch restrictions](https://developer.android.com/guide/components/activities/secure-bal);
+the broadcast receiver never starts a UI. Android 8+ permission APIs and Android 12+ explicit
+user-action APIs are guarded for the app's Android 6 minimum.
