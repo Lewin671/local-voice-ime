@@ -38,7 +38,8 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
 | `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
-| `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded, freed after 3 idle minutes. |
+| `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded. Freed after 3 idle minutes, or after up to 10 on a device with memory to spare. |
+| `VoiceModelResidency` | Decides how long the unused large model stays in memory, from the idle time and what the system reports as available. Pure Kotlin, unit-tested. |
 | `VoiceModels` | Catalogue of the speech models, all of them downloads (files pinned by size and SHA-256), and the entry points the rest of the app uses. |
 | `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
 | `VoiceModelFetch` | Downloads one file, resumable, verified; also reads the short description of the newest release for the update check. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
@@ -129,7 +130,7 @@ What keeps it in check, and what to preserve when changing the pipeline:
 | Cost | Measure | Where |
 |---|---|---|
 | Previews: each one decodes the whole utterance so far | preview decode is followed by at least twice its cost in idle time; after 3 s of audio the minimum interval grows from 300 ms to 900 ms by 9 s; unchanged text waits twice as long; no previews once capture ends | `PartialPacer` |
-| Large model (if installed): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes | `VoiceInput.start`, `VoiceRefiner` |
+| Large model (if installed): seconds of four cores per utterance, 1.2 GB to read on load | loaded when the first words are heard, not when a session starts; freed after 3 idle minutes, but kept for up to 10 while the system reports 2 GB or more available and no memory pressure (asked every minute), because reading it again costs more CPU time than refining a short utterance | `VoiceInput.start`, `VoiceRefiner`, `VoiceModelResidency` |
 | Native background worker spinning | FireRedASR2 workers sleep instead of spinning when waiting for work; 4 threads and model math stay unchanged; corrected text takes longer to arrive | `VoiceRuntimeOptions`, `VoiceRefiner` |
 | Open microphone and VAD | hands-free listening turns itself off after 10 s without speech; the session stops when the keyboard is hidden | `VoiceSession`, `VoiceInput.stopCurrent` |
 | Waveform animation | about 30 fps instead of the display's refresh rate; no frames at all while the microphone is off, or while nobody speaks and the room is quiet | `WaveformView` |

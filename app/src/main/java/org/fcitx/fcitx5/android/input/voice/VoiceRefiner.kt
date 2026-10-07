@@ -4,8 +4,10 @@
  */
 package org.fcitx.fcitx5.android.input.voice
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.SystemClock
+import androidx.core.content.getSystemService
 import com.k2fsa.sherpa.onnx.OfflineFireRedAsrModelConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
@@ -32,8 +34,18 @@ object VoiceRefiner {
 
     private val model = VoiceModels.FireRedAsr2
 
-    /** About 1.4 GB: freed again soon after the last use. */
-    private const val IDLE_RELEASE_MINUTES = 3L
+    /**
+     * About 1.4 GB: freed again soon after the last use, later only on a device with memory to
+     * spare, where reading it again would cost more than keeping it (see [VoiceModelResidency]).
+     */
+    private const val MIN_IDLE_MS = 3 * 60_000L
+
+    private val residency = VoiceModelResidency(
+        minIdleMs = MIN_IDLE_MS,
+        maxIdleMs = 10 * 60_000L,
+        recheckMs = 60_000L,
+        spareBytes = 2L shl 30
+    )
 
     private val executor = ScheduledThreadPoolExecutor(1) { r ->
         Thread(r, "voice-refiner").apply { isDaemon = true }
@@ -42,6 +54,10 @@ object VoiceRefiner {
     private val dispatcher = executor.asCoroutineDispatcher()
 
     private var idleRelease: ScheduledFuture<*>? = null
+
+    // both only used on the refiner thread
+    private var lastUsedAt = 0L
+    private var memory: ActivityManager? = null
 
     @Volatile
     private var recognizer: OfflineRecognizer? = null
@@ -56,8 +72,28 @@ object VoiceRefiner {
 
     // must be called on the refiner thread
     private fun touch() {
+        lastUsedAt = SystemClock.elapsedRealtime()
+        scheduleRelease(MIN_IDLE_MS)
+    }
+
+    private fun scheduleRelease(delayMs: Long) {
         idleRelease?.cancel(false)
-        idleRelease = executor.schedule(::releaseNow, IDLE_RELEASE_MINUTES, TimeUnit.MINUTES)
+        idleRelease = executor.schedule(::releaseWhenIdle, delayMs, TimeUnit.MILLISECONDS)
+    }
+
+    private fun releaseWhenIdle() {
+        if (recognizer == null) return
+        // without an answer from the system: as if it had nothing to spare
+        val info = ActivityManager.MemoryInfo()
+        memory?.getMemoryInfo(info)
+        val idle = SystemClock.elapsedRealtime() - lastUsedAt
+        val wait = residency.keepFor(idle, info.availMem, info.lowMemory)
+        if (wait > 0) {
+            scheduleRelease(wait)
+        } else {
+            Timber.d("Voice refiner released after ${idle}ms idle")
+            releaseNow()
+        }
     }
 
     private fun releaseNow() {
@@ -72,6 +108,7 @@ object VoiceRefiner {
         VoiceModelLoad.run(needed) {
             touch()
             if (recognizer != null || !isAvailable(context)) return@run
+            memory = context.applicationContext.getSystemService()
             val t0 = SystemClock.elapsedRealtime()
             val dir = VoiceModels.dir(context, model)
             val config = OfflineRecognizerConfig(

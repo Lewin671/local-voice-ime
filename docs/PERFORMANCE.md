@@ -5,6 +5,109 @@ SenseVoice recognition and the selected FireRedASR2 refinement are retained. Thi
 preview latency and storage overhead, not model weights, quantization, language detection,
 inverse text normalization, VAD thresholds, audio rate, endpointing, margins or text merging.
 
+## Follow-up: where the CPU time goes, and the large model's lifetime (2026-10-07)
+
+### Per-thread profile
+
+The CPU time of every thread of the keyboard process was read from `/proc/<pid>/task/*/stat`
+before and after one hands-free dictation of a WAV file in the debug build's test field. Native
+worker threads keep the name of the thread that created them, so `voice-engine` is SenseVoice
+(previews and final text) and `voice-refiner` is FireRedASR2. Arm64 Android 16 emulator on an
+Apple M1 Pro; high-accuracy refinement on; both models already loaded. The recording holds 15.1
+seconds of speech in three utterances with two 2-second pauses (the two public test recordings).
+
+| Thread | 8 cores (4 SenseVoice threads) | 4 cores (2 SenseVoice threads) |
+|---|---:|---:|
+| `voice-engine` | 9.1 s (47%) | 5.6 s (34%) |
+| `voice-refiner` | 7.2 s (37%) | 8.2 s (50%) |
+| `RenderThread` (waveform, text field) | 1.8 s (9%) | 1.5 s (9%) |
+| Session and VAD (`DefaultDispatcher`) | 0.6 s (3%) | 0.6 s (4%) |
+| Main thread | 0.4 s (2%) | 0.4 s (2%) |
+| Whole process | 19.3 s | 16.4 s |
+
+SenseVoice ran 27 to 30 times per dictation and was given 77 to 86 seconds of audio for those
+15.1 seconds of speech; the three final decodes account for 19.9 seconds of it, previews for the
+rest. Capture, VAD, the session and the main thread together stay near 5%: the Kotlin side has
+no avoidable work left that would show in this profile. The two emulator configurations are
+separate boots and are not a controlled comparison of core counts.
+
+### Reading the large model again
+
+The same 5.6-second recording was dictated on the 4-core emulator with the large model in
+memory, and again after it had been freed by its 3-minute idle timer (SenseVoice still loaded,
+model files still in the page cache):
+
+| | Whole process CPU | `voice-refiner` CPU | Wait before refinement starts |
+|---|---:|---:|---:|
+| Large model in memory | 5.6 s | 2.6 s | none |
+| Freed, read again | 8.8 s | 5.7 s | 4.2 s |
+| Read again right after boot (cold page cache; SenseVoice is loaded as well) | 16.3 s | 10.9 s | 14.8 s |
+
+Reading the model costs more CPU time than refining the utterance (3.1 s against 2.6 s), so
+somebody who dictates one message every few minutes paid for it with every message. The model
+now stays for 3 minutes as before, and beyond that for up to 10 minutes while the system reports
+at least 2 GB available and no memory pressure, asked again every minute (`VoiceModelResidency`).
+A device without that much to spare behaves exactly as before. Occupied memory that nothing else
+needs costs no energy; the price is about 1.4 GB held for up to 7 more minutes on devices that
+have it. The idle time is measured on a clock that includes sleep, so a timer that was delayed by
+the device sleeping frees the model at its first chance.
+
+On the emulator started with 8 cores and 9 GB (5.5 GB available with the model loaded), a
+dictation 4.5 minutes after the previous one found the model in memory: no load, 2.7 s of
+`voice-refiner` CPU instead of 5.6 s. Left alone after that, it was freed 600.0 seconds after its last use. On the 6 GB emulator the
+system still reported 2.4 GB available with the model loaded, so it stayed there as well.
+Freeing it at 3 minutes when less is available is covered by the JVM tests of the policy, not
+by a device run.
+
+### Measured and not adopted
+
+**Graph optimization level of the large model.** If graph optimization dominated loading, a
+lower level would shorten it. Load time on the 4-core emulator, model files in the page cache:
+
+| `GraphOptimizationLevel` | 99 (default) | 2 | 1 | 0 |
+|---|---:|---:|---:|---:|
+| Load | 3.65 s | 3.55 s | 4.19 s | 3.34 s |
+
+Decode times and raw text were the same at every level. Loading is not graph optimization;
+nothing to gain, and a lower level would need an accuracy comparison. Unchanged.
+
+**A lower priority for the refinement threads.** One early run on the 4-core emulator, shortly
+after boot, showed previews taking 400 to 670 ms instead of 60 to 180 ms while the previous
+utterance was being refined. Running the refiner's thread just above Android's background
+priority (nice 9; the runtime's worker threads inherit it, checked with `ps -T`) was tried
+against that. Three warm dictations of 18.3 seconds of continuous speech per build and round,
+builds alternated; sums of the decode times each dictation logged:
+
+| | SenseVoice decodes | Refinement decodes |
+|---|---:|---:|
+| Before, round 1 | 2.95 / 2.99 / 2.82 s | 5.55 / 5.33 / 5.27 s |
+| Lower priority, round 1 | 3.10 / 2.96 / 2.83 s | 6.15 / 5.55 / 5.41 s |
+| Before, round 2 | 3.07 / 2.92 / 2.97 s | 5.37 / 5.19 / 5.26 s |
+| Lower priority, round 2 | 2.97 / 2.81 / 2.85 s | 5.47 / 5.20 / 5.20 s |
+
+Live recognition was not faster and refinement was, if anything, slower. In a warm process the
+two recognizers do not get in each other's way here, the slow run was not reproduced, and a
+lower priority would delay corrections whenever another app is busy. Unchanged.
+
+**Fewer SenseVoice threads on phones with eight or more cores.** `device-bench.sh` with
+`THREADS` 1 to 4 on the 8-core emulator, seven recordings from 1 to 18.3 seconds, warm second
+decode, each setting run twice except one thread. Raw text was identical in all runs.
+
+| Threads | Decode time, sum | Process CPU, sum | 1 s recording | 3 s | 10.5 s | 18.3 s |
+|---|---:|---:|---:|---:|---:|---:|
+| 4 (current on 8+ cores) | 765 / 779 ms | 2,839 / 2,919 ms | 43 ms | 52 ms | 158 ms | 274 ms |
+| 3 | 964 / 1,022 ms | 2,737 / 2,920 ms | 44 ms | 69 ms | 193 ms | 367 ms |
+| 2 | 1,170 / 1,177 ms | 2,255 / 2,255 ms | 35 ms | 75 ms | 252 ms | 452 ms |
+| 1 | 2,016 ms | 1,994 ms | 57 ms | 125 ms | 427 ms | 804 ms |
+
+Two threads use 22% less CPU time and take 52% longer; three save nothing. Two threads are
+both faster and cheaper only for the first second of an utterance, and the count is fixed per
+loaded model. A final decode of a long sentence would take about 0.1 to 0.2 s longer on this
+emulator and more on a phone. That is the same kind of trade that was rejected for SenseVoice
+worker spinning, and an emulator's identical cores say little about a phone's mix of fast and
+slow ones. Unchanged until measured on a phone as described under "Measuring energy on the
+target phone".
+
 ## Follow-up: preview scheduling across a pause (2026-10-04)
 
 Two pacing states could make a pause feel sluggish. A voiced audio observation remained
