@@ -49,8 +49,12 @@ now stays for 3 minutes as before, and beyond that for up to 10 minutes while th
 at least 2 GB available and no memory pressure, asked again every minute (`VoiceModelResidency`).
 A device without that much to spare behaves exactly as before. Occupied memory that nothing else
 needs costs no energy; the price is about 1.4 GB held for up to 7 more minutes on devices that
-have it. The idle time is measured on a clock that includes sleep, so a timer that was delayed by
-the device sleeping frees the model at its first chance.
+have it. The timer itself does not advance while the device
+is in deep sleep, so the model can stay through a sleep and for the rest of the timer's delay
+(at most 3 minutes) after waking; the idle time, however, is measured on a clock that includes
+sleep, so that next check frees a model that has been idle for 10 minutes without asking again.
+The old fixed timer behaved the same way across sleep. Suspend and resume were not exercised on
+a device; the JVM tests cover the decision for an idle time beyond the maximum.
 
 On the emulator started with 8 cores and 9 GB (5.5 GB available with the model loaded), a
 dictation 4.5 minutes after the previous one found the model in memory: no load, 2.7 s of
@@ -107,6 +111,15 @@ emulator and more on a phone. That is the same kind of trade that was rejected f
 worker spinning, and an emulator's identical cores say little about a phone's mix of fast and
 slow ones. Unchanged until measured on a phone as described under "Measuring energy on the
 target phone".
+
+### Validation
+
+All 141 JVM tests (seven new ones for `VoiceModelResidency`), the debug build and the privacy
+check passed. On the arm64 Android 16 emulator: both editor transcripts matched their references
+exactly, all 28 standard-model and all 35 high-accuracy interaction checks passed, and the UI
+screenshots were generated (no visible change). The model's lifetime was observed on the
+emulator as described above. Nothing was measured on a phone: neither its energy nor how much
+memory it reports as available with the model loaded.
 
 ## Follow-up: preview scheduling across a pause (2026-10-04)
 
