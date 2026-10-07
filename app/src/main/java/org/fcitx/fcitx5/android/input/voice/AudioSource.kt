@@ -25,6 +25,9 @@ class VoiceException(val kind: Kind, cause: Throwable? = null) : Exception(kind.
         /** The microphone is being used by something else. */
         MicrophoneBusy,
 
+        /** The microphone stopped delivering audio while it was being used. */
+        MicrophoneFailed,
+
         /** The speech model could not be loaded (e.g. not enough memory). */
         ModelLoadFailed
     }
@@ -42,6 +45,12 @@ interface AudioSource {
      */
     suspend fun read(buffer: FloatArray): Int
 
+    /**
+     * Set when [read] gave up because the source failed rather than because it was exhausted:
+     * the error it met (for the microphone, what `AudioRecord.read` returned).
+     */
+    val error: Int? get() = null
+
     fun stop()
 }
 
@@ -49,6 +58,10 @@ class MicrophoneSource : AudioSource {
 
     private var record: AudioRecord? = null
     private var pcm = ShortArray(0)
+
+    @Volatile
+    override var error: Int? = null
+        private set
 
     @SuppressLint("MissingPermission") // checked by VoiceInput before a session is created
     override fun start() {
@@ -69,7 +82,12 @@ class MicrophoneSource : AudioSource {
             r.release()
             throw VoiceException(VoiceException.Kind.MicrophoneUnavailable)
         }
-        r.startRecording()
+        try {
+            r.startRecording()
+        } catch (e: IllegalStateException) {
+            r.release()
+            throw VoiceException(VoiceException.Kind.MicrophoneUnavailable, e)
+        }
         if (r.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
             // typically: a call is in progress, or another app holds the microphone
             r.release()
@@ -82,6 +100,11 @@ class MicrophoneSource : AudioSource {
         val r = record ?: return -1
         if (pcm.size != buffer.size) pcm = ShortArray(buffer.size)
         val n = r.read(pcm, 0, pcm.size)
+        if (n < 0) {
+            // not the end of anything: the recorder died or was taken away
+            error = n
+            return -1
+        }
         for (i in 0 until n) buffer[i] = pcm[i] / 32768f
         return n
     }

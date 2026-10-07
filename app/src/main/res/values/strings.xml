@@ -385,6 +385,13 @@
         <item quantity="one">%1$d recording (%2$s) is deleted from this phone. Files you exported are not touched.</item>
         <item quantity="other">%1$d recordings (%2$s) are deleted from this phone. Files you exported are not touched.</item>
     </plurals>
+    <string name="voice_diagnostics">Diagnostics</string>
+    <string name="voice_diagnostics_keep">Keep voice diagnostics</string>
+    <string name="voice_diagnostics_keep_summary">Note on this phone how each dictation starts and ends, to find out why one stopped. No audio, no text, not the app you dictate into. Nothing is sent anywhere.</string>
+    <string name="voice_diagnostics_kept_summary">Export writes one text file to a place you choose. At most 1 MB is kept; the oldest notes go first.</string>
+    <string name="voice_diagnostics_size">%s of notes</string>
+    <string name="voice_diagnostics_exported">Exported</string>
+    <string name="voice_diagnostics_export_name" translatable="false">local-voice-ime-diagnostics-%s.txt</string>
     <string name="voice_model_standard">Standard</string>
     <string name="voice_model_standard_summary">Needed for voice input. Text appears while you speak, with punctuation and numbers.</string>
     <string name="voice_model_accurate">High accuracy</string>

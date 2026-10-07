@@ -110,6 +110,7 @@ for signing.
 - [docs/TESTING.md](docs/TESTING.md) — unit tests, automated end-to-end test, release builds
 - [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — performance bottlenecks, energy optimizations, measurement limits
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
+- [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — finding out why dictation stopped: the journal kept on request, and its export
 - [docs/TRAINING_DATA.md](docs/TRAINING_DATA.md) — keeping recordings to fine-tune a model, and the export format
 - [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original fcitx5-android README

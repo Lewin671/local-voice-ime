@@ -64,6 +64,7 @@ import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
+import org.fcitx.fcitx5.android.input.voice.VoiceDiagnostics
 import org.fcitx.fcitx5.android.input.voice.VoiceInput
 import org.fcitx.fcitx5.android.input.cursor.CursorRange
 import org.fcitx.fcitx5.android.input.cursor.CursorTracker
@@ -130,9 +131,48 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private val composing = CursorRange()
     private var composingText = FormattedText.Empty
 
-    private fun resetComposingState() {
+    private fun resetComposingState(lostTo: String? = null) {
+        if (lostTo != null && composing.isNotEmpty()) composingLost(lostTo)
         composing.clear()
         composingText = FormattedText.Empty
+    }
+
+    /**
+     * What last took composing text away other than its own replacement: `cursor` (it moved out
+     * of the text), `restart` (input restarted in the same editor), `new_editor`, `view_finish`,
+     * `preedit` (the engine cleared it), `commit` or `finish`. Dictation asks this to tell a
+     * cursor move from an editor that merely restarted input, see `VoiceInput`.
+     */
+    var composingLostTo: String? = null
+        private set
+
+    private fun composingLost(to: String) {
+        composingLostTo = to
+        VoiceDiagnostics.log("composing_lost", "to" to to)
+    }
+
+    /**
+     * Counts the editors input was started in; restarting input in the same one does not count.
+     * What dictation knows about the text of one editor says nothing about the next.
+     */
+    var editorSerial = 0
+        private set
+
+    /** Whether there is a cursor rather than a selection, as far as the editor has told. */
+    val hasCollapsedSelection get() = selection.latest.isEmpty()
+
+    /**
+     * Delete [n] characters (UTF-16 units) before the cursor, for dictation rewriting what it
+     * inserted. The cursor is expected to move accordingly, like after everything else this
+     * service writes: otherwise the editor's report of it would look like the user moving it.
+     * @return whether the editor took the request
+     */
+    fun deleteBeforeCursor(n: Int): Boolean {
+        val ic = currentInputConnection ?: return false
+        if (n <= 0) return true
+        if (!ic.deleteSurroundingText(n, 0)) return false
+        selection.predictOffset(-n)
+        return true
     }
 
     private var cursorUpdateIndex: Int = 0
@@ -150,6 +190,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     )
 
     private fun replaceInputView(theme: Theme): InputView {
+        VoiceDiagnostics.log("input_view_replaced")
         val newInputView = InputView(this, fcitx, theme)
         setInputView(newInputView)
         inputDeviceMgr.setInputView(newInputView)
@@ -234,6 +275,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private fun handleFcitxEvent(event: FcitxEvent<*>) {
         when (event) {
             is FcitxEvent.CommitStringEvent -> {
+                VoiceDiagnostics.log("fcitx_commit", "composing" to composing.isNotEmpty())
                 commitText(event.data.text, event.data.cursor)
             }
             is FcitxEvent.KeyEvent -> event.data.let event@{
@@ -306,6 +348,13 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                 }
             }
             is FcitxEvent.ClientPreeditEvent -> {
+                if (VoiceDiagnostics.watching) {
+                    VoiceDiagnostics.log(
+                        "fcitx_preedit",
+                        "empty" to event.data.isEmpty(), "composing" to composing.isNotEmpty()
+                    )
+                }
+                if (event.data.isEmpty() && composing.isNotEmpty()) composingLost("preedit")
                 updateComposingText(event.data)
             }
             is FcitxEvent.DeleteSurroundingEvent -> {
@@ -428,7 +477,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         if (composing.isNotEmpty() && composingText.toString() == text) {
             val c = if (cursor == -1) text.length else cursor
             val target = composing.start + c
-            resetComposingState()
+            resetComposingState("commit")
             ic.withBatchEdit {
                 if (selection.current.start != target) {
                     selection.predict(target)
@@ -441,7 +490,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         // committed text should replace composing (if any), replace selected range (if any),
         // or simply prepend before cursor
         val start = if (composing.isEmpty()) selection.latest.start else composing.start
-        resetComposingState()
+        resetComposingState("commit")
         if (cursor == -1) {
             selection.predict(start + text.length)
             ic.commitText(text, 1)
@@ -536,7 +585,13 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     private lateinit var lastKnownConfig: Configuration
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        VoiceDiagnostics.log("trim_memory", "level" to level)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
+        VoiceDiagnostics.log("config_change")
         postFcitxJob { reset() }
         /**
          * skip keyboard|keyboardHidden changes, because we have [inputDeviceMgr]
@@ -732,7 +787,15 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         // initialSel{Start,End} is outdated. but it's the client app's responsibility to send
         // right cursor position, try to workaround this would simply introduce more bugs.
         selection.resetTo(attribute.initialSelStart, attribute.initialSelEnd)
-        resetComposingState()
+        if (!restarting) editorSerial++
+        // before anything is noted about this editor: nothing is, if it is a private one
+        VoiceDiagnostics.onEditor(attribute)
+        if (VoiceDiagnostics.watching) {
+            VoiceDiagnostics.log(
+                "input_start", "restarting" to restarting, "composing" to composing.isNotEmpty()
+            )
+        }
+        resetComposingState(if (restarting) "restart" else "new_editor")
         val flags = CapabilityFlags.fromEditorInfo(attribute)
         capabilityFlags = flags
         // EditorInfo may change between onStartInput and onStartInputView
@@ -759,6 +822,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         Timber.d("onStartInputView: restarting=$restarting")
+        VoiceDiagnostics.log("input_view_start", "restarting" to restarting)
         postFcitxJob {
             focus(true)
         }
@@ -863,7 +927,18 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         newComposingEnd: Int,
         updateIndex: Int
     ) {
-        if (selection.consume(newSelStart, newSelEnd)) {
+        val predicted = selection.consume(newSelStart, newSelEnd)
+        if (VoiceDiagnostics.watching) {
+            VoiceDiagnostics.log(
+                "selection",
+                "predicted" to predicted,
+                "collapsed" to (newSelStart == newSelEnd),
+                "composing" to composing.isNotEmpty(),
+                "in_composing" to (composing.isNotEmpty() && composing.contains(newSelStart)),
+                "editor_composing" to (newComposingStart != -1 || newComposingEnd != -1)
+            )
+        }
+        if (predicted) {
             // try restore composing range in case it was dropped by InputFilter
             // but only when prediction matches, since InputFilter can also change editor content
             // ref:
@@ -906,7 +981,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
             }
         } else {
             Timber.d("handleCursorUpdate: focus out/in")
-            resetComposingState()
+            resetComposingState("cursor")
             // cursor outside composing range, finish composing as-is
             currentInputConnection?.finishComposingText()
             // `fcitx.reset()` here would commit preedit after new cursor position
@@ -982,6 +1057,8 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
      * dictated. It is replaced by the next preview or by [commitText]; an empty string removes it.
      */
     fun setVoicePreview(text: String) {
+        // from here on it says what happened to this preview
+        composingLostTo = null
         updateComposingText(
             if (text.isEmpty()) FormattedText.Empty
             else FormattedText(arrayOf(text), intArrayOf(TextFormatFlag.Underline.flag), text.length)
@@ -995,8 +1072,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     fun finishComposing() {
         val ic = currentInputConnection ?: return
         if (composing.isEmpty()) return
-        composing.clear()
-        composingText = FormattedText.Empty
+        resetComposingState("finish")
         ic.finishComposingText()
     }
 
@@ -1067,13 +1143,14 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         Timber.d("onFinishInputView: finishingInput=$finishingInput")
         decorLocationUpdated = false
+        VoiceDiagnostics.log("input_view_finish", "finishing_input" to finishingInput)
         VoiceInput.stopCurrent()
         inputDeviceMgr.onFinishInputView()
         currentInputConnection?.apply {
             finishComposingText()
             monitorCursorAnchor(false)
         }
-        resetComposingState()
+        resetComposingState("view_finish")
         postFcitxJob {
             focusOutIn()
         }
@@ -1083,6 +1160,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     override fun onFinishInput() {
         Timber.d("onFinishInput")
+        VoiceDiagnostics.log("input_finish")
         postFcitxJob {
             focus(false)
         }
@@ -1090,6 +1168,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun onUnbindInput() {
+        VoiceDiagnostics.log("input_unbind")
         cachedKeyEvents.evictAll()
         cachedKeyEventIndex = 0
         cursorUpdateIndex = 0
@@ -1102,6 +1181,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun onDestroy() {
+        VoiceDiagnostics.log("service_destroy")
         recreateInputViewPrefs.forEach {
             it.unregisterOnChangeListener(recreateInputViewListener)
         }

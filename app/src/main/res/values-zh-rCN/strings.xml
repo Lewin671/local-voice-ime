@@ -381,6 +381,12 @@
     <plurals name="voice_samples_delete_message">
         <item quantity="other">将从这部手机上删除 %1$d 条录音（%2$s）。你已导出的文件不受影响。</item>
     </plurals>
+    <string name="voice_diagnostics">诊断</string>
+    <string name="voice_diagnostics_keep">保留语音诊断记录</string>
+    <string name="voice_diagnostics_keep_summary">在这部手机上记下每次语音输入如何开始和结束，用来查明为什么中断。不含音频、不含文字，也不记录你在哪个应用里说话。不会发送到任何地方。</string>
+    <string name="voice_diagnostics_kept_summary">导出会在你选择的位置写入一个文本文件。最多保留 1 MB，最早的记录先被覆盖。</string>
+    <string name="voice_diagnostics_size">%s 的记录</string>
+    <string name="voice_diagnostics_exported">已导出</string>
     <string name="voice_model_standard">标准</string>
     <string name="voice_model_standard_summary">语音输入必需。边说边出字，自带标点和数字格式。</string>
     <string name="voice_model_accurate">高精度</string>

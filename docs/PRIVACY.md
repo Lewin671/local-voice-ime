@@ -21,6 +21,21 @@ leave your phone, unless you copy them off it yourself.
   pick in Android's file dialog. *Delete* removes them from the phone, as does uninstalling the
   app or clearing its data; turning the switch off stops saving and keeps what is there.
   [docs/TRAINING_DATA.md](TRAINING_DATA.md) lists every field of the export.
+- **Diagnostics, if you choose to keep them.** *Settings → Voice input → Keep voice
+  diagnostics* is off unless you turn it on. It exists to find out why dictation stopped when it
+  should not have. While it is on, the app notes how each dictation session went: when it
+  started and ended and what ended it, whether the microphone, the speech model or the text
+  field reported a problem, how long utterances were and how many characters came out, and what
+  Android told the keyboard meanwhile (hidden, restarted, a touch taken away, low on memory).
+  A note is a fixed word with numbers; the app has no way to write anything else into them. They
+  contain no audio and no text, not what is in the text field, and not which app you were
+  dictating into; nothing is noted in fields that apps mark as private/incognito, and nothing
+  while you type. The notes are in the app's private storage, are left out of Android's backups
+  and device transfers, and take at most 1 MB: the oldest are overwritten. They leave the phone
+  in one way only: *Export* writes them into one text file at a place you pick in Android's
+  file dialog, together with the app version, the make and model of the phone, its Android
+  version and a few of the keyboard's settings. *Delete* removes them, as does uninstalling the
+  app or clearing its data. [docs/DIAGNOSTICS.md](DIAGNOSTICS.md) lists every note there is.
 - **What you type.** Like any keyboard, the app sees the text you enter. Pinyin user dictionary
   and input history (used to improve predictions) and clipboard history are stored in the app's
   private storage on your device and can be cleared or disabled in the app's settings.
@@ -73,4 +88,6 @@ APK and that model is a download. Up to 0.4.1 the standard model was still part 
 network was used for speech models only; updating from inside the app, on request, came after
 that, because the app is installed from a file and no store keeps it up to date. Up to the
 same version audio was never written to storage; keeping recordings, on request, came after it,
-for fine-tuning a model with one's own speech.
+for fine-tuning a model with one's own speech. Up to 0.7.3 the app kept no record of its own
+working; voice diagnostics, on request and without audio or text, came after that, to find the
+cause of dictation that stops by itself.

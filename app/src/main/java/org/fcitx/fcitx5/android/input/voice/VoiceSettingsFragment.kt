@@ -67,6 +67,27 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
 
     private lateinit var recordings: VoiceSamplesPreference
 
+    private lateinit var diagnostics: VoiceDiagnosticsPreference
+
+    /** Android's file dialog; the diagnostics go into the document it creates. */
+    private val pickDiagnosticsTarget =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val ctx = requireContext().applicationContext
+            val prefs = AppPrefs.getInstance()
+            // what dictation depends on, so that the events can be read without asking
+            val settings = arrayOf<Pair<String, Any?>>(
+                "refine" to VoiceRefiner.isActive(ctx),
+                "keep_recordings" to prefs.voiceInput.keepRecordings.getValue(),
+                "long_press_ms" to prefs.keyboard.longPressDelay.getValue(),
+                "space_swipe" to prefs.keyboard.spaceSwipeMoveCursor.getValue(),
+                "vivo_workaround" to prefs.advanced.vivoKeypressWorkaround.getValue()
+            )
+            FcitxApplication.getInstance().coroutineScope.launch {
+                VoiceDiagnostics.export(ctx, uri, *settings)
+            }
+        }
+
     /** Android's file dialog; the recordings go into the document it creates. */
     private val pickExportTarget =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -96,6 +117,22 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
             false
+        }
+        val keepDiagnostics = screen.findPreference<TwoStatePreference>(
+            AppPrefs.getInstance().voiceInput.keepDiagnostics.key
+        )!!
+        screen.removePreference(keepDiagnostics)
+        diagnostics = VoiceDiagnosticsPreference(ctx).apply {
+            setTitle(R.string.voice_samples_kept)
+            setSummary(R.string.voice_diagnostics_kept_summary)
+            onExport = {
+                val time = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+                pickDiagnosticsTarget.launch(getString(R.string.voice_diagnostics_export_name, time))
+            }
+            onDelete = {
+                val app = ctx.applicationContext
+                FcitxApplication.getInstance().coroutineScope.launch { VoiceDiagnostics.delete(app) }
+            }
         }
         recordings = VoiceSamplesPreference(ctx).apply {
             setTitle(R.string.voice_samples_kept)
@@ -140,6 +177,13 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             addPreference(keep)
             addPreference(recordings)
         }
+        screen.addCategory(R.string.voice_diagnostics) {
+            isIconSpaceReserved = false
+            keepDiagnostics.order = 0
+            diagnostics.order = 1
+            addPreference(keepDiagnostics)
+            addPreference(diagnostics)
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -157,6 +201,10 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         VoiceSamples.refresh(requireContext())
         viewLifecycleOwner.lifecycleScope.launch {
             VoiceSamples.status.collect { recordings.status = it }
+        }
+        VoiceDiagnostics.refresh(requireContext())
+        viewLifecycleOwner.lifecycleScope.launch {
+            VoiceDiagnostics.status.collect { diagnostics.status = it }
         }
     }
 

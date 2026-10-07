@@ -18,6 +18,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.log10
 import kotlin.math.sqrt
 
@@ -43,7 +44,9 @@ class VoiceSession(
     sentenceGap: Float,
     /** Shortest time between two previews, see [PartialPacer]. */
     private val previewIntervalMs: Long,
-    private val listener: Listener
+    private val listener: Listener,
+    /** The session's number in [VoiceDiagnostics]; 0 if nothing is kept of it. */
+    private val diag: Int = 0
 ) {
 
     enum class State {
@@ -114,14 +117,23 @@ class VoiceSession(
             } catch (e: Throwable) {
                 if (isActive) {
                     Timber.w(e, "Voice session failed")
+                    endReason.compareAndSet(null, "error")
+                    VoiceDiagnostics.log(
+                        diag, "error",
+                        "class" to e.javaClass.simpleName,
+                        "kind" to (e as? VoiceException)?.kind?.name,
+                        "cause" to e.cause?.javaClass?.simpleName
+                    )
                     emit { onError(e) }
+                } else {
+                    endReason.compareAndSet(null, "scope_cancelled")
                 }
             } finally {
                 withContext(NonCancellable) {
                     try {
                         capture.close()
                     } finally {
-                        emit { onState(State.Stopped) }
+                        state(State.Stopped)
                     }
                 }
             }
@@ -131,9 +143,49 @@ class VoiceSession(
     /**
      * Stop capturing; pending speech is still transcribed and delivered, unless [discard] is set.
      */
-    fun stop(discard: Boolean = false) {
-        this.discard = discard
+    fun stop(discard: Boolean = false, reason: String = "unspecified") {
+        // Once discarded, always discarded: a later ordinary stop (the keyboard being hidden
+        // after the cursor was moved, say) must not bring the pending words back.
+        if (discard) this.discard = true
+        val first = endReason.compareAndSet(null, reason)
+        if (diag != 0) {
+            VoiceDiagnostics.log(
+                diag, "stop_request", "reason" to reason, "discard" to discard, "first" to first
+            )
+        }
         stopRequested = true
+    }
+
+    /** What ended the session first; later stop requests do not change it. */
+    private val endReason = AtomicReference<String?>(null)
+
+    private val startedAt = SystemClock.elapsedRealtime()
+
+    // counted on the session's coroutine, read when it is over
+    private var partials = 0
+    private var finals = 0
+    private var decodes = 0
+    private var slowestDecodeMs = 0L
+
+    /** What the session did, for [VoiceDiagnostics]; to be read once it has stopped. */
+    fun summary(): Array<Pair<String, Any?>> = arrayOf(
+        "reason" to (endReason.get() ?: "unknown"),
+        "discard" to discard,
+        "ms" to SystemClock.elapsedRealtime() - startedAt,
+        "samples" to capture.samples,
+        "empty_reads" to capture.emptyReads,
+        "partials" to partials,
+        "finals" to finals,
+        "decodes" to decodes,
+        "slowest_decode_ms" to slowestDecodeMs
+    )
+
+    private suspend fun transcribe(samples: FloatArray): String {
+        val t0 = SystemClock.elapsedRealtime()
+        val text = VoiceEngine.transcribe(context, samples)
+        decodes++
+        slowestDecodeMs = maxOf(slowestDecodeMs, SystemClock.elapsedRealtime() - t0)
+        return text
     }
 
     /**
@@ -147,13 +199,24 @@ class VoiceSession(
     private suspend inline fun emit(crossinline block: Listener.() -> Unit) =
         withContext(Dispatchers.Main.immediate) { listener.block() }
 
+    private suspend fun state(state: State) {
+        VoiceDiagnostics.log(diag, "state", "state" to state.name)
+        emit { onState(state) }
+    }
+
     private suspend fun run() = coroutineScope {
         // A gesture can be cancelled before this coroutine gets its first worker time.
         if (discard) return@coroutineScope
         // Start capturing right away: loading the model can take seconds after a cold start,
         // and whatever is said meanwhile is queued in `chunks` instead of being lost.
-        capture.start()
+        try {
+            capture.start()
+        } catch (e: Throwable) {
+            VoiceDiagnostics.log(diag, "capture_start", "ok" to false)
+            throw e
+        }
         val cold = !VoiceEngine.isLoaded
+        VoiceDiagnostics.log(diag, "capture_start", "ok" to true, "cold" to cold)
         val chunks = Channel<FloatArray>(Channel.UNLIMITED)
         // Only visual feedback may be conflated. Audio remains lossless even if the main
         // thread stalls; the microphone reader must never wait for a waveform redraw.
@@ -164,10 +227,33 @@ class VoiceSession(
             var lastLevel = 0f
             try {
                 capture.pump(chunkSize, chunks, { isActive && !stopRequested }, onStopped = {
+                    if (capture.endedBySource) {
+                        endReason.compareAndSet(
+                            null, if (capture.error != null) "capture_error" else "capture_eof"
+                        )
+                    }
+                    VoiceDiagnostics.log(
+                        diag, "capture_end",
+                        "by_source" to capture.endedBySource,
+                        "code" to capture.error,
+                        "chunks" to capture.chunkCount,
+                        "samples" to capture.samples,
+                        "empty_reads" to capture.emptyReads
+                    )
                     stopRequested = true
                     chunks.close()
                     levels.close()
                 }) { chunk ->
+                    // every 5 seconds: a session that stalls still says how far it got
+                    if (diag != 0 && capture.chunkCount % PROGRESS_CHUNKS == 0) {
+                        VoiceDiagnostics.log(
+                            diag, "progress",
+                            "samples" to capture.samples,
+                            "empty_reads" to capture.emptyReads,
+                            "speaking" to speaking,
+                            "consumed" to consumed
+                        )
+                    }
                     // reported from here, so that the level is live even while the model loads
                     val level = levelOf(chunk).let { if (it < QUIET_LEVEL && !speaking) 0f else it }
                     // nothing to report while it stays silent: the UI has nothing to redraw then
@@ -183,7 +269,7 @@ class VoiceSession(
 
         // Capture must already be draining AudioRecord if the main thread stalls here.
         // Start the level reporter afterwards to preserve state-before-level callback order.
-        emit { onState(if (cold) State.Preparing else State.Listening) }
+        state(if (cold) State.Preparing else State.Listening)
         val levelReporter = launch {
             for (level in levels) emit { onLevel(level) }
         }
@@ -197,17 +283,22 @@ class VoiceSession(
             reader.cancel()
             throw VoiceException(VoiceException.Kind.ModelLoadFailed, e)
         }
-        if (cold) emit { onState(State.Listening) }
+        if (cold) state(State.Listening)
         try {
             consume(chunks, vad)
             reader.join()
             levelReporter.join()
-            emit { onState(State.Finishing) }
+            state(State.Finishing)
             vad.flush()
             drain(vad)
             if (sentence.isOpen) endSentence()
         } finally {
             vad.release()
+        }
+        // What was heard before the microphone failed has been written by now; the failure is
+        // still said, or the session would seem to have ended for no reason.
+        capture.error?.let {
+            throw VoiceException(VoiceException.Kind.MicrophoneFailed, IllegalStateException("read: $it"))
         }
     }
 
@@ -222,6 +313,10 @@ class VoiceSession(
     // read by the reader coroutine
     @Volatile
     private var speaking = false
+
+    /** How many samples the consumer has taken from the reader; read by the reader. */
+    @Volatile
+    private var consumed = 0L
     private var lastPartial = ""
     private val pacer = PartialPacer(previewIntervalMs)
     private val sentence = VoiceSentence(VoiceEngine.SAMPLE_RATE, sentenceGap, MAX_SENTENCE_SECONDS)
@@ -267,7 +362,7 @@ class VoiceSession(
             // after a short pause, the sentence so far is transcribed again together with this
             val continues = sentence.isOpen
             val audio = sentence.join(samples)
-            var text = if (discard) "" else VoiceEngine.transcribe(audio)
+            var text = if (discard) "" else transcribe(audio)
             if (segment.samples.size >= FORCED_SPLIT_SAMPLES) {
                 // cut off by the length limit, not by a pause: the sentence goes on at once
                 text = VoiceText.stripTrailingFullStop(text)
@@ -276,7 +371,17 @@ class VoiceSession(
                 text = sentence.keep(audio, segment.start.toLong() + segment.samples.size, text)
             }
             lastPartial = ""
-            if (text.isNotEmpty()) emit { onFinal(text, samples, continues) } else emit { onPartial("") }
+            finals++
+            VoiceDiagnostics.log(
+                diag, "final",
+                "audio_ms" to samples.size * 1000L / VoiceEngine.SAMPLE_RATE,
+                "chars" to text.length,
+                "continues" to continues,
+                "discard" to discard
+            )
+            // asked again on the main thread: the session may have been discarded while this
+            // utterance was being decoded, and its words must not be written then
+            emit { if (text.isNotEmpty() && !discard) onFinal(text, samples, continues) else onPartial("") }
         }
     }
 
@@ -293,6 +398,7 @@ class VoiceSession(
                 buffer.append(chunk)
                 for (v in chunk) sumSquares += v * v
                 count += chunk.size
+                consumed += chunk.size
                 chunk = chunks.tryReceive().getOrNull()
             }
 
@@ -317,7 +423,7 @@ class VoiceSession(
                 if (idleTimeoutMs > 0 && now - lastSpeechAt > idleTimeoutMs) {
                     // don't keep the microphone open when nobody is talking
                     endedByIdleTimeout = true
-                    stopRequested = true
+                    stop(reason = "idle_timeout")
                 }
                 continue
             }
@@ -325,12 +431,13 @@ class VoiceSession(
             pacer.heard(dbOf(sumSquares, count))
             if (pacer.isDue(now, stopping = stopRequested,
                     audioDurationMs = buffer.size * 1000L / VoiceEngine.SAMPLE_RATE)) {
-                val text = VoiceEngine.transcribe(buffer.toArray())
+                val text = transcribe(buffer.toArray())
                 val changed = text != lastPartial
                 pacer.decoded(now, SystemClock.elapsedRealtime(), changed)
                 if (changed) {
                     lastPartial = text
-                    emit { onPartial(text) }
+                    partials++
+                    emit { if (!discard) onPartial(text) }
                 }
             }
         }
@@ -350,6 +457,9 @@ class VoiceSession(
     }
 
     private companion object {
+        /** A progress event for [VoiceDiagnostics] every so many chunks of 100 ms. */
+        const val PROGRESS_CHUNKS = 50
+
         /**
          * Below this level (about -46 dB) and without speech, the input counts as silence and is
          * reported as 0: the waveform then rests instead of animating the noise of a quiet room

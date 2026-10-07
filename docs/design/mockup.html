@@ -196,6 +196,17 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Limit reached</td><td>In the error colour: "Limit of 1 GB reached; nothing more is kept. Export, then delete."</td><td>Delete, Export</td></tr>
   </table></div>
   <p class="note">Rules: the switch is off on a fresh install and turning it on asks once, saying what is kept (audio, text, corrections), where (on this phone), and that nothing is sent. With it on, dictation looks and behaves exactly as before. Nothing is kept in a field that an app marked as private. The row counts what is on the phone whether the switch is on or off: turning it off stops saving and deletes nothing. Export writes one ZIP file to the place picked in Android's file dialog and leaves the recordings on the phone; Delete removes them and says how much first.</p>
+<h3>Diagnostics</h3>
+  <p class="note">At the end of the same screen. For finding out why dictation stopped when it should not have: with the switch on, the app notes how each session started and ended. The notes hold no audio and no text.</p>
+  <div class="screens" id="diagnostics"></div>
+  <div class="tablewrap"><table>
+    <tr><th>State of the diagnostics</th><th>Status line</th><th>Actions</th></tr>
+    <tr><td>Nothing kept</td><td>"Nothing kept yet"</td><td>—</td></tr>
+    <tr><td>Some kept</td><td>"212 kB of notes"</td><td>Delete (does not ask), Export (Android's file dialog)</td></tr>
+    <tr><td>Exported</td><td>"Exported"</td><td>Delete, Export</td></tr>
+    <tr><td>Export failed</td><td>In the error colour: "Could not write the file. Pick another place, then export again."</td><td>Delete, Export</td></tr>
+  </table></div>
+  <p class="note">Rules: the switch is off on a fresh install. Turning it on asks nothing, as no audio and no text are kept; the summary says what is. Never more than 1 MB: the oldest notes are overwritten. Export writes one text file to the place picked in Android's file dialog and leaves the notes on the phone; Delete removes them at once.</p>
 </section>
 
 <section>
@@ -376,6 +387,25 @@ const RC = [
     k: recordings(true, acts({ t: 'Limit of 1 GB reached; nothing more is kept. Export, then delete.', err: 1 }, ...kept)) },
 ];
 document.getElementById('recordings').innerHTML = RC.map(s => `<figure>
+  <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
+  <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
+
+// ---- diagnostics: the end of the voice input screen
+const diagnostics = (on, rest) => `<div class="app">
+  <div class="appbar">${arrow}Voice input</div>
+  <div class="group">Recordings</div>
+  <div class="item"><b>Kept on this phone</b><span>Export writes one ZIP file to a place you choose. Recordings stay here until you delete them.</span>${acts('Nothing kept yet')}</div>
+  <div class="group">Diagnostics</div>
+  <div class="item lead" style="justify-content:space-between"><div class="item" style="padding:0"><b>Keep voice diagnostics</b><span>Note on this phone how each dictation starts and ends, to find out why one stopped. No audio, no text, not the app you dictate into. Nothing is sent anywhere.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
+  <div class="item"><b>Kept on this phone</b><span>Export writes one text file to a place you choose. At most 1 MB is kept; the oldest notes go first.</span>${rest}</div>
+  </div>`;
+const DG = [
+  { t: 'Diagnostics: off', d: 'How the screen looks on every phone until somebody decides otherwise.',
+    k: diagnostics(false, acts('Nothing kept yet')) },
+  { t: 'Keeping', d: 'How much is kept. Export is the accent: it is what the notes are for.',
+    k: diagnostics(true, acts('212 kB of notes', ...kept)) },
+];
+document.getElementById('diagnostics').innerHTML = DG.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>
   <figcaption><h3>${s.t}</h3><p>${s.d}</p></figcaption></figure>`).join('');
 

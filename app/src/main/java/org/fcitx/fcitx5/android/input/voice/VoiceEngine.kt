@@ -64,6 +64,7 @@ object VoiceEngine {
     }
 
     private fun releaseNow() {
+        if (recognizer != null) VoiceDiagnostics.log("model_release")
         recognizer?.release()
         recognizer = null
     }
@@ -85,36 +86,51 @@ object VoiceEngine {
         context: Context,
         needed: () -> Boolean = { true }
     ): Boolean = withContext(dispatcher) {
-        VoiceModelLoad.run(needed) {
-            touch()
-            if (recognizer != null) return@run
-            check(isAvailable(context)) { "The speech model is not installed" }
-            val t0 = SystemClock.elapsedRealtime()
-            val dir = VoiceModels.dir(context, model)
-            val config = OfflineRecognizerConfig(
-                modelConfig = OfflineModelConfig(
-                    senseVoice = OfflineSenseVoiceModelConfig(
-                        model = File(dir, "model.int8.onnx").path,
-                        // auto-detect, so that Mandarin, English and code-switching all work
-                        language = "auto",
-                        // spoken numbers -> digits, and punctuation
-                        useInverseTextNormalization = true
-                    ),
-                    tokens = File(dir, "tokens.txt").path,
-                    numThreads = numThreads,
-                    provider = "cpu"
-                )
+        VoiceModelLoad.run(needed) { load(context) }
+    }
+
+    // must be called on the engine thread
+    private fun load(context: Context) {
+        touch()
+        if (recognizer != null) return
+        check(isAvailable(context)) { "The speech model is not installed" }
+        val t0 = SystemClock.elapsedRealtime()
+        val dir = VoiceModels.dir(context, model)
+        val config = OfflineRecognizerConfig(
+            modelConfig = OfflineModelConfig(
+                senseVoice = OfflineSenseVoiceModelConfig(
+                    model = File(dir, "model.int8.onnx").path,
+                    // auto-detect, so that Mandarin, English and code-switching all work
+                    language = "auto",
+                    // spoken numbers -> digits, and punctuation
+                    useInverseTextNormalization = true
+                ),
+                tokens = File(dir, "tokens.txt").path,
+                numThreads = numThreads,
+                provider = "cpu"
             )
-            recognizer = OfflineRecognizer(null, config)
-            Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
-        }
+        )
+        recognizer = OfflineRecognizer(null, config)
+        Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
     }
 
     /**
      * Transcribe a whole utterance. Returns an empty string when nothing was recognized.
+     *
+     * The model is loaded again if it was freed meanwhile: a session can outlast the idle
+     * release (the space bar held through minutes of silence), and what is said after that must
+     * not come back as "nothing recognized".
      */
-    suspend fun transcribe(samples: FloatArray): String = withContext(dispatcher) {
-        val r = recognizer ?: return@withContext ""
+    suspend fun transcribe(context: Context, samples: FloatArray): String = withContext(dispatcher) {
+        if (recognizer == null) {
+            VoiceDiagnostics.log("model_reload")
+            try {
+                load(context)
+            } catch (e: Throwable) {
+                throw VoiceException(VoiceException.Kind.ModelLoadFailed, e)
+            }
+        }
+        val r = recognizer ?: throw VoiceException(VoiceException.Kind.ModelLoadFailed)
         touch()
         val t0 = SystemClock.elapsedRealtime()
         val stream = r.createStream()

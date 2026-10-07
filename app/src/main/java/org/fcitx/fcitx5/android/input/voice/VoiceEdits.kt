@@ -26,7 +26,8 @@ class VoiceEdits(private val editor: Editor) {
         /** Whether a composing preview is currently shown at the cursor. */
         val hasPreview: Boolean
 
-        fun deleteBeforeCursor(n: Int)
+        /** @return false, with nothing deleted, if the editor did not take the request */
+        fun deleteBeforeCursor(n: Int): Boolean
 
         fun insert(text: String)
     }
@@ -131,7 +132,9 @@ class VoiceEdits(private val editor: Editor) {
         // a refinement of the shorter text would undo this
         refinements.removeAll { it.entry === entry }
         val keep = entry.text.commonPrefixWith(text).length
-        if (keep < entry.text.length) editor.deleteBeforeCursor(entry.text.length - keep)
+        if (keep < entry.text.length && !editor.deleteBeforeCursor(entry.text.length - keep)) {
+            return false
+        }
         if (keep < text.length) editor.insert(text.substring(keep))
         entry.text = text
         return true
@@ -147,6 +150,20 @@ class VoiceEdits(private val editor: Editor) {
         entry.text += text
         refinements.forEach { if (it.entry === entry) it.text += text }
         return true
+    }
+
+    /**
+     * Take back a [preview] that the editor turned into ordinary text without the cursor having
+     * moved (input was restarted, or the keyboard hidden): if it still stands directly before
+     * the cursor, exactly as it was written, remove it, so that the utterance can be written
+     * again as a preview or as its final text. The preview is not an [Entry]; what was inserted
+     * before it is left alone.
+     * @return false, with nothing changed, if it is not there to be taken back
+     */
+    fun reclaimPreview(preview: String): Boolean {
+        if (preview.isEmpty() || editor.hasPreview || editor.hasSelection) return false
+        if (editor.textBeforeCursor(preview.length) != preview) return false
+        return editor.deleteBeforeCursor(preview.length)
     }
 
     /** A better version of [entry] is available; it is written by [applyRefinements]. */
@@ -172,7 +189,10 @@ class VoiceEdits(private val editor: Editor) {
                 continue
             }
             val tail = shown.substring(r.entry.text.length)
-            editor.deleteBeforeCursor(shown.length)
+            if (!editor.deleteBeforeCursor(shown.length)) {
+                dropped++
+                continue
+            }
             editor.insert(r.text + tail)
             r.entry.text = r.text
             applied++
@@ -188,7 +208,7 @@ class VoiceEdits(private val editor: Editor) {
         val first = sessionFirst ?: return false
         sessionFirst = null
         val shown = stillInPlace(first) ?: return false
-        editor.deleteBeforeCursor(shown.length)
+        if (!editor.deleteBeforeCursor(shown.length)) return false
         // what was removed can no longer be refined either
         val removed = entries.subList(entries.indexOf(first), entries.size)
         removed.forEach { it.retire() }

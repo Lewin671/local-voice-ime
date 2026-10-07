@@ -147,7 +147,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
         ui.micButton.setOnClickListener {
             if (session != null) {
                 InputFeedbacks.hapticFeedback(it)
-                session?.stop()
+                session?.stop(reason = "panel_button")
             } else {
                 start()
             }
@@ -209,7 +209,7 @@ class VoiceInputWindow : InputWindow.ExtendedInputWindow<VoiceInputWindow>() {
     override fun onDetached() {
         VoiceInput.refiningListeners.remove(this)
         // what has been said is still transcribed and inserted
-        session?.stop()
+        session?.stop(reason = "panel_detached")
     }
 
     class Ui(private val ctx: Context, private val palette: VoicePalette, punctuation: List<String>) {

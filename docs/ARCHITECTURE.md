@@ -57,6 +57,9 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
 | `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
 | `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
+| `VoiceDiagnostics` | Off unless switched on: a journal of how dictation sessions went, to explain one that ended unexpectedly (`docs/DIAGNOSTICS.md`). Events are taken only while a session runs and written on a thread of its own; the only way out of the phone is the user's export. |
+| `VoiceDiagnosticStore` | The two rotating files of that journal (1 MB) and the encoding of an event, which admits numbers, truth values and short tokens only. No Android classes, unit-tested. |
+| `VoiceDiagnosticsPreference` | Its row in *Settings → Voice input*: how much is kept, export, delete. |
 | `VoiceHints` | One-time teaching hints ("Hold to talk" on the space bar). |
 | `VoicePermissionActivity` | Transparent activity that shows the microphone permission dialog (a service cannot). |
 
@@ -163,14 +166,14 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `handleReturnKey()` made public for the dictation panel |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `handleReturnKey()` made public for the dictation panel |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
-| `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press |
+| `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press; `VoiceDiagnostics.log` when a touch is lifted or cancelled (kept only while dictation runs) |
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
-| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` switches |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` and `keepDiagnostics` switches |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |

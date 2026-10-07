@@ -339,6 +339,10 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             R.string.voice_samples_keep, "voice_keep_recordings", false,
             R.string.voice_samples_keep_summary
         )
+        val keepDiagnostics = switch(
+            R.string.voice_diagnostics_keep, "voice_keep_diagnostics", false,
+            R.string.voice_diagnostics_keep_summary
+        )
     }
 
     inner class Clipboard : ManagedPreferenceCategory(R.string.clipboard, sharedPreferences) {

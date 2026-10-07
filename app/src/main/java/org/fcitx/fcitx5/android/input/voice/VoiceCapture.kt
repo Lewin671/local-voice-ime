@@ -10,6 +10,27 @@ import kotlinx.coroutines.channels.SendChannel
 internal class VoiceCapture(private val source: AudioSource) {
     private var closed = false
 
+    /** The error that ended reading, if it was not the end of the source or a stop. */
+    val error get() = source.error
+
+    /** What [pump] has done so far, for [VoiceDiagnostics]; written by the reader only. */
+    @Volatile
+    var chunkCount = 0
+        private set
+
+    @Volatile
+    var samples = 0L
+        private set
+
+    @Volatile
+    var emptyReads = 0
+        private set
+
+    /** Whether the source ended reading by itself, exhausted or failed, rather than a stop. */
+    @Volatile
+    var endedBySource = false
+        private set
+
     fun start() = source.start()
 
     /** Preserve the last completed read even if stopping was requested during that read. */
@@ -24,9 +45,17 @@ internal class VoiceCapture(private val source: AudioSource) {
             while (keepReading()) {
                 val buffer = FloatArray(chunkSize)
                 val n = source.read(buffer)
-                if (n < 0) break
-                if (n == 0) continue
+                if (n < 0) {
+                    endedBySource = true
+                    break
+                }
+                if (n == 0) {
+                    emptyReads++
+                    continue
+                }
                 val chunk = if (n == buffer.size) buffer else buffer.copyOf(n)
+                chunkCount++
+                samples += n
                 chunks.send(chunk)
                 onChunk(chunk)
             }

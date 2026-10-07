@@ -73,8 +73,12 @@ class VoiceEditsTest {
         override var hasSelection = false
         override var hasPreview = false
         override fun textBeforeCursor(n: Int) = before.takeLast(n)
-        override fun deleteBeforeCursor(n: Int) {
+        /** An editor that has gone away refuses what it is asked to do. */
+        var refusesDeletion = false
+        override fun deleteBeforeCursor(n: Int): Boolean {
+            if (refusesDeletion) return false
             before = before.dropLast(n)
+            return true
         }
 
         override fun insert(text: String) {
@@ -89,6 +93,78 @@ class VoiceEditsTest {
         }
 
         override fun toString() = "$before|$after"
+    }
+
+    @Test
+    fun aPreviewLeftAsTextRightBeforeTheCursorIsTakenBack() {
+        val editor = FakeEditor("你好，开放时间")
+        val edits = VoiceEdits(editor)
+        assertTrue(edits.reclaimPreview("开放时间"))
+        assertEquals("你好，|", editor.toString())
+    }
+
+    @Test
+    fun aPreviewIsNotTakenBackUnlessItStandsUnchangedAtTheCursor() {
+        val edits = { editor: FakeEditor -> VoiceEdits(editor) }
+        // the cursor went elsewhere: the words stay where they are, once
+        val moved = FakeEditor("你好，开放时间").apply { moveCursorToStart() }
+        assertFalse(edits(moved).reclaimPreview("开放时间"))
+        assertEquals("|你好，开放时间", moved.toString())
+        // something was typed behind it, or into it
+        val typed = FakeEditor("你好，开放时间。")
+        assertFalse(edits(typed).reclaimPreview("开放时间"))
+        assertEquals("你好，开放时间。|", typed.toString())
+        // part of the text is selected
+        val selected = FakeEditor("你好，开放时间").apply { hasSelection = true }
+        assertFalse(edits(selected).reclaimPreview("开放时间"))
+        // it still is a preview: there is nothing to take back
+        val composing = FakeEditor("你好，开放时间").apply { hasPreview = true }
+        assertFalse(edits(composing).reclaimPreview("开放时间"))
+        assertEquals("你好，开放时间|", composing.toString())
+        assertFalse(edits(FakeEditor("你好")).reclaimPreview(""))
+    }
+
+    @Test
+    fun takingAPreviewBackLeavesWhatWasDictatedBeforeItRefinable() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("开饭时间。")
+        editor.insert("早上9点")
+        assertTrue(edits.reclaimPreview("早上9点"))
+        edits.refine(entry, "开放时间。")
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertEquals("开放时间。|", editor.toString())
+    }
+
+    @Test
+    fun nothingIsRewrittenWhenTheEditorRefusesToDelete() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        val entry = edits.insert("开饭时间")
+        editor.refusesDeletion = true
+        // a continuation that changes the text: left as it is rather than half written
+        assertFalse(edits.replace(entry, "开放时间早上9点"))
+        assertEquals("开饭时间|", editor.toString())
+        edits.refine(entry, "开放时间")
+        assertEquals(0 to 1, edits.applyRefinements())
+        assertEquals("开饭时间|", editor.toString())
+        assertFalse(edits.undoSession())
+        assertFalse(edits.reclaimPreview("时间"))
+        assertEquals("开饭时间|", editor.toString())
+        // one that only adds needs no deletion
+        editor.refusesDeletion = false
+        assertTrue(edits.replace(entry, "开饭时间早上9点"))
+        assertEquals("开饭时间早上9点|", editor.toString())
+    }
+
+    @Test
+    fun aRewriteNeverCutsAnEmojiInHalf() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        // both end in a surrogate pair with the same first half
+        val entry = edits.insert("好\uD83D\uDE00")
+        assertTrue(edits.replace(entry, "好\uD83D\uDE01"))
+        assertEquals("好\uD83D\uDE01|", editor.toString())
     }
 
     @Test

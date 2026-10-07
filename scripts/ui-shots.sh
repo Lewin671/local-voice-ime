@@ -198,6 +198,27 @@ JSON
     adb shell input tap $(center "Keep what I dictate")
     sleep 1
     adb shell run-as "$pkg" rm -rf files/voice-samples
+
+    # diagnostics, the end of the same screen: nothing kept, and the notes of one session
+    adb shell run-as "$pkg" rm -rf no_backup/voice-diagnostics
+    open_recordings
+    shot 14-settings-diagnostics-off
+    adb shell input tap $(center "Keep voice diagnostics")
+    sleep 1
+    adb shell am force-stop "$pkg"
+    adb shell ime set "$ime" >/dev/null
+    open_keyboard
+    read -r sx sy < <(center button_space)
+    adb shell input motionevent DOWN "$sx" "$sy"
+    sleep 8
+    adb shell input motionevent UP "$sx" "$sy"
+    sleep 3
+    open_recordings
+    shot 15-settings-diagnostics-kept
+    # back to how a fresh install is: switch off, nothing kept
+    adb shell input tap $(center "Keep voice diagnostics")
+    sleep 1
+    adb shell run-as "$pkg" rm -rf no_backup/voice-diagnostics
     adb shell am force-stop "$pkg"
     adb shell ime set "$ime" >/dev/null
 done

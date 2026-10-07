@@ -75,12 +75,16 @@ times before and after (the first run after an install is noisy) and compare the
 Checks the rules of `docs/design/DESIGN.md` on a device: the live preview appears and carries no
 trailing punctuation, releasing inserts the punctuated text, the pill offers Undo and Undo
 removes it, sliding up cancels cleanly, backspace in the panel deletes exactly one character,
-moving the cursor mid-utterance does not duplicate text, silence turns the microphone off with
+moving the cursor mid-utterance does not duplicate text, an app restarting input while the space
+bar is held does not end dictation or duplicate text, what dictation rewrites is not mistaken
+for a cursor move, silence turns the microphone off with
 the reason shown, and the "Hold to talk" hint goes away after three uses. It also checks the
 recordings for fine-tuning: nothing is kept until the switch is on; then an utterance is kept as
 a WAV file with its record, a correction made in the text field is recorded next to what was
 dictated, Undo is recorded, and nothing is kept from a field marked private or after the switch
-is turned off again.
+is turned off again. Last, the voice diagnostics: nothing is noted until the switch is on; then
+a session is noted from start to end with what ended it, every value is a number or a fixed
+word, and nothing is noted in a private field or after the switch is turned off.
 
 It reinstalls the debug build from scratch (its data is reset) and needs a microphone that
 delivers silence for the timeout scenario, e.g. an emulator started with `-no-audio`.

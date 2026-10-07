@@ -56,6 +56,16 @@ object VoiceInput {
     /** Corrections are looked for this long after a session; later edits are something else. */
     private const val FIELD_WATCH_MS = 10 * 60_000L
 
+    /**
+     * What may take a preview's composing state away without the cursor having moved (see
+     * `FcitxInputMethodService.composingLostTo`): the session then takes the preview back and
+     * goes on. Anything else is treated as the user moving the cursor, which ends dictation.
+     */
+    private val RECOVERABLE_LOSSES = setOf("restart", "view_finish")
+
+    /** An editor that keeps taking the preview away is not dictated into for ever. */
+    private const val MAX_PREVIEW_RECOVERIES = 3
+
     private var current: VoiceSession? = null
 
     private var lastUsedAt = 0L
@@ -75,9 +85,7 @@ object VoiceInput {
 
             override val hasPreview get() = service.hasComposingText
 
-            override fun deleteBeforeCursor(n: Int) {
-                service.currentInputConnection?.deleteSurroundingText(n, 0)
-            }
+            override fun deleteBeforeCursor(n: Int) = service.deleteBeforeCursor(n)
 
             override fun insert(text: String) = service.commitText(text)
         }).also {
@@ -212,7 +220,9 @@ object VoiceInput {
     ): VoiceSession {
         // before this session writes anything: how the previous one reads by now
         checkField(service)
-        current?.stop()
+        // What the previous session still has to say is written before this one shows anything,
+        // see onPartial.
+        current?.stop(reason = "replaced")
         lastUsedAt = SystemClock.elapsedRealtime()
         // drop unfinished pinyin composition, so that it doesn't interleave with dictated text
         service.postFcitxJob { reset() }
@@ -227,6 +237,17 @@ object VoiceInput {
         val saving = VoicePower.isSaving(service)
         // Energy policy changes previews, never the selected final recognition pipeline.
         val refine = VoiceRefiner.isActive(service)
+        val source = createSource(service)
+        val diag = VoiceDiagnostics.begin(
+            service, service.currentInputEditorInfo,
+            "mode" to if (idleTimeoutMs == 0L) "push_to_talk" else "hands_free",
+            "source" to if (source is MicrophoneSource) "microphone" else "test_file",
+            "refine" to refine,
+            "saving" to saving,
+            "loaded" to VoiceEngine.isLoaded,
+            "replaces" to (current != null),
+            "connection" to (service.currentInputConnection != null)
+        )
         // The large model is loaded when the first words are heard rather than when the session
         // starts: a session in which nothing is said (the space bar held by accident) must not
         // cost reading more than a gigabyte.
@@ -236,20 +257,56 @@ object VoiceInput {
         // decided when its first preview arrives, as the preview itself hides the text before it
         var joiner: String? = null
         var previewShown = false
+        // what the preview reads, separator included
+        var previewText = ""
+        // the editor it was written into, see FcitxInputMethodService.editorSerial
+        var previewEditor = 0
+        var recoveries = 0
+        var deferred = false
         // Set when the user moved the cursor while an utterance was being previewed: the editor
         // then keeps the preview as ordinary text where it was, and writing anything more would
         // put the same words a second time at the new cursor position.
         var abandoned = false
 
+        /**
+         * The editor made the preview ordinary text, but not because the cursor moved: if it
+         * still stands right before the cursor, remove it, to be written again.
+         */
+        fun reclaimPreview(): Boolean {
+            val ic = service.currentInputConnection ?: return false
+            if (!service.hasCollapsedSelection) return false
+            // the editor may still mark the text as composing, which a deletion would skip
+            ic.finishComposingText()
+            return edits.reclaimPreview(previewText)
+        }
+
         fun previewWasDetached(): Boolean {
             if (abandoned) return true
-            if (previewShown && !service.hasComposingText) {
-                abandoned = true
-                previewShown = false
-                session.stop(discard = true)
+            if (!previewShown || service.hasComposingText) return false
+            previewShown = false
+            val lostTo = service.composingLostTo
+            // never in another editor, whatever its text reads
+            val recovered = lostTo in RECOVERABLE_LOSSES && service.editorSerial == previewEditor &&
+                    recoveries < MAX_PREVIEW_RECOVERIES && reclaimPreview()
+            Timber.d("Voice preview lost to $lostTo, taken back: $recovered")
+            VoiceDiagnostics.log(
+                diag, "preview_lost",
+                "to" to (lostTo ?: "unknown"), "recovered" to recovered, "earlier" to recoveries
+            )
+            if (recovered) {
+                recoveries++
+                return false
             }
-            return abandoned
+            abandoned = true
+            session.stop(discard = true, reason = "preview_lost")
+            return true
         }
+
+        /**
+         * Composing text that is not this session's preview: the last words of the session this
+         * one replaced, which it has yet to write. Nothing may be written over them.
+         */
+        fun foreignPreview() = !previewShown && service.hasComposingText
 
         fun joinerFor(text: String): String = joiner ?: VoiceText.joiner(
             service.currentInputConnection?.getTextBeforeCursor(1, 0), text
@@ -266,7 +323,7 @@ object VoiceInput {
         session = VoiceSession(
             service,
             service.lifecycleScope,
-            createSource(service),
+            source,
             minSilence,
             idleTimeoutMs,
             SENTENCE_GAP,
@@ -279,9 +336,18 @@ object VoiceInput {
                         clearPreview()
                         insertTypedAhead(service)
                         applyRefinements(service)
+                    } else if (foreignPreview()) {
+                        // shown with the next preview, or written with the final text
+                        if (!deferred) VoiceDiagnostics.log(diag, "preview_deferred")
+                        deferred = true
                     } else {
-                        service.setVoicePreview(joinerFor(shown) + shown)
-                        previewShown = true
+                        val preview = joinerFor(shown) + shown
+                        service.setVoicePreview(preview)
+                        // not if there is no connection to the editor to write it to
+                        previewShown = service.hasComposingText
+                        previewText = preview
+                        previewEditor = service.editorSerial
+                        if (!previewShown) VoiceDiagnostics.log(diag, "preview_refused")
                         if (refine && !refinerRequested) {
                             refinerRequested = true
                             service.lifecycleScope.launch {
@@ -298,6 +364,12 @@ object VoiceInput {
 
                 override fun onFinal(text: String, samples: FloatArray, continues: Boolean) {
                     if (previewWasDetached()) return
+                    // the previous session did not get to write its last words: they stay as
+                    // they are, and its final text is not written over this one's
+                    if (foreignPreview()) {
+                        VoiceDiagnostics.log(diag, "foreign_preview_finished")
+                        service.finishComposing()
+                    }
                     val ic = service.currentInputConnection
                     ic?.beginBatchEdit()
                     var written = sentence.takeIf { continues }
@@ -350,15 +422,23 @@ object VoiceInput {
                     if (state == VoiceSession.State.Stopped) {
                         // never leave a preview behind, e.g. after cancelling
                         clearPreview()
-                        insertTypedAhead(service)
-                        applyRefinements(service)
-                        if (current === session) current = null
+                        // the rest belongs to the session that replaced this one, if one did
+                        if (current === session) {
+                            insertTypedAhead(service)
+                            applyRefinements(service)
+                            current = null
+                        }
                         if (kept === recordings) keptEndedAt = SystemClock.elapsedRealtime()
                         onFieldChanged()
+                        VoiceDiagnostics.end(
+                            service, diag, *session.summary(),
+                            "abandoned" to abandoned, "recoveries" to recoveries
+                        )
                     }
                     listener.onState(state)
                 }
-            }
+            },
+            diag
         )
         current = session
         session.start()
@@ -392,8 +472,12 @@ object VoiceInput {
         refiningJobs++
         notifyRefining()
         service.lifecycleScope.launch {
-            val accurate = words.await()
-            refiningJobs--
+            val accurate = try {
+                words.await()
+            } finally {
+                // also when the service is destroyed meanwhile, or the count never comes down
+                refiningJobs--
+            }
             // unless the sentence went on meanwhile: its next utterance then brings all the words
             if (!accurate.isNullOrEmpty() && sentence.accurate === words) {
                 editsFor(service).refine(
@@ -439,7 +523,7 @@ object VoiceInput {
     fun stopCurrent(discard: Boolean = false) {
         // the last chance to see how the dictated text was corrected
         editsService?.let(::checkField)
-        current?.stop(discard)
+        current?.stop(discard, "input_view_finish")
     }
 
     /** Whether [undoLastSession] has something to remove. */

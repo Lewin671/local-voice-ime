@@ -276,9 +276,32 @@ text=$(field)
 expect "backspace in the panel deletes exactly one character" \
     '[[ $text == "${sentence%?}" ]]' "field: '$text'"
 
+# an app that restarts input while the space bar is held must not end dictation: the preview it
+# turns into ordinary text is taken back and what is said goes on being written, once
+use_long_wav
+open_keyboard
+adb logcat -c
+adb shell input motionevent DOWN "$sx" "$sy"
+wait_log "updateComposingText: '"
+adb shell am broadcast -a "$pkg.RESTART_INPUT" >/dev/null
+wait_log "Voice preview lost to restart, taken back: true" 10
+sleep 2
+dump
+expect "restarting input while space is held: still listening" \
+    'ui has-text "$work/ui.xml" "Release to insert"' "the push-to-talk surface is gone"
+sleep 12
+adb shell input motionevent UP "$sx" "$sy"
+sleep 3
+settle
+text=$(field)
+said=${text//时间早上/}
+expect "restarting input while space is held: everything is written, once" \
+    '[[ $(( (${#text} - ${#said}) / 4 )) -eq 3 && $text == *。 ]]' "field: '$text'"
+
 # a pause in the middle of a sentence must not split it in two
 use_paused_wav
 open_keyboard
+adb logcat -c
 tap "Voice input"
 sleep 5
 text=$(field)
@@ -292,6 +315,11 @@ text=$(field)
 stops=${text//[^。]/}
 expect "speech that resumes after a pause continues the sentence" \
     '[[ $text == *9点*5点。 && ${#stops} -eq 1 ]]' "field: '$text'"
+# the sentence was rewritten where it stood; the cursor the editor then reports must be the one
+# the keyboard expects, or its next preview would look like the user moving the cursor
+adb logcat -d >"$work/log.txt" 2>/dev/null
+expect "what dictation rewrites is not taken for a cursor move" \
+    '! grep -q "unable to consume" "$work/log.txt"' "$(grep -c 'unable to consume' "$work/log.txt") unexpected cursor reports"
 use_wav
 
 # moving the cursor while a preview is showing must not write the words twice
@@ -425,6 +453,41 @@ expect "nothing is kept from a field marked private" '[[ $(kept) == "$before" ]]
 open_keyboard --ez keep_recordings false
 dictate
 expect "nothing is kept after the switch is turned off" '[[ $(kept) == "$before" ]]' "$before -> $(kept) recordings"
+
+# ---- diagnostics (docs/DIAGNOSTICS.md)
+journal() { adb shell run-as "$pkg" cat no_backup/voice-diagnostics/events.jsonl 2>/dev/null | tr -d '\r' || true; }
+expect "no diagnostics were kept so far" '[[ -z $(journal) ]]' "$(journal | wc -l) events on the device"
+
+open_keyboard --ez keep_diagnostics true
+dictate
+text=$(field)
+sleep 1
+journal >"$work/journal.txt"
+# the test recording ends before the space bar is released, which is what ends this session
+expect "with the switch on, a session is noted from start to end, with what ended it" \
+    'grep -q "\"e\":\"session_start\".*\"mode\":\"push_to_talk\".*\"source\":\"test_file\"" "$work/journal.txt" &&
+     grep -q "\"e\":\"capture_end\".*\"by_source\":true" "$work/journal.txt" &&
+     grep -q "\"e\":\"final\".*\"chars\":[1-9]" "$work/journal.txt" &&
+     grep -q "\"e\":\"session_end\".*\"reason\":\"capture_eof\".*\"finals\":1" "$work/journal.txt"' \
+    "journal: $(cut -c1-60 "$work/journal.txt" | tr '\n' ' ')"
+expect "the notes are numbers and fixed words, never what was said" \
+    '[[ -n $text ]] && python3 -c "
+import json, re, sys
+for line in open(sys.argv[1]):
+    for k, v in json.loads(line).items():
+        assert isinstance(v, (bool, int, float)) or re.fullmatch(r\"[A-Za-z0-9_.-]{1,48}\", v), (k, v)
+" "$work/journal.txt"' "field: '$text'"
+
+before=$(journal | wc -l)
+open_keyboard --ez private true
+dictate
+expect "nothing is noted in a field marked private" \
+    '[[ $(journal | wc -l) -eq $before ]]' "$before -> $(journal | wc -l) events"
+
+open_keyboard --ez keep_diagnostics false
+dictate
+expect "nothing is noted after the switch is turned off" \
+    '[[ $(journal | wc -l) -eq $before ]]' "$before -> $(journal | wc -l) events"
 
 echo
 if ((failed > 0)); then

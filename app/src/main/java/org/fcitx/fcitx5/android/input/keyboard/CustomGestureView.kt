@@ -19,6 +19,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.data.InputFeedbacks
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
+import org.fcitx.fcitx5.android.input.voice.VoiceDiagnostics
 
 open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
 
@@ -191,6 +192,7 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                VoiceDiagnostics.log("touch_up", "long_press" to longPressTriggered)
                 isPressed = false
                 InputFeedbacks.hapticFeedback(this, longPress = true, keyUp = true)
                 dispatchGestureEvent(GestureType.Up, event.x, event.y)
@@ -247,6 +249,7 @@ open class CustomGestureView(ctx: Context) : FrameLayout(ctx) {
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                VoiceDiagnostics.log("touch_cancel", "long_press" to longPressTriggered)
                 dispatchGestureEvent(GestureType.Up, event.x, event.y)
                 cancelGestures()
                 return true

@@ -311,7 +311,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
             InputFeedbacks.hapticFeedback(view)
             view.postDelayed({ InputFeedbacks.hapticFeedback(view) }, 80)
         }
-        s.stop(discard = cancel)
+        s.stop(discard = cancel, reason = if (cancel) "release_cancel" else "release")
     }
 
     /**

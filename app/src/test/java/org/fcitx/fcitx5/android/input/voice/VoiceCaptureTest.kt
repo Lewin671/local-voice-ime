@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -79,6 +80,52 @@ class VoiceCaptureTest {
         assertTrue(chunks.tryReceive().isFailure)
         assertEquals(1, reads)
         assertEquals(1, source.stops)
+    }
+
+    @Test
+    fun aSourceThatFailsIsToldApartFromOneThatIsExhaustedOrStopped() = runBlocking {
+        class Failing(val code: Int?) : AudioSource {
+            var reads = 0
+            override var error: Int? = null
+            override fun start() {}
+            override suspend fun read(buffer: FloatArray): Int {
+                if (++reads <= 2) return buffer.size
+                error = code
+                return -1
+            }
+            override fun stop() {}
+        }
+        // the microphone died: what was read before is kept, and the error is there to be said
+        val failed = VoiceCapture(Failing(-6))
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        failed.pump(1600, chunks, { true }) {}
+        assertEquals(-6, failed.error)
+        assertTrue(failed.endedBySource)
+        assertEquals(2, failed.chunkCount)
+        assertEquals(3200L, failed.samples)
+        assertEquals(1600, chunks.receive().size)
+        assertEquals(1600, chunks.receive().size)
+        // a file that is over
+        val exhausted = VoiceCapture(Failing(null))
+        exhausted.pump(1600, Channel(Channel.UNLIMITED), { true }) {}
+        assertEquals(null, exhausted.error)
+        assertTrue(exhausted.endedBySource)
+        // a stop that was asked for
+        var left = 1
+        val stopped = VoiceCapture(Failing(-6))
+        stopped.pump(1600, Channel(Channel.UNLIMITED), { left-- > 0 }) {}
+        assertEquals(null, stopped.error)
+        assertFalse(stopped.endedBySource)
+        assertEquals(1, stopped.chunkCount)
+    }
+
+    @Test
+    fun emptyReadsAreCounted() = runBlocking {
+        var reads = 0
+        val capture = VoiceCapture(Source { if (++reads <= 3) 0 else -1 })
+        capture.pump(1600, Channel(Channel.UNLIMITED), { true }) {}
+        assertEquals(3, capture.emptyReads)
+        assertEquals(0, capture.chunkCount)
     }
 
     @Test

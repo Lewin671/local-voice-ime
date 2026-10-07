@@ -77,6 +77,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 | Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed), recordings (switch, off by default; what is kept) |
 | Recordings row (settings) | `VoiceSamplesPreference`, state from `VoiceSamples` | nothing kept / N recordings and their size / storage limit reached / exporting / exported / export failed |
+| Diagnostics row (settings) | `VoiceDiagnosticsPreference`, state from `VoiceDiagnostics` | nothing kept / how much is kept / exported / export failed |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
 | App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found; entry in the main settings list, after *Advanced* |
 | New version row (settings) | `AppUpdatePreference` | not downloaded / no package for this phone / downloading / paused / failed / downloaded / installing / not installed (cause) |
@@ -100,6 +101,14 @@ Behaviour rules that are easy to get wrong:
   stop, which would flicker. Punctuation appears with the final text.
 - If the user moves the cursor while a preview is showing, the editor keeps the preview as
   ordinary text and dictation stops; writing more would duplicate it at the new position.
+- Only the cursor ends dictation that way. An app that restarts input in the same text field,
+  or a keyboard that is hidden with words still to be written, also turns the preview into
+  ordinary text, but the cursor stays behind it: dictation then takes the preview back (if it
+  still stands there exactly as written) and goes on, at most three times per session. What
+  dictation itself rewrites (a sentence that goes on, a refinement) never counts as a cursor
+  move.
+- If the microphone stops delivering audio, what was heard until then is written as usual and
+  the status row then says "Microphone unavailable"; the session never just disappears.
 - **Refinement** (high-accuracy model installed and switched on): the fast model's text is inserted immediately; the large
   model's transcript of the same audio is merged into it (`VoiceText.refine`: its words, the fast
   model's punctuation, digits and casing) and written over the inserted text. It only ever
@@ -132,6 +141,12 @@ Behaviour rules that are easy to get wrong:
   free, and the row says so. *Export* opens Android's file dialog and writes one ZIP file
   there; *Delete* asks first and names how much is removed. Turning the switch off keeps what
   is there. The export format is described in `docs/TRAINING_DATA.md`.
+- **Diagnostics**: nothing about how dictation went is kept unless *Keep voice diagnostics* is
+  on. It keeps no audio and no text, so turning it on asks nothing; its summary says what it is
+  for and what it leaves out. Dictation looks and behaves the same with it on. The row below
+  the switch says how much is kept (at most 1 MB, the oldest notes go first); *Export* opens
+  Android's file dialog and writes one text file, *Delete* removes the notes without asking,
+  as there is nothing in them to lose (`docs/DIAGNOSTICS.md`).
 - **App update**: only *Check for updates* / *Check again* asks github.com, and only *Download*
   and *Resume* fetch the package; there is no automatic check, badge, notification or reminder.
   A version that was found is remembered until it is installed or a later check finds another.
