@@ -113,11 +113,11 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
         }
         // only next to an icon is the label's side padded a little more
         val both = icon != 0 && text != 0
-        (this.icon.layoutParams as LinearLayout.LayoutParams).apply {
+        val size = ctx.dp(if (text == 0) 20 else 17)
+        // set anew rather than changed in place: a margin that was already resolved would stay,
+        // and push the glyph of the round button off its centre
+        this.icon.layoutParams = LinearLayout.LayoutParams(size, size).apply {
             marginEnd = if (both) ctx.dp(5) else 0
-            val size = ctx.dp(if (text == 0) 20 else 17)
-            width = size
-            height = size
         }
         val side = if (text == 0) 0 else 14
         pill.setPadding(ctx.dp(if (both) 11 else side), 0, ctx.dp(if (both) 13 else side), 0)
