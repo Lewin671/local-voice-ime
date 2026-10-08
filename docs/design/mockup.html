@@ -249,6 +249,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Key radius</td><td>9 dp</td><td>Every key</td></tr>
     <tr><td>Key gap</td><td>6 dp horizontal, 9 dp vertical</td><td>Visible gap between key caps; touch targets stay edge to edge</td></tr>
     <tr><td>Key label</td><td>21 sp regular; hints 9 sp top right</td><td>Letters; swipe-down symbols</td></tr>
+    <tr><td>Toolbar icons</td><td>20 dp, drawn in outline with a stroke of 2 of 24</td><td>Menu and expand chevrons; hide keyboard is a keyboard in outline over the same chevron, so that it is not mistaken for "more candidates", which sits in the same corner while typing</td></tr>
     <tr><td>Toolbar</td><td>40 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill; the dictation strip while the microphone is on</td></tr>
     <tr><td>Waveform</td><td>Hold space: 27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall. Dictation strip: a trace of the last seconds, bars 1.5 dp wide every 4 dp, 1.5 – 16 dp tall, primary at 80 %, the left half fading out; the height follows the syllables</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
     <tr><td>Surface change</td><td>fade 140 ms, decelerate</td><td>Keys ↔ listening surface, toolbar ↔ dictation strip</td></tr>
@@ -283,6 +284,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 const I = {
   mic: '<svg viewBox="0 0 24 24"><path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 15 6.7 12H5c0 3.42 2.72 6.23 6 6.72V22h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>',
   lock: '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6z"/></svg>',
+  hide: '<svg viewBox="0 0 24 24"><path d="M5 2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM5 4v8h14V4zM7 5.5h2v2H7zM11 5.5h2v2h-2zM15 5.5h2v2h-2zM8 9h8v1.5H8zM8.41 16.5 12 20.09l3.590-3.590L17 17.910l-5 5-5-5z"/></svg>',
   down: '<svg viewBox="0 0 24 24"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
   more: '<svg viewBox="0 0 24 24"><path d="M10 6 8.6 7.4 13.2 12l-4.6 4.6L10 18l6-6z"/></svg>',
   back: '<svg viewBox="0 0 24 24"><path d="M22 3H7c-.7 0-1.2.35-1.6.9L0 12l5.4 8.1c.4.5.9.9 1.6.9h15a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-3 12.6L17.6 17 14 13.4 10.4 17 9 15.6l3.6-3.6L9 8.4 10.4 7l3.6 3.6L17.6 7 19 8.400 15.4 12z"/></svg>',
@@ -307,7 +309,7 @@ const keys = (label) => `<div class="keys">
 const wave = (cls = 'live') => { const h = [8,14,10,22,16,30,24,40,28,48,36,54,44,56,42,52,34,46,26,38,20,28,14,20,10,14,8];
   return `<div class="wave ${cls}">${h.map((x, i) => `<i style="height:${x}px;animation-delay:${-(i * 83 % 700)}ms"></i>`).join('')}</div>`; };
 const status = (text, err) => `<div class="bar"><span class="chip"><span class="dot" ${err ? 'style="background:var(--error)"' : ''}></span>${text}</span><span class="grow"></span><span class="chip">${I.lock}On-device</span></div>`;
-const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.down}</span></div>`;
+const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.hide}</span></div>`;
 const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
 // the strip's trace of the microphone level: the newest sound on the right, older sound fading out to the left
 const trace = () => { const h = [1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,3,7,12,14,9,4,2,6,11,15,13,8,3,1.5,1.5,5,10,13,16,12,7,9,13,10,5,2,4,9,12,8];
@@ -317,7 +319,7 @@ const trace = () => { const h = [1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5
 const strip = ({ label = '', error = false, live = false, pill = '' }) => `<div class="bar strip">
   ${live ? `<span class="chip">${I.lock}On-device</span>${trace()}` : `<span class="state"${error ? ' style="color:var(--error)"' : ''}>${label}</span>`}
   ${pill === 'stop' ? `<span class="pill round">${I.stop}</span>` : pill === 'speak' ? `<span class="pill">${I.mic}Speak</span>` : pill ? `<span class="pill text">${pill}</span>` : ''}
-  <span class="icon">${I.down}</span></div>`;
+  <span class="icon">${I.hide}</span></div>`;
 const S = [
   { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill starts hands-free dictation.',
     e: '周五下午把报告发我<span class="caret"></span>', k: idleBar + keys('拼音') },

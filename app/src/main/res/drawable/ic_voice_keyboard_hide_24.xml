@@ -1,0 +1,16 @@
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+  SPDX-FileCopyrightText: Copyright 2026 Local Voice IME Contributors
+
+  Hide the keyboard: a keyboard in outline and, below it, the chevron the toolbar uses
+  elsewhere, in the same stroke of 2 of 24.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M5,2h14a2,2 0,0 1,2 2v8a2,2 0,0 1,-2 2H5a2,2 0,0 1,-2 -2V4a2,2 0,0 1,2 -2zM5,4v8h14V4zM7,5.5h2v2H7zM11,5.5h2v2h-2zM15,5.5h2v2h-2zM8,9h8v1.5H8zM8.41,16.5L12,20.09 15.59,16.5 17,17.91 12,22.91 7,17.91z" />
+</vector>

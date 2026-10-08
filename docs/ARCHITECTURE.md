@@ -169,7 +169,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope, its overlay and its strip to the layout |
 | `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `VoiceInput.onCommit()` at the top of `commitText` (does nothing unless a session runs) |
-| `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
+| `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar; our own icon on the hide-keyboard button |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press; `VoiceDiagnostics.log` when a touch is lifted or cancelled (kept only while dictation runs) |

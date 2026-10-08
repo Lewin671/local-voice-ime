@@ -65,6 +65,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Key caps | on, shadow style | `ThemePrefs.keyBorder` default `true` |
 | Hints | top right, digits only | `ThemePrefs.punctuationPosition` default (`NumbersTopRight`) |
 | Toolbar height | 40 dp | `KawaiiBarComponent.HEIGHT` |
+| Toolbar icons | 20 dp, outline, stroke 2 of 24. Hide keyboard is a keyboard in outline over the toolbar's chevron: the bare chevron in that corner means "more candidates" while typing | `ic_voice_keyboard_hide_24`, used by `IdleUi` and `VoiceStripUi` |
 | Waveform | 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall; redrawn at about 30 fps, not at the display's refresh rate (energy) | `WaveformView` |
 | Level trace (dictation strip) | what the microphone heard in the last seconds, the newest on the right: bars 1.5 dp wide every 4 dp, 1.5–16 dp tall, primary at 80 %, the left half fading out; the height follows the syllables, with the range of speech spread over all of it; about 30 fps, and no frames once silence has run through | `LevelTraceView` |
 | Surface change | 140 ms fade | `VoiceInputComponent` |

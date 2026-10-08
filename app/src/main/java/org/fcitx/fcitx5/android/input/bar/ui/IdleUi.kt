@@ -77,7 +77,7 @@ class IdleUi(
         iconRotation = menuButtonRotation
     }
 
-    val hideKeyboardButton = ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme)
+    val hideKeyboardButton = ToolButton(ctx, R.drawable.ic_voice_keyboard_hide_24, theme)
 
     /** Opens hands-free dictation; see "Microphone pill" in docs/design/DESIGN.md */
     val voiceButton = VoicePillButton(ctx, theme).apply {
@@ -187,7 +187,7 @@ class IdleUi(
             hideKeyboardButton.setIcon(R.drawable.ic_baseline_keyboard_voice_24)
             hideKeyboardButton.contentDescription = ctx.getString(R.string.switch_to_voice_input)
         } else {
-            hideKeyboardButton.setIcon(R.drawable.ic_baseline_arrow_drop_down_24)
+            hideKeyboardButton.setIcon(R.drawable.ic_voice_keyboard_hide_24)
             hideKeyboardButton.contentDescription = ctx.getString(R.string.hide_keyboard)
         }
         hideKeyboardButton.setOnClickListener(callback)

@@ -59,7 +59,7 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
         addView(label, LinearLayout.LayoutParams(-2, -2))
     }
 
-    val hideButton = ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme).apply {
+    val hideButton = ToolButton(ctx, R.drawable.ic_voice_keyboard_hide_24, theme).apply {
         contentDescription = ctx.getString(R.string.hide_keyboard)
     }
 
