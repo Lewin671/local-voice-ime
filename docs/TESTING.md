@@ -265,3 +265,10 @@ confirmation, cancel and retry, and a signed production-to-production upgrade. C
 models and settings survive; a debug-to-production installation alone does not verify self-update.
 The file provider must not allow access to voice files or grant write access. A stopped session
 now displays a cancelled/stopped message instead of silently resetting the Install button.
+
+`AppUpdateInstallerTest` verifies denied/granted permission, the APK content URI, read-only
+grants, provider isolation from voice files, and cancellation/retry. Set the debug app's
+REQUEST_INSTALL_PACKAGES app-op from the host before instrumentation: changing it inside
+the test kills the test process. Run once with deny and instrumentation argument
+`installPermission=deny`, then with allow and `installPermission=allow`; restore the app-op
+afterwards. Serialize access with other device tests.

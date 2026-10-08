@@ -13,7 +13,7 @@ import org.junit.Test
 import java.io.File
 import java.security.MessageDigest
 
-/** Run on a dedicated device: changes only the debug app's update fixture and install app-op. */
+/** Run on a dedicated device, with REQUEST_INSTALL_PACKAGES set before instrumentation. */
 class AppUpdateInstallerTest {
     @Test
     fun verifiedFileInstallerRequiresPermissionAndCannotShareVoiceFiles() {
@@ -38,16 +38,15 @@ class AppUpdateInstallerTest {
         File(dir, "release.json").writeText(
             """{"tag":"v99.0.0","notes":"Installer fixture","apk":{"name":"${apk.name}","size":${apk.length()},"sha256":"$hash"}}"""
         )
-        fun permission(mode: String) {
-            instrumentation.uiAutomation.executeShellCommand(
-                "appops set ${context.packageName} REQUEST_INSTALL_PACKAGES $mode"
-            ).use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
-        }
         try {
-            permission("deny")
-            assertNull(AppUpdate.systemInstallerIntent(context))
-            assertEquals(AppUpdate.Install.PermissionRequired, AppUpdate.install.value)
-            permission("allow")
+            // Changing this app-op kills the target process. The host sets it before the run.
+            if (InstrumentationRegistry.getArguments().getString("installPermission") == "deny") {
+                assertFalse(AppUpdate.canInstall(context))
+                assertNull(AppUpdate.systemInstallerIntent(context))
+                assertEquals(AppUpdate.Install.PermissionRequired, AppUpdate.install.value)
+                return
+            }
+            assertTrue("Grant the install app-op before starting this test", AppUpdate.canInstall(context))
             val intent = AppUpdate.systemInstallerIntent(context)!!
             @Suppress("DEPRECATION")
             assertEquals(Intent.ACTION_INSTALL_PACKAGE, intent.action)
@@ -76,7 +75,6 @@ class AppUpdateInstallerTest {
             assertNotNull(AppUpdate.systemInstallerIntent(context)) // cancellation permits retry
         } finally {
             AppUpdate.systemInstallerResult(Activity.RESULT_OK)
-            permission("default")
             dir.deleteRecursively()
         }
     }
