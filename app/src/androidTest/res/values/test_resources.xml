@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The test APK inherits debug resValues, but not the app's launcher resources. -->
+<resources>
+    <item name="ic_launcher_debug" type="mipmap">@android:drawable/sym_def_app_icon</item>
+    <item name="ic_launcher_round_debug" type="mipmap">@android:drawable/sym_def_app_icon</item>
+    <string name="app_name_debug">Local Voice IME installer tests</string>
+</resources>
