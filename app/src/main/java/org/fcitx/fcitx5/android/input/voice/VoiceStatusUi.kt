@@ -29,7 +29,7 @@ import splitties.dimensions.dp
 class VoiceStatusUi(
     ctx: Context,
     private val palette: VoicePalette,
-    private val waveform: WaveformView? = null
+    private val waveform: View? = null
 ) {
 
     private val dot = View(ctx).apply {
@@ -40,8 +40,8 @@ class VoiceStatusUi(
         // screen readers announce every change of the status
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         setTextColor(palette.secondaryText)
-        textSize = 12f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        textSize = if (waveform == null) 12f else 13f
+        if (waveform == null) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         // cut short rather than push the lock off the row
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.END
@@ -56,7 +56,7 @@ class VoiceStatusUi(
         setText(R.string.voice_on_device)
         setTextColor(palette.secondaryText)
         textSize = 12f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        if (waveform == null) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         maxLines = 1
     }
 
@@ -70,8 +70,8 @@ class VoiceStatusUi(
         addView(label, LinearLayout.LayoutParams(-2, -2))
         waveform?.let {
             addView(it, LinearLayout.LayoutParams(0, -1, 1f).apply {
-                marginStart = ctx.dp(8)
-                marginEnd = ctx.dp(8)
+                marginStart = ctx.dp(12)
+                marginEnd = ctx.dp(12)
             })
         }
     }
@@ -79,12 +79,22 @@ class VoiceStatusUi(
     val root = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(ctx.dp(14), 0, ctx.dp(14), 0)
-        addView(state, LinearLayout.LayoutParams(0, -1, 1f))
-        addView(lock, LinearLayout.LayoutParams(ctx.dp(14), ctx.dp(14)).apply {
-            marginEnd = ctx.dp(5)
-        })
-        addView(onDevice, LinearLayout.LayoutParams(-2, -2))
+        if (waveform == null) {
+            setPadding(ctx.dp(14), 0, ctx.dp(14), 0)
+            addView(state, LinearLayout.LayoutParams(0, -1, 1f))
+            addView(lock, LinearLayout.LayoutParams(ctx.dp(14), ctx.dp(14)).apply {
+                marginEnd = ctx.dp(5)
+            })
+            addView(onDevice, LinearLayout.LayoutParams(-2, -2))
+        } else {
+            // the strip: where the audio goes first, the trace fading out towards it
+            setPadding(ctx.dp(16), 0, 0, 0)
+            addView(lock, LinearLayout.LayoutParams(ctx.dp(12), ctx.dp(12)).apply {
+                marginEnd = ctx.dp(4)
+            })
+            addView(onDevice, LinearLayout.LayoutParams(-2, -2))
+            addView(state, LinearLayout.LayoutParams(0, -1, 1f))
+        }
     }
 
     /**
@@ -102,10 +112,15 @@ class VoiceStatusUi(
 
     fun set(@StringRes text: Int, @ColorInt dotColor: Int) {
         root.contentDescription = null
-        dot.visibility = View.VISIBLE
         label.visibility = View.VISIBLE
         label.setText(text)
-        (dot.background as GradientDrawable).setColor(dotColor)
+        if (waveform == null) {
+            (dot.background as GradientDrawable).setColor(dotColor)
+        } else {
+            // the strip has no dot: its words are coloured themselves
+            dot.visibility = View.GONE
+            label.setTextColor(if (dotColor == palette.error) dotColor else palette.secondaryText)
+        }
     }
 
     /**

@@ -15,6 +15,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.StringRes
+import androidx.core.graphics.ColorUtils
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.input.bar.KawaiiBarComponent
@@ -24,7 +25,7 @@ import splitties.dimensions.dp
 /**
  * The dictation strip: what the toolbar shows while hands-free dictation is on, or has
  * something to say about why it is not.
- * `▂▅▇▅▂  🔒 On-device  [■]  ▾` while the microphone is on: the waveform says so, without words.
+ * `··▂▅▇▅▂  🔒 On-device  (■)  ▾` while the microphone is on: the waveform says so, without words.
  * Words appear when there is something to say: `● Off after 10 s of silence  [Speak]  ▾`.
  *
  * See "Hands-free dictation" and the screens after it in `docs/design/mockup.html`.
@@ -34,11 +35,12 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
     /** What the pill does; it is where the toolbar has its microphone pill. */
     enum class Action { None, Stop, Speak, OpenSettings, Allow }
 
-    val waveform = WaveformView(ctx, 22).apply { color = palette.primary }
-
-    private val status = VoiceStatusUi(ctx, palette, waveform).apply {
-        root.setPadding(ctx.dp(14), 0, ctx.dp(8), 0)
+    val waveform = LevelTraceView(ctx).apply {
+        // a little lighter than the things that act
+        color = ColorUtils.setAlphaComponent(palette.primary, 0xcc)
     }
+
+    private val status = VoiceStatusUi(ctx, palette, waveform)
 
     private val icon = ImageView(ctx)
 
@@ -78,27 +80,28 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
         microphoneOn: Boolean = false,
         @StringRes text: Int = 0,
         @StringRes description: Int = text,
-        icon: Int = 0,
-        filled: Boolean = true
+        icon: Int = 0
     ) {
         this.action = action
         status.microphoneOn = microphoneOn
-        waveform.mode = if (microphoneOn) WaveformView.Mode.Live else WaveformView.Mode.Idle
-        if (!microphoneOn) waveform.level = 0f
+        waveform.live = microphoneOn
         if (action == Action.None) {
             pill.visibility = View.GONE
             return
         }
         pill.visibility = View.VISIBLE
-        val content = if (filled) palette.onPrimary else palette.primary
+        // tinted like the toolbar's pill: the one filled accent of the keyboard is the enter key
+        val content = palette.primary
         pill.background = RippleDrawable(
             ColorStateList.valueOf(palette.pressHighlight),
             GradientDrawable().apply {
                 cornerRadius = ctx.dp(15f)
-                setColor(if (filled) palette.primary else palette.primaryContainer)
+                setColor(palette.primaryContainer)
             },
             null
         )
+        // the glyph alone makes a round button
+        pill.minimumWidth = ctx.dp(30)
         pill.contentDescription = ctx.getString(description)
         label.visibility = if (text == 0) View.GONE else View.VISIBLE
         if (text != 0) label.setText(text)
@@ -110,8 +113,14 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
         }
         // only next to an icon is the label's side padded a little more
         val both = icon != 0 && text != 0
-        (this.icon.layoutParams as LinearLayout.LayoutParams).marginEnd = if (both) ctx.dp(5) else 0
-        pill.setPadding(ctx.dp(if (both) 11 else 14), 0, ctx.dp(if (both) 13 else 14), 0)
+        (this.icon.layoutParams as LinearLayout.LayoutParams).apply {
+            marginEnd = if (both) ctx.dp(5) else 0
+            val size = ctx.dp(if (text == 0) 20 else 17)
+            width = size
+            height = size
+        }
+        val side = if (text == 0) 0 else 14
+        pill.setPadding(ctx.dp(if (both) 11 else side), 0, ctx.dp(if (both) 13 else side), 0)
     }
 
     /**
@@ -138,7 +147,7 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
         show(
             Action.Speak,
             text = R.string.voice_speak, description = R.string.voice_input,
-            icon = R.drawable.ic_baseline_keyboard_voice_24, filled = false
+            icon = R.drawable.ic_baseline_keyboard_voice_24
         )
     }
 
