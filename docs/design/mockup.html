@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Local Voice IME Design</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600&family=Schibsted+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -69,7 +70,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .bar { height: 40px; display: flex; align-items: center; gap: 4px; padding: 0 6px; }
 .bar .grow { flex: 1; }
 .icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--text2); }
-.icon svg, .key svg, .fab svg, .pill svg, .chip svg { width: 22px; height: 22px; fill: currentColor; }
+.icon svg, .key svg, .pill svg, .chip svg { width: 22px; height: 22px; fill: currentColor; }
 .pill { height: 32px; padding: 0 14px; border-radius: 16px; background: var(--container); color: var(--on-container); display: flex; align-items: center; gap: 6px; font: 500 13px var(--device); }
 .pill svg { width: 18px; height: 18px; }
 .chip { display: flex; align-items: center; gap: 6px; font: 500 12px var(--device); color: var(--text2); padding: 0 8px; }
@@ -99,17 +100,18 @@ figcaption p { color: var(--muted); font-size: 14px; }
 .wave i { width: 3px; border-radius: 2px; background: var(--primary); }
 .wave.flat i { height: 4px !important; background: var(--error); }
 .wave.idle i { height: 4px !important; opacity: .45; }
-.hint { font: 500 13px var(--device); color: var(--text2); padding-bottom: 10px; }
-.hint.err { color: var(--error); }
 .spacebar { width: calc(100% - 8px); padding: 0 0 10px; display: flex; gap: 6px; height: 54px; box-sizing: border-box; }
 .spacebar .ghost { flex: 1; visibility: hidden; }
-.fab { width: 64px; height: 64px; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; box-shadow: 0 0 0 7px var(--container); margin: 2px 0 14px; }
-.fab svg { width: 28px; height: 28px; }
-.fab.paused { background: var(--container); color: var(--on-container); box-shadow: none; }
-.util { width: calc(100% - 8px); display: flex; gap: 6px; height: 54px; padding-bottom: 10px; box-sizing: border-box; }
-.card { margin: auto 16px; padding: 16px; border-radius: 16px; background: var(--key); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: 14px; }
-.card b { font-weight: 600; font-size: 15px; }
-.card span { color: var(--text2); }
+/* dictation strip: the toolbar while hands-free dictation is on, or has something to say */
+.strip { padding: 0 0 0 14px; gap: 0; }
+.strip .state { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font: 500 12px var(--device); color: var(--text2); }
+.strip .state b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip .dot { flex: none; }
+.strip .wave { height: 40px; justify-content: center; overflow: hidden; margin: 0 8px; }
+.strip .chip { padding: 0 8px 0 0; flex: none; }
+.strip .pill { height: 30px; padding: 0 13px 0 11px; flex: none; margin-right: 2px; }
+.pill.solid { background: var(--primary); color: var(--on-primary); }
+.pill.text { padding: 0 14px; }
 .btn { height: 36px; padding: 0 16px; border-radius: 18px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font: 500 14px var(--device); }
 .pair { display: grid; grid-template-columns: 1fr; gap: 12px; }
 /* settings app: a plain list, the product's primary as the only accent */
@@ -242,12 +244,12 @@ figcaption p { color: var(--muted); font-size: 14px; }
   <h2>Shape, type and motion</h2>
   <div class="tablewrap"><table>
     <tr><th>Token</th><th>Value</th><th>Used for</th></tr>
-    <tr><td>Key radius</td><td>9 dp</td><td>Every key, utility keys in the dictation panel</td></tr>
+    <tr><td>Key radius</td><td>9 dp</td><td>Every key</td></tr>
     <tr><td>Key gap</td><td>6 dp horizontal, 9 dp vertical</td><td>Visible gap between key caps; touch targets stay edge to edge</td></tr>
     <tr><td>Key label</td><td>21 sp regular; hints 9 sp top right</td><td>Letters; swipe-down symbols</td></tr>
-    <tr><td>Toolbar</td><td>40 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill, status while listening</td></tr>
-    <tr><td>Waveform</td><td>27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
-    <tr><td>Surface change</td><td>fade 140 ms, decelerate</td><td>Keys ↔ listening surface</td></tr>
+    <tr><td>Toolbar</td><td>40 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill; the dictation strip while the microphone is on</td></tr>
+    <tr><td>Waveform</td><td>27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall. In the dictation strip: as many bars as fit between the status and the lock, 4 – 22 dp tall, none if fewer than five fit</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
+    <tr><td>Surface change</td><td>fade 140 ms, decelerate</td><td>Keys ↔ listening surface, toolbar ↔ dictation strip</td></tr>
     <tr><td>Haptics</td><td>tick on start, tick on insert, double tick on cancel</td><td>Confirms each step without looking</td></tr>
   </table></div>
 </section>
@@ -258,14 +260,15 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><th>You do</th><th>The keyboard does</th><th>Ends when</th></tr>
     <tr><td>Hold space</td><td>After the long-press delay: tick, keys fade to the listening surface, microphone starts. Speech appears underlined in the text field, without closing punctuation until it is final. If the speech model is not in memory yet, the status reads "Getting ready. Keep talking" and nothing said meanwhile is lost.</td><td>You release: remaining speech is recognized and inserted. Keys return.</td></tr>
     <tr><td>Slide up while holding</td><td>Crossing the cancel line turns the hint and waveform red: "Release to cancel".</td><td>Release above the line: nothing is inserted, the preview is removed. Slide back down to keep talking.</td></tr>
-    <tr><td>Tap the microphone pill</td><td>Opens the dictation panel and starts listening. What you said is inserted when you pause, without a full stop yet: go on within 4 s and it stays one sentence, punctuated as a whole; the full stop follows once you have stopped for longer.</td><td>You tap stop or the keyboard key, the field loses focus, or 10 s pass without speech (the status then reads "Off after 10 s of silence").</td></tr>
-    <tr><td>Tap ⌫ in the panel</td><td>Deletes one character, always. Hold to repeat.</td><td></td></tr>
-    <tr><td>Tap ， 。 ？, space or ↵ in the panel</td><td>Inserts it without leaving dictation.</td><td></td></tr>
-    <tr><td>(High-accuracy model installed) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. The pill reads "Refining…" until this is done, the panel's status row likewise once listening has stopped.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
+    <tr><td>Tap the microphone pill</td><td>Tick; the toolbar becomes the dictation strip (waveform, lock, Stop) and the microphone starts. The keyboard stays as it is. What you said is inserted when you pause, without a full stop yet: go on within 4 s and it stays one sentence, punctuated as a whole; the full stop follows once you have stopped for longer.</td><td>You tap Stop, type a letter, open another panel (emoji, clipboard, text editing), hide the keyboard, the field loses focus, or 10 s pass without speech (the strip then reads "Off after 10 s of silence" for 4 s).</td></tr>
+    <tr><td>Tap punctuation, a digit, space, ⌫ or ↵ while dictating</td><td>The key does what it always does and dictation goes on. The sentence ends where it stands, without a full stop: you are punctuating by hand. Text typed while an utterance is still underlined is inserted after that utterance, once it is final. ⌫ deletes one character, always.</td><td></td></tr>
+    <tr><td>Type a letter while dictating</td><td>Typing takes over: the microphone turns off, what was said is written first, then the letter is typed and candidates appear as usual. The pill is back to "Speak" for the next time.</td><td></td></tr>
+    <tr><td>Hold space while dictating</td><td>Nothing: the microphone is already on.</td><td></td></tr>
+    <tr><td>(High-accuracy model installed) nothing</td><td>After each utterance is inserted, a larger model transcribes the same audio again. Words that differ are replaced in place; punctuation, digits and capitalisation stay as inserted. Once the microphone is off, the pill reads "Refining…" until this is done.</td><td>Skipped silently if the text was edited or the cursor moved in the meantime: refinement never touches text it did not write.</td></tr>
     <tr><td>Move the cursor while dictating</td><td>Dictation stops. The words shown so far stay where they were; nothing is written at the new position.</td><td></td></tr>
     <tr><td>Short tap on space</td><td>Inserts a space or picks the first candidate, as on any keyboard.</td><td></td></tr>
   </table></div>
-  <p class="note">The microphone pill and hold-to-talk are absent on password fields. If the speech model has not been downloaded, the pill and the space bar look as usual, and both open the panel, which says what is missing and offers one button that opens <em>Settings → Voice input</em>; the keyboard itself never starts a download. Back at the keyboard with the model installed, the panel starts listening. If microphone access is missing, the panel explains why it is needed and offers one button to grant it. Errors name their cause: "Another app is using the microphone", "Could not load the speech model".</p>
+  <p class="note">The microphone pill and hold-to-talk are absent on password fields. Undo is offered after hold-to-talk only: after hands-free dictation the pill is the way to go on speaking, and a tap there must never remove text. If the speech model has not been downloaded, the pill and the space bar look as usual, and both show the strip, which says what is missing and offers one button that opens <em>Settings → Voice input</em>; the keyboard itself never starts a download. If microphone access is missing, the strip says so and offers one button to grant it. Back at the keyboard with the missing thing in place, listening starts; without it, the strip is gone. Any key dismisses a strip that only has something to say. Errors name their cause and stay for 4 s: "Another app is using the microphone", "Could not load the speech model".</p>
 </section>
 
 <section>
@@ -304,10 +307,19 @@ const wave = (cls = 'live') => { const h = [8,14,10,22,16,30,24,40,28,48,36,54,4
 const status = (text, err) => `<div class="bar"><span class="chip"><span class="dot" ${err ? 'style="background:var(--error)"' : ''}></span>${text}</span><span class="grow"></span><span class="chip">${I.lock}On-device</span></div>`;
 const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.down}</span></div>`;
 const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
-const util = `<div class="util">${key(I.kb, 'alt w15')}${key('，')}${key(I.space, 'w2')}${key('。')}${key('？')}${key(I.back, 'alt w15')}${key(I.enter, 'accent w15')}</div>`;
+// bars of the strip's waveform: the middle of the full row, at the strip's height
+const mini = n => { const h = [5,8,6,11,9,14,12,18,15,22,17,21,14,19,11,15,8,11,6,8,5]; const from = Math.floor((h.length - n) / 2);
+  return `<div class="wave live">${h.slice(from, from + n).map((x, i) => `<i style="height:${x}px;animation-delay:${-(i * 83 % 700)}ms"></i>`).join('')}</div>`; };
+// the dictation strip. dot: 'primary' | 'text2' | 'error'; bars: waveform bars, 0 for none; lock: the microphone is on;
+// pill: 'stop' | 'speak' | a button label | '' for none
+const strip = ({ label = '', dot = 'primary', bars = 0, lock = false, pill = '' }) => `<div class="bar strip">
+  <span class="state">${label ? `<span class="dot" style="background:var(--${dot})"></span><b>${label}</b>` : ''}${bars ? mini(bars) : ''}</span>
+  ${lock ? `<span class="chip">${I.lock}On-device</span>` : ''}
+  ${pill === 'stop' ? `<span class="pill solid text">${I.stop}</span>` : pill === 'speak' ? `<span class="pill">${I.mic}Speak</span>` : pill ? `<span class="pill solid text">${pill}</span>` : ''}
+  <span class="icon">${I.down}</span></div>`;
 
 const S = [
-  { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill opens hands-free dictation.',
+  { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill starts hands-free dictation.',
     e: '周五下午把报告发我<span class="caret"></span>', k: idleBar + keys('拼音') },
   { t: 'Typing pinyin', d: 'Candidates replace the toolbar; the first one is in the accent colour and is what space commits.',
     e: '周五下午把<u>bao gao</u><span class="caret"></span>', k: `<div class="bar"><div class="cands"><span>报告</span><span>报稿</span><span>包</span><span>宝</span></div><span class="icon">${I.down}</span></div>` + keys('拼音') },
@@ -319,14 +331,20 @@ const S = [
     e: '周五下午把报告发我，我周末 review 一下。<span class="caret"></span>', k: idleBar.replace(I.mic + 'Speak', I.undo + 'Undo') + keys('拼音') },
   { t: 'Hold space: about to cancel', d: 'Above the cancel line everything that was teal turns red and the waveform goes flat. Releasing here inserts nothing.',
     e: '周五下午把报告发我，<span class="caret"></span>', k: status('Listening') + `<div class="surface"><div class="cancel-zone hot">${I.close}Release to cancel</div>${wave('flat')}${held.replace('Release to insert', 'Slide down to keep')}</div>` + keys('') },
-  { t: 'Hands-free dictation', d: 'Tap the pill. Stop is the one large control; punctuation, space, delete and enter stay within reach so a whole message can be finished without the keyboard.',
-    e: 'Please send me the report by Friday. <u>I will review it over the</u><span class="caret"></span>', k: status('Listening') + `<div class="surface">${wave()}<div class="fab">${I.stop}</div>${util}</div>` + keys('') },
-  { t: 'Paused', d: 'After stop, or 10 s without speech. The microphone is off and the screen says so. One tap resumes.',
-    e: 'Please send me the report by Friday. I will review it over the weekend.<span class="caret"></span>', k: status('Microphone off') .replace('class="dot"', 'class="dot" style="background:var(--text2)"') + `<div class="surface">${wave('idle')}<div class="fab paused">${I.mic}</div>${util}</div>` + keys('') },
-  { t: 'Microphone access needed', d: 'Shown in place of the waveform the first time, or after access was revoked. States the reason in one sentence and offers the fix.',
-    e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Microphone access needed</b><span>Audio stays on this phone. It is never stored or sent.</span><div class="btn">Allow microphone</div></div>${util}</div>` + keys('') },
-  { t: 'Speech model needed', d: 'A fresh install has no speech model: it is a 240 MB download, kept out of the app so that the app itself stays small. The microphone pill and hold-to-talk are there from the start and lead here. The button opens Settings → Voice input, the only place a download can start.',
-    e: '<span class="caret"></span>', k: status('Microphone off', true) + `<div class="surface"><div class="card"><b>Speech model needed</b><span>Voice input runs on this phone. Download its speech model (240 MB) once in the settings.</span><div class="btn">Open settings</div></div>${util}</div>` + keys('') },
+  { t: 'Hands-free dictation', d: 'Tap the pill. The keyboard stays; its toolbar becomes the dictation strip, and while the microphone is on the strip has no words to read but one: the waveform shows that it is listening and what it hears, the lock says where the audio goes, and Stop is the filled button where the pill was. It looks the same while the speech model is still loading: nothing said meanwhile is lost. Punctuation, delete and enter are the keyboard\'s own keys.',
+    e: 'Please send me the report by Friday. <u>I will review it over the</u><span class="caret"></span>', k: strip({ bars: 21, lock: true, pill: 'stop' }) + keys('English') },
+  { t: 'Hands-free: last words', d: 'After Stop, or a letter key, for as long as the last words take to be written. The microphone is off already, so the lock and the waveform are gone.',
+    e: '周五下午把报告发我，<u>我周末 review 一下</u><span class="caret"></span>', k: strip({ label: 'Recognizing…' }) + keys('拼音') },
+  { t: 'Off after silence', d: 'The microphone never stays open when nobody speaks. The strip says why it went off, for 4 s; the pill is where it will be once the toolbar is back, and one tap resumes.',
+    e: 'Please send me the report by Friday. I will review it over the weekend.<span class="caret"></span>', k: strip({ label: 'Off after 10 s of silence', dot: 'text2', pill: 'speak' }) + keys('English') },
+  { t: 'Something went wrong', d: 'The cause, in the error colour, for 4 s. It gets the whole width: a cause that is cut short explains nothing. What was heard before is in the text field as usual.',
+    e: '周五下午把报告发我<span class="caret"></span>', k: strip({ label: 'Another app is using the microphone', dot: 'error' }) + keys('拼音') },
+  { t: 'Microphone access needed', d: 'The first time, or after access was revoked. One line and the one button that fixes it; Android\'s own dialog says the rest. The strip stays until a key is pressed.',
+    e: '<span class="caret"></span>', k: strip({ label: 'Microphone access needed', dot: 'text2', pill: 'Allow' }) + keys('拼音') },
+  { t: 'Speech model needed', d: 'A fresh install has no speech model: it is a 240 MB download, kept out of the app so that the app itself stays small. The pill and hold-to-talk are there from the start and lead here. The button opens Settings → Voice input, the only place a download can start, and the place that says what is downloaded and how large it is.',
+    e: '<span class="caret"></span>', k: strip({ label: 'Speech model needed', dot: 'text2', pill: 'Open settings' }) + keys('拼音') },
+  { t: 'Typing takes over', d: 'A letter typed while dictating: the microphone is off, what was said is written, and the toolbar shows candidates as it always does when typing.',
+    e: '周五下午把报告发我，我周末 review 一下<u>ran hou</u><span class="caret"></span>', k: `<div class="bar"><div class="cands"><span>然后</span><span>燃后</span><span>然</span><span>染</span></div><span class="icon">${I.down}</span></div>` + keys('拼音') },
 ];
 document.getElementById('screens').innerHTML = S.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}"><div class="editor">${s.e}</div><div class="kbd">${s.k}</div></div>`).join('')}</div>

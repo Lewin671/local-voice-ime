@@ -74,7 +74,10 @@ times before and after (the first run after an install is noisy) and compare the
 
 Checks the rules of `docs/design/DESIGN.md` on a device: the live preview appears and carries no
 trailing punctuation, releasing inserts the punctuated text, the pill offers Undo and Undo
-removes it, sliding up cancels cleanly, backspace in the panel deletes exactly one character,
+removes it, sliding up cancels cleanly, the microphone pill starts dictation in the toolbar
+while the keyboard stays, Stop gives the toolbar back, a punctuation key pressed mid-utterance
+leaves the microphone on and is written after the utterance, a letter turns the microphone off
+and is typed after what was said, backspace deletes exactly one character,
 moving the cursor mid-utterance does not duplicate text, an app restarting input while the space
 bar is held does not end dictation or duplicate text, what dictation rewrites is not mistaken
 for a cursor move, silence turns the microphone off with
@@ -101,7 +104,10 @@ Compare them with the mockup as described in `docs/design/DESIGN.md`.
 ### Manual checks worth doing on a real phone
 
 - Hold the space bar, speak, release: text is inserted; slide up before releasing: nothing is.
-- Microphone button → hands-free window; pause between sentences; tap the button to stop.
+- Microphone pill → the toolbar becomes the dictation strip, the keyboard stays; pause between
+  sentences; tap a comma, go on speaking; tap *Stop*.
+- While dictating hands-free, type a pinyin syllable: the microphone goes off, the words said so
+  far are written, the syllable follows them and candidates show as usual.
 - Start speaking immediately after a cold start (model not loaded yet): the beginning of the
   sentence must not be lost.
 - Password field: no microphone button, holding space does nothing.

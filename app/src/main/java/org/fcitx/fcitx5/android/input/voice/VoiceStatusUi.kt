@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
@@ -22,10 +23,14 @@ import splitties.dimensions.dp
  * Status row shown in place of the toolbar while a voice surface is up:
  * `● Listening                         🔒 On-device`
  *
- * The right half never changes: whenever the microphone may be on, the screen says where the
- * audio goes.
+ * The right half says where the audio goes whenever the microphone may be on. In the dictation
+ * strip a [waveform] sits between the two halves and takes the room the status leaves.
  */
-class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
+class VoiceStatusUi(
+    ctx: Context,
+    private val palette: VoicePalette,
+    private val waveform: WaveformView? = null
+) {
 
     private val dot = View(ctx).apply {
         background = GradientDrawable().apply { shape = GradientDrawable.OVAL }
@@ -37,6 +42,9 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
         setTextColor(palette.secondaryText)
         textSize = 12f
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        // cut short rather than push the lock off the row
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
     }
 
     private val lock = ImageView(ctx).apply {
@@ -49,25 +57,67 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
         setTextColor(palette.secondaryText)
         textSize = 12f
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        maxLines = 1
+    }
+
+    // what is on its right is measured first and so keeps its width
+    private val state = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(dot, LinearLayout.LayoutParams(ctx.dp(8), ctx.dp(8)).apply {
+            marginEnd = ctx.dp(6)
+        })
+        addView(label, LinearLayout.LayoutParams(-2, -2))
+        waveform?.let {
+            addView(it, LinearLayout.LayoutParams(0, -1, 1f).apply {
+                marginStart = ctx.dp(8)
+                marginEnd = ctx.dp(8)
+            })
+        }
     }
 
     val root = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(ctx.dp(14), 0, ctx.dp(14), 0)
-        addView(dot, LinearLayout.LayoutParams(ctx.dp(8), ctx.dp(8)).apply {
-            marginEnd = ctx.dp(6)
-        })
-        addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+        addView(state, LinearLayout.LayoutParams(0, -1, 1f))
         addView(lock, LinearLayout.LayoutParams(ctx.dp(14), ctx.dp(14)).apply {
             marginEnd = ctx.dp(5)
         })
         addView(onDevice, LinearLayout.LayoutParams(-2, -2))
     }
 
+    /**
+     * Whether the lock, "On-device" and the waveform are shown. The dictation strip shows them
+     * exactly while the microphone is on; it also has things to say when it is off.
+     */
+    var microphoneOn = true
+        set(value) {
+            field = value
+            val visibility = if (value) View.VISIBLE else View.GONE
+            lock.visibility = visibility
+            onDevice.visibility = visibility
+            waveform?.visibility = visibility
+        }
+
     fun set(@StringRes text: Int, @ColorInt dotColor: Int) {
+        root.contentDescription = null
+        dot.visibility = View.VISIBLE
+        label.visibility = View.VISIBLE
         label.setText(text)
         (dot.background as GradientDrawable).setColor(dotColor)
+    }
+
+    /**
+     * No words: in the dictation strip the moving waveform says that the microphone is on.
+     * A screen reader is told [text] instead.
+     */
+    fun wordless(@StringRes text: Int) {
+        dot.visibility = View.GONE
+        label.visibility = View.GONE
+        val said = root.context.getString(text)
+        if (root.contentDescription != said) root.announceForAccessibility(said)
+        root.contentDescription = said
     }
 
     /** Recording, while the speech model is still loading: nothing said now is lost. */
@@ -77,10 +127,8 @@ class VoiceStatusUi(ctx: Context, private val palette: VoicePalette) {
 
     fun recognizing() = set(R.string.voice_recognizing, palette.primary)
 
-    /** With the large model: the microphone is off, inserted text is still being re-checked. */
-    fun refining() = set(R.string.voice_refining, palette.primary)
-
-    fun off() = set(R.string.voice_microphone_off, palette.secondaryText)
+    /** The microphone is off, and why, or what it takes to turn it on. */
+    fun notice(@StringRes text: Int) = set(text, palette.secondaryText)
 
     fun error(@StringRes text: Int) = set(text, palette.error)
 

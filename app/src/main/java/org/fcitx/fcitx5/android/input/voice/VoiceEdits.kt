@@ -57,7 +57,7 @@ class VoiceEdits(private val editor: Editor) {
 
     private var newSession = true
 
-    /** First thing written since [startSession], dictated or typed in the panel. */
+    /** First thing written since [startSession], dictated or typed meanwhile. */
     private var sessionStart: Entry? = null
 
     val hasPendingRefinements get() = refinements.isNotEmpty()
@@ -94,11 +94,19 @@ class VoiceEdits(private val editor: Editor) {
     }
 
     /**
-     * Insert text typed by hand from the dictation panel (punctuation, space). It becomes part of the
-     * dictated run, so earlier utterances can still be refined; undo no longer applies after it.
+     * Insert text that was typed by hand while an utterance was being previewed, see [typed].
      */
     fun insertTyped(text: String) {
         editor.insert(text)
+        typed(text)
+    }
+
+    /**
+     * Text typed by hand while dictating (punctuation, a digit, space) is being written at the
+     * cursor by the keyboard. It becomes part of the dictated run, so earlier utterances can
+     * still be refined; undo no longer applies after it.
+     */
+    fun typed(text: String) {
         add(text)
         sessionFirst = null
         newSession = false

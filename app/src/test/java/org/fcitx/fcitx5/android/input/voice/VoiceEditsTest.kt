@@ -192,6 +192,23 @@ class VoiceEditsTest {
     }
 
     @Test
+    fun whatTheKeyboardTypesWhileDictatingIsPartOfTheDictatedRun() {
+        val editor = FakeEditor()
+        val edits = VoiceEdits(editor)
+        edits.startSession()
+        val first = edits.insert("第一句有错子")
+        // a key of the keyboard: the keyboard writes it, dictation is only told
+        edits.typed("，")
+        editor.insert("，")
+        edits.insert("第二句。")
+        assertFalse(edits.canUndoSession)
+        edits.refine(first, "第一句有错字")
+        assertEquals(1 to 0, edits.applyRefinements())
+        assertEquals("第一句有错字，第二句。|", editor.toString())
+        assertEquals("第一句有错字，第二句。", edits.sessionText())
+    }
+
+    @Test
     fun anUtteranceThatGoesOnIsRewrittenFromWhereItDiffers() {
         val editor = FakeEditor("好的，")
         val edits = VoiceEdits(editor)

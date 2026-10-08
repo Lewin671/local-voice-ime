@@ -431,7 +431,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         }
     }
 
-    fun handleReturnKey() {
+    private fun handleReturnKey() {
         currentInputEditorInfo.run {
             if (inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL ||
                 imeOptions.hasFlag(EditorInfo.IME_FLAG_NO_ENTER_ACTION)
@@ -473,6 +473,8 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     fun commitText(text: String, cursor: Int = -1) {
         val ic = currentInputConnection ?: return
+        // typed while dictation previews an utterance: written after it
+        if (VoiceInput.onCommit(this, text)) return
         // when composing text equals commit content, finish composing text as-is
         if (composing.isNotEmpty() && composingText.toString() == text) {
             val c = if (cursor == -1) text.length else cursor

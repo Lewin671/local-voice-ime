@@ -92,7 +92,9 @@ class CommonKeyActionListener :
     }
 
     val listener by lazy {
-        KeyActionListener { action, _ ->
+        KeyActionListener { action, source ->
+            // held back until dictation has written its last words, see VoiceInputComponent
+            if (voiceInput.onKeyAction(action, source)) return@KeyActionListener
             when (action) {
                 is FcitxKeyAction -> service.postFcitxJob {
                     sendKey(action.act, action.states.states, action.code)

@@ -19,17 +19,17 @@ import org.fcitx.fcitx5.android.data.theme.Theme
 import splitties.dimensions.dp
 
 /**
- * The microphone pill in the toolbar: the one tinted element of the idle keyboard, opening
+ * The microphone pill in the toolbar: the one tinted element of the idle keyboard, starting
  * hands-free dictation.
  */
 @SuppressLint("ViewConstructor")
 class VoicePillButton(context: Context, theme: Theme) : LinearLayout(context) {
 
     enum class Mode {
-        /** Opens hands-free dictation. */
+        /** Starts hands-free dictation. */
         Speak,
 
-        /** With the large model: the inserted text is being re-checked. Tapping takes it back. */
+        /** With the large model: the inserted text is being re-checked. Tapping takes it back if [undoes]. */
         Refining,
 
         /** Shown for a few seconds after push-to-talk inserted text: removes it again. */
@@ -43,6 +43,12 @@ class VoicePillButton(context: Context, theme: Theme) : LinearLayout(context) {
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
 
+    /**
+     * Whether a tap while [Mode.Refining] takes the text back, as after push-to-talk. After
+     * hands-free dictation it starts dictation again instead. To be set before [mode].
+     */
+    var undoes = true
+
     var mode = Mode.Speak
         set(value) {
             field = value
@@ -55,7 +61,9 @@ class VoicePillButton(context: Context, theme: Theme) : LinearLayout(context) {
                 Mode.Refining -> {
                     icon.setImageResource(R.drawable.ic_baseline_spellcheck_24)
                     label.setText(R.string.voice_refining)
-                    contentDescription = context.getString(R.string.voice_undo)
+                    contentDescription = context.getString(
+                        if (undoes) R.string.voice_undo else R.string.voice_input
+                    )
                 }
                 Mode.Undo -> {
                     icon.setImageResource(R.drawable.ic_baseline_undo_24)

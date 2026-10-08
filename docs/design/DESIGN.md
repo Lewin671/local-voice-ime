@@ -22,13 +22,17 @@ The settings summary states this explicitly; final recognition keeps the same mo
    (underlined) text, never into a bubble of its own.
 2. **One gesture, one meaning.** Hold space = talk, release = insert, slide up = discard.
    Microphone pill = hands-free. Nothing else starts the microphone.
-3. **Privacy is visible.** While the microphone is on, a lock and "On-device" are on screen.
+3. **Dictation is not a place.** Speaking and typing take turns within one message, so
+   hands-free dictation happens on the keyboard, not on a screen of its own: the toolbar says
+   what the microphone is doing, every key keeps working.
+4. **Privacy is visible.** While the microphone is on, a lock and "On-device" are on screen,
+   whatever else the toolbar would be showing.
    Hands-free listening stops by itself after 10 s without speech. Nothing that was said is
    kept unless the user turned that on in *Settings → Voice input*. The app goes online only
    after a tap on a button that says what is fetched and from where (a speech model, in
    *Settings → Voice input*; a new version of the app, in *Settings → App update*); it never
    does so by itself.
-4. **Quiet surface, one accent.** Neutral keys; the primary colour only on things that act:
+5. **Quiet surface, one accent.** Neutral keys; the primary colour only on things that act:
    enter, the microphone, the waveform, the first candidate.
 
 ## Tokens
@@ -61,19 +65,19 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Key caps | on, shadow style | `ThemePrefs.keyBorder` default `true` |
 | Hints | top right, digits only | `ThemePrefs.punctuationPosition` default (`NumbersTopRight`) |
 | Toolbar height | 40 dp | `KawaiiBarComponent.HEIGHT` |
-| Waveform | 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall; redrawn at about 30 fps, not at the display's refresh rate (energy) | `WaveformView` |
-| Surface change | 140 ms fade | `VoiceInputComponent`, `InputWindowManager` |
+| Waveform | 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall; in the dictation strip as many bars as fit (none if fewer than five do), 4–22 dp tall; redrawn at about 30 fps, not at the display's refresh rate (energy) | `WaveformView` |
+| Surface change | 140 ms fade | `VoiceInputComponent` |
 
 ## Components and states
 
 | Component | Code | States |
 |---|---|---|
-| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field) |
+| Microphone pill (toolbar) | `VoicePillButton` in `IdleUi` | Speak / Refining… (high-accuracy model installed, while inserted text is being re-checked; tap = undo after push-to-talk, start dictation after hands-free) / Undo (8 s after push-to-talk inserted text, counted from the end of refinement) / hidden (password field) |
 | Space bar | `TextKeyboard` (label), `BaseKeyboard` (gesture) | label = microphone glyph + input method name; "Hold to talk" until push-to-talk was used 3 times (`VoiceHints`) |
 | Push-to-talk surface | `VoiceInputComponent` | listening, about to cancel, finishing |
-| Dictation panel | `VoiceInputWindow` | listening, finishing, paused, needs the speech model, needs permission; utility row in every state: keyboard, ， space 。 ？, ⌫, ↵ |
+| Dictation strip | `VoiceStripUi`, driven by `VoiceInputComponent` | Covers the whole toolbar (candidates included) for as long as it has something to say. Left to right: dot and status, waveform, lock + "On-device", pill, hide-keyboard button. Words only when there is something to say. Getting ready / listening: no status, the waveform says it; lock, *Stop* (filled, the stop glyph alone; a screen reader hears "Listening" and "Stop listening"). Finishing: status only. Off after silence (4 s): *Speak*. Error (4 s): status only, in the error colour, over the full width. Needs the speech model / microphone access (until a key is pressed): *Open settings* / *Allow* (filled). The lock and the waveform are shown exactly while the microphone is on |
 | Waveform | `WaveformView` | live (follows level; at rest, without animation, while nobody speaks and the room is quiet), idle (dots), cancel (flat, error colour) |
-| Status row | `VoiceStatusUi` | "Getting ready. Keep talking" / "Listening" / "Recognizing…" / "Refining…" / "Microphone off" / "Off after 10 s of silence" / an error naming its cause; always with lock + "On-device" |
+| Status row | `VoiceStatusUi` | The push-to-talk surface's top row and the left part of the dictation strip: "Getting ready. Keep talking" / "Listening" (push-to-talk only: the strip has no words while the microphone is on) / "Recognizing…" / "Off after 10 s of silence" / "Speech model needed" / "Microphone access needed" / an error naming its cause. Push-to-talk: always with lock + "On-device" |
 | Inline preview | `FcitxInputMethodService.setVoicePreview` | composing text, replaced by the final text |
 | Voice input settings | `VoiceSettingsFragment` | privacy statement, model list (standard: needed for voice input; high accuracy: optional), refinement switch (disabled until the large model is installed), recordings (switch, off by default; what is kept) |
 | Recordings row (settings) | `VoiceSamplesPreference`, state from `VoiceSamples` | nothing kept / N recordings and their size / storage limit reached / exporting / exported / export failed |
@@ -85,18 +89,30 @@ also looks right with the other built-in themes, Monet, and user themes.
 Behaviour rules that are easy to get wrong:
 
 - **A pause is not the end of a sentence.** An utterance is inserted when the speaker pauses
-  (0.7 s in the panel, 1.2 s while holding space), but without its closing full stop. If speech
+  (0.7 s hands-free, 1.2 s while holding space), but without its closing full stop. If speech
   resumes within 4 s, the sentence goes on: both parts are transcribed again as one and the text
   is rewritten in place, so the pause gets the punctuation the whole sentence calls for (often
   none). The full stop appears once 4 s pass without speech, or when dictation stops. Question
-  and exclamation marks are not held back. A key of the panel (punctuation, space, ⌫, ↵) ends
+  and exclamation marks are not held back. A key pressed while dictating (punctuation, a
+  digit, space, ⌫, ↵, moving the cursor with the space bar) ends
   the sentence where it stands, without a full stop: the user is punctuating by hand. Text that
   was edited meanwhile is never rewritten; only the new words are added. Nothing is decoded
   during the pause, and a sentence is extended up to 15 s of audio (`VoiceSentence`).
-- ↵ in the panel does what the keyboard's enter key does in that field: send, search, or a new
-  line.
-- A punctuation key or space tapped while an utterance is still underlined is inserted after
+- **Keys while dictating hands-free.** Everything that is not a letter does what it always
+  does and leaves the microphone on: punctuation, digits, symbols, space, ⌫, ↵, shift, the
+  symbol layout, cursor movement with the space bar. A letter means the user went over to
+  typing: the microphone turns off, what was said is written, and only then is the letter
+  typed (with the keys pressed after it, in order), so that pinyin and the preview never share
+  the text field. The same goes for whatever else starts a composition or leaves the keyboard:
+  switching the input method, quick phrase, another panel (emoji, clipboard, text editing).
+  Holding space does nothing while the microphone is on. (`VoiceKeys`, `VoiceInputComponent`)
+- Text typed while an utterance is still underlined is inserted after
   that utterance, once it is final: text can only be written at the cursor, where the preview is.
+  This is decided where text is committed (`VoiceInput.onCommit`), so it holds for every way of
+  typing, and what is typed while dictating counts as part of the dictated run: earlier
+  utterances can still be refined.
+- The strip covers the toolbar only for as long as it has something to say; any key dismisses
+  one that is not showing a live microphone, so that candidates are never hidden.
 - The preview never ends in punctuation: the model closes every intermediate result with a full
   stop, which would flicker. Punctuation appears with the final text.
 - If the user moves the cursor while a preview is showing, the editor keeps the preview as
@@ -108,7 +124,7 @@ Behaviour rules that are easy to get wrong:
   dictation itself rewrites (a sentence that goes on, a refinement) never counts as a cursor
   move.
 - If the microphone stops delivering audio, what was heard until then is written as usual and
-  the status row then says "Microphone unavailable"; the session never just disappears.
+  the status then says "Microphone unavailable"; the session never just disappears.
 - **Refinement** (high-accuracy model installed and switched on): the fast model's text is inserted immediately; the large
   model's transcript of the same audio is merged into it (`VoiceText.refine`: its words, the fast
   model's punctuation, digits and casing) and written over the inserted text. It only ever
@@ -119,15 +135,17 @@ Behaviour rules that are easy to get wrong:
 - Releasing space always ends push-to-talk, wherever the finger is. Above the cancel line
   (one key height above the space bar) it discards.
 - ⌫ deletes exactly one character, everywhere. Removing a whole utterance is only ever done by
-  an explicit Undo (a first version made ⌫ do it in the panel; users read that as a bug).
+  an explicit Undo (a first version made ⌫ do it while dictating; users read that as a bug).
+- Undo is offered after push-to-talk only. After hands-free dictation the pill is how one goes
+  on speaking; a tap there must never remove text.
 - Haptics: tick on start, tick on insert, double tick on cancel — through `InputFeedbacks`, so the
   user's haptic settings apply.
 - **No speech model yet** (a fresh install, or the standard model was deleted): the microphone
   pill, the space bar's glyph and "Hold to talk" are shown as usual, so that voice input can be
-  found. Both gestures open the dictation panel, which shows the "Speech model needed" card
+  found. Both gestures show the dictation strip, which says "Speech model needed"
   instead of listening; its button opens *Settings → Voice input*. The keyboard never starts a
-  download itself. When the panel becomes visible again and the model is installed, it starts
-  listening.
+  download itself. When the keyboard is shown again with the strip still up, listening starts
+  if the model is installed by then (likewise for microphone access); otherwise the strip goes.
 - **Downloads**: only *Download* and *Resume* in the model row start one; *Download* asks first
   and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
   process all keep what has arrived. A model is used only once every file matched its pinned

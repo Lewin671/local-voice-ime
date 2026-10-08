@@ -6,10 +6,11 @@
 ┌──────────────────────────── FcitxInputMethodService (upstream) ───────────────────────────┐
 │                                                                                            │
 │  InputView                                                                                 │
-│   ├─ KawaiiBar (toolbar)  ── mic button ──────────────┐                                    │
+│   ├─ KawaiiBar (toolbar)  ── mic pill ────────────────┐                                    │
 │   ├─ InputWindowManager                               ▼                                    │
-│   │    ├─ KeyboardWindow ── hold space ──► VoiceInputComponent  (push-to-talk overlay)     │
-│   │    └─ VoiceInputWindow  (hands-free dictation, replaces the keyboard)                  │
+│   │    └─ KeyboardWindow ── hold space ──► VoiceInputComponent                             │
+│   │                      ── every key ──►   push-to-talk: overlay on the keyboard          │
+│   │                                         hands-free: strip over the toolbar             │
 │   └─ …                                                │                                    │
 │                                                       ▼                                    │
 │                                   VoiceInput.start()  ── commits finals to the editor      │
@@ -36,7 +37,7 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceCapture` | Lossless reader loop and one-time source teardown before queued recognition finishes. Preserves the last completed read when stopping. Pure Kotlin, unit-tested. |
 | `VoiceModelLoad` | Worker-side demand check for queued model loads. Withdrawn speculation never suppresses independently required recognition. Pure Kotlin, unit-tested. |
 | `VoiceText` | Pure-Kotlin post-processing of recognizer output (spacing between CJK and Latin text, punctuation width, joining segments). Unit-tested. |
-| `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. |
+| `VoiceInput` | Glue: permission check, picks the audio source, guarantees a single live session, writes previews and final text into the editor, starts refinement. `onCommit()` sees every text the keyboard itself commits while a session runs: it is kept back while an utterance is previewed (committing would replace the preview), and counted as part of the dictated run otherwise. |
 | `VoiceEdits` | Bookkeeping of what dictation wrote, so that undo and refinement only ever change text that is still exactly as dictated. Pure Kotlin, unit-tested. |
 | `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded. Freed after 3 idle minutes, or after up to 10 on a device with memory to spare. |
 | `VoiceModelResidency` | Decides how long the unused large model stays in memory, from the idle time and what the system reports as available. Pure Kotlin, unit-tested. |
@@ -54,8 +55,9 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceRuntimeOptions` | Fixed ONNX worker-waiting options for background refinement, published atomically in private storage. Fallback to default CPU scheduling preserves recognition when storage is unavailable. Pure Kotlin, unit-tested. |
 | `VoiceRefinementWork` | Worker-side eligibility checks before loading and decoding. Only permanently retired entries skip native work; valid text keeps the same refinement. Pure Kotlin, unit-tested. |
 | `VoicePower` | Whether the device asks for less energy use (Battery Saver, thermal throttling). |
-| `VoiceInputWindow` | Hands-free dictation panel: an `InputWindow` that replaces the keyboard. |
-| `VoiceInputComponent` | Push-to-talk surface: an overlay covering the keyboard while the space bar is held. Also the entry point other components use (`showWindow()`, `startPushToTalk()`). |
+| `VoiceInputComponent` | Both ways of dictating, and the entry point other components use (`startDictation()`, `startPushToTalk()`, `onKeyAction()`). Push-to-talk: an overlay covering the keyboard while the space bar is held. Hands-free: the keyboard stays and keeps working; a strip covers the toolbar while the microphone is on or there is something to say about it. Every key of the keyboard passes `onKeyAction()` first: a letter pressed while dictating hands-free ends dictation and is held back, with the keys after it, until the last words are written. |
+| `VoiceKeys` | Which keys leave the microphone on while dictating hands-free, which also end the sentence, and which mean the user went over to typing. Pure Kotlin, unit-tested. |
+| `VoiceStripUi` | The dictation strip: status, waveform, lock, one pill (Stop, Speak, or the fix for what is missing), hide-keyboard button. |
 | `WaveformView`, `VoiceStatusUi`, `VoicePillButton`, `VoicePalette` | UI building blocks; their look is specified in `docs/design/`. |
 | `VoiceDiagnostics` | Off unless switched on: a journal of how dictation sessions went, to explain one that ended unexpectedly (`docs/DIAGNOSTICS.md`). Events are taken only while a session runs and written on a thread of its own; the only way out of the phone is the user's export. |
 | `VoiceDiagnosticStore` | The two rotating files of that journal (1 MB) and the encoding of an event, which admits numbers, truth values and short tokens only. No Android classes, unit-tested. |
@@ -165,8 +167,8 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models and kept recordings are excluded from backups |
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
-| `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope and its overlay to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `handleReturnKey()` made public for the dictation panel |
+| `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope, its overlay and its strip to the layout |
+| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `VoiceInput.onCommit()` at the top of `commitText` (does nothing unless a session runs) |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
 | `input/keyboard/BaseKeyboard.kt` | space bar emits `SpaceHoldMoveAction` / `SpaceReleaseAction` |
@@ -174,7 +176,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
 | `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` and `keepDiagnostics` switches |
-| `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent` |
+| `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent`; ask its `onKeyAction()` before handling any key |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |
 | `app/src/main/java/.../utils/Const.kt` | repository and privacy policy URLs |
@@ -192,7 +194,7 @@ mechanism (it is read directly from the APK), so it lives in a separate asset so
 `voice/assets/`, and is stored uncompressed. It is the only model in the APK.
 
 The speech models are downloads: the standard one (SenseVoice Small, 240 MB), without which
-voice input shows how to get it instead of listening (`VoiceInputWindow`), and the optional
+voice input shows how to get it instead of listening (`VoiceInputComponent`), and the optional
 large one. Downloaded models live in the app's private storage, `files/voice-models/<model id>/`. A file
 named `installed` is written last, so a directory that has it holds every file complete and
 verified; anything else in there is an unfinished download (`*.part`) that the next attempt

@@ -21,7 +21,7 @@ local-voice-ime-recordings-20261004.zip
 An audio file is one **utterance**: the stretch of speech between two pauses, exactly the
 samples the recognizer was given (the voice activity detector's segment plus a short margin).
 Its name is `<session>-<number>`; a **session** is one use of dictation, from holding the space
-bar or opening the dictation panel until it ends, and its name is its starting time on the
+bar or tapping the microphone pill until it ends, and its name is its starting time on the
 phone's clock.
 
 ## Records
@@ -45,7 +45,7 @@ about the same session its `session`; later lines add to earlier ones and never 
   English in capitals, numbers spelled out. It is missing when the model is not installed or
   the text had been changed before it finished.
 - **`field`** is the nearest thing to a correct transcript. `dictated` is everything the session
-  wrote, as dictation left it (refinements applied; punctuation typed in the dictation panel
+  wrote, as dictation left it (refinements applied; punctuation typed while dictating
   included). `text` is what stood in its place when the field was read back: equal to `dictated`
   if the user left it alone, different if they corrected it. A session can have several, as the
   user goes on editing; the last one counts. There is none if the text could not be found any

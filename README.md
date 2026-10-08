@@ -14,7 +14,8 @@ with spell check, clipboard history, symbol/emoji pickers and themes — all inh
 
 - **Hold the space bar to talk**, release to insert the text; slide up to cancel.
 - **Hands-free dictation**: tap the microphone in the toolbar and keep talking; each sentence is
-  inserted when you pause.
+  inserted when you pause. The keyboard stays where it is, so punctuation, delete and enter are
+  one tap away, and typing a letter turns the microphone off.
 - What you say appears in the text field as you say it.
 - The microphone turns itself off after 10 seconds of silence; a lock and "On-device" are on
   screen whenever it is on.

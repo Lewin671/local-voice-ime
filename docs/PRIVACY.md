@@ -6,8 +6,9 @@ leave your phone, unless you copy them off it yourself.
 - **Voice input.** Audio from the microphone is processed entirely on your device by a speech
   model stored on it. Audio is kept in memory only while an utterance is being recognized;
   it is never sent anywhere, and never written to storage unless you turned on *Keep what I
-  dictate* (next point). The microphone is only used while you hold the space bar or while the
-  voice input panel is open and listening.
+  dictate* (next point). The microphone is only used while you hold the space bar, or from a
+  tap on the microphone button until dictation stops; for all that time the keyboard shows a
+  lock and "On-device".
 - **Recordings, if you choose to keep them.** *Settings → Voice input → Keep what I dictate* is
   off unless you turn it on, and asks before it does. It exists so that you can fine-tune a
   speech model on your own voice and vocabulary, on a computer of yours. While it is on, the app

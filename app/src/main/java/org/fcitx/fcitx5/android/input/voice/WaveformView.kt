@@ -4,6 +4,7 @@
  */
 package org.fcitx.fcitx5.android.input.voice
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -19,9 +20,12 @@ import kotlin.math.sin
 /**
  * The one moving element of the voice UI: a row of bars that follows the microphone level.
  *
- * Spec (`docs/design/DESIGN.md`): 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall.
+ * Spec (`docs/design/DESIGN.md`): 27 bars, 3 dp wide, 3 dp gap, 4–56 dp tall. Where there is
+ * less room (the dictation strip), as many bars as fit, and none if these would be too few to
+ * read as a waveform.
  */
-class WaveformView(context: Context) : View(context) {
+@SuppressLint("ViewConstructor")
+class WaveformView(context: Context, maxBarHeightDp: Int = 56) : View(context) {
 
     enum class Mode {
         /** Bars follow [level]. */
@@ -39,7 +43,7 @@ class WaveformView(context: Context) : View(context) {
     private val barWidth = dp(3).toFloat()
     private val barGap = dp(3).toFloat()
     private val minHeight = dp(4).toFloat()
-    private val maxHeight = dp(56).toFloat()
+    private val maxHeight = dp(maxBarHeightDp).toFloat()
 
     var mode = Mode.Idle
         set(value) {
@@ -92,9 +96,18 @@ class WaveformView(context: Context) : View(context) {
     private var lastFrame = 0L
 
     // bell-shaped envelope, so that the row is tallest in the middle
-    private val envelope = FloatArray(BARS) { i ->
-        val x = (i - (BARS - 1) / 2f) / (BARS / 2f)
+    private fun envelopeOf(bars: Int) = FloatArray(bars) { i ->
+        val x = (i - (bars - 1) / 2f) / (bars / 2f)
         exp(-2.2f * x * x)
+    }
+
+    private var envelope = envelopeOf(BARS)
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val fit = ((w - paddingLeft - paddingRight + barGap) / (barWidth + barGap)).toInt()
+        val bars = if (fit < MIN_BARS) 0 else minOf(BARS, fit)
+        if (bars != envelope.size) envelope = envelopeOf(bars)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -116,11 +129,12 @@ class WaveformView(context: Context) : View(context) {
         }
 
         val available = minOf(maxHeight, (height - paddingTop - paddingBottom).toFloat())
-        val total = BARS * barWidth + (BARS - 1) * barGap
+        val bars = envelope.size
+        val total = bars * barWidth + (bars - 1) * barGap
         var x = (width - total) / 2f
         val centerY = paddingTop + (height - paddingTop - paddingBottom) / 2f
         val t = now / 1000.0
-        for (i in 0 until BARS) {
+        for (i in 0 until bars) {
             // each bar wobbles at its own pace, so the row never looks like a single shape
             val wobble = 0.65f + 0.35f * abs(sin(t * (5.0 + i % 5) + i * PI / 3.0)).toFloat()
             val h = minHeight + (available - minHeight) * shown * envelope[i] * wobble
@@ -135,6 +149,8 @@ class WaveformView(context: Context) : View(context) {
 
     companion object {
         private const val BARS = 27
+
+        private const val MIN_BARS = 5
 
         // just under two frames at 60 Hz (three at 90 Hz, four at 120 Hz)
         private const val FRAME_INTERVAL_MS = 30L

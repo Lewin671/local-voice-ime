@@ -79,6 +79,17 @@ dump() {
 field() { dump; ui text "$work/ui.xml" test-input; }
 tap() { dump; adb shell input tap $(ui center "$work/ui.xml" "$1"); }
 # the sample recording is shorter than some waits: the session may already have ended by itself
+# tap the first of the named nodes that is on screen (a key reads differently per input method)
+tap_any() {
+    dump
+    for name in "$@"; do
+        if ui center "$work/ui.xml" "$name" >/dev/null 2>&1; then
+            adb shell input tap $(ui center "$work/ui.xml" "$name")
+            return
+        fi
+    done
+    echo "none of '$*' is on screen" >&2
+}
 tap_if_present() { dump; ui center "$work/ui.xml" "$1" >/dev/null 2>&1 && adb shell input tap $(ui center "$work/ui.xml" "$1"); }
 use_wav() { adb push voice/test-wavs/zh.wav "$remote_wav" >/dev/null 2>&1; }
 use_microphone() { adb shell rm -f "$remote_wav"; }
@@ -260,7 +271,29 @@ if $hq; then
     use_wav
 fi
 
-# ---- dictation panel
+# ---- hands-free dictation: the keyboard stays, its toolbar becomes the dictation strip
+use_long_wav
+open_keyboard
+tap "Voice input"
+sleep 2
+dump
+expect "the pill starts dictation in the toolbar, with Stop where it was" \
+    'ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1' "no 'Stop listening' button"
+expect "the strip says where the audio goes while the microphone is on" \
+    'ui has-text "$work/ui.xml" "On-device"' "no 'On-device' in the strip"
+expect "the keyboard stays while dictating hands-free" \
+    'ui center "$work/ui.xml" button_space >/dev/null 2>&1' "the space bar is gone"
+tap_if_present "Stop listening"
+sleep 4
+settle
+dump
+expect "Stop turns the microphone off and gives the toolbar back" \
+    '! ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1 &&
+     ui center "$work/ui.xml" "Voice input" >/dev/null 2>&1' "the strip is still up"
+text=$(field)
+expect "what was said until Stop is written" '[[ -n $text ]]' "the field is empty"
+
+use_wav
 open_keyboard
 tap "Voice input"
 sleep 9
@@ -268,13 +301,50 @@ tap_if_present "Stop listening"
 sleep 3
 settle
 text=$(field)
-expect "the panel inserts the utterance" 'is_sentence "$text"' "field: '$text'"
+expect "hands-free dictation inserts the utterance" 'is_sentence "$text"' "field: '$text'"
 sentence=$text
-tap "Backspace"
+tap button_backspace
 sleep 1
 text=$(field)
-expect "backspace in the panel deletes exactly one character" \
+expect "backspace after dictating deletes exactly one character" \
     '[[ $text == "${sentence%?}" ]]' "field: '$text'"
+
+# a punctuation key while an utterance is still underlined: the microphone stays on, and the
+# comma is written after the utterance, without a full stop before it
+use_long_wav
+open_keyboard
+adb logcat -c
+tap "Voice input"
+wait_log "updateComposingText: '"
+tap_any "，" ","
+sleep 1
+dump
+expect "a punctuation key leaves the microphone on" \
+    'ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1' "dictation stopped"
+wait_log "Voice dictation over" 40
+sleep 2
+settle
+text=$(field)
+expect "punctuation typed mid-utterance is written after the utterance, in place of its full stop" \
+    '[[ ${#text} -gt 10 && ( $text == *[!。]， || $text == *[!。], ) ]]' "field: '$text'"
+
+# a letter while dictating: typing takes over. The microphone goes off, what was said is written
+# first, and only then is the letter typed
+open_keyboard
+adb logcat -c
+tap "Voice input"
+wait_log "updateComposingText: '"
+tap q
+wait_log "Voice dictation over: timed out=false, failed=false, typing=true" 20
+sleep 2
+settle
+text=$(field)
+dump
+expect "a letter turns the microphone off" \
+    '! ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1' "still listening"
+expect "what was said is written before the letter that ended dictation" \
+    '[[ ${#text} -gt 3 && $text == *[!q]q ]]' "field: '$text'"
+use_wav
 
 # an app that restarts input while the space bar is held must not end dictation: the preview it
 # turns into ordinary text is taken back and what is said goes on being written, once
@@ -345,7 +415,7 @@ with wave.open(sys.argv[1], "wb") as w:
     w.writeframes((clip * 4).tobytes())
 PYWAV
 adb push "$work/cursor.wav" "$remote_wav" >/dev/null
-tap "Start listening"
+tap "Voice input"
 sleep 2
 before_move=$(field)
 preview=${before_move#"$refined"}; preview=${preview#"$fast_alt"}
@@ -355,7 +425,7 @@ adb shell input tap 20 100          # cursor to the very beginning of the field
 sleep 5
 dump
 expect "cursor movement stops dictation before checking late writes" \
-    'ui center "$work/ui.xml" "Start listening" >/dev/null 2>&1' "still listening"
+    '! ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1' "still listening"
 # Selection notifications cross the editor/IME boundary asynchronously. A preview may advance
 # between the earlier UI snapshot and the tap. Compare after stopping, then wait for late work.
 stopped_text=$(field)
@@ -368,18 +438,26 @@ expect "moving the cursor mid-utterance: the preview stays once, dictation stops
 use_wav
 dump
 expect "moving the cursor mid-utterance turns the microphone off" \
-    'ui center "$work/ui.xml" "Start listening" >/dev/null 2>&1' "still listening"
+    '! ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1 &&
+     ui center "$work/ui.xml" "Voice input" >/dev/null 2>&1' "still listening"
 
 # silence: the microphone goes off by itself and says why
 use_microphone
 open_keyboard
+adb logcat -c
 tap "Voice input"
-sleep 16
+# the strip says why for a few seconds only: read the screen as soon as the microphone is off
+wait_log "Voice dictation over: timed out=true" 25
 dump
 expect "10 s of silence turn the microphone off, with the reason shown" \
     'ui has-text "$work/ui.xml" "Off after 10 s of silence"' "status text not found"
 text=$(field)
 expect "silence inserts nothing" '[[ -z $text ]]' "field: '$text'"
+sleep 5
+dump
+expect "the toolbar is back a few seconds later, the pill ready for the next time" \
+    '! ui has-text "$work/ui.xml" "Off after 10 s of silence" &&
+     ui center "$work/ui.xml" "Voice input" >/dev/null 2>&1' "the strip is still up"
 
 # after three uses of push-to-talk the space bar shows the input method again
 # (push-to-talk has been used more than three times by now)

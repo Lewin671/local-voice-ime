@@ -21,7 +21,7 @@ import org.fcitx.fcitx5.android.input.FcitxInputMethodService
 import timber.log.Timber
 
 /**
- * Entry points shared by the voice UIs (hands-free [VoiceInputWindow] and push-to-talk
+ * Entry points shared by the voice UIs (hands-free dictation and push-to-talk, both in
  * [VoiceInputComponent]), and the only place that writes dictated text into the editor.
  * At most one [VoiceSession] is alive at any time.
  */
@@ -74,6 +74,9 @@ object VoiceInput {
     private var edits: VoiceEdits? = null
     private var editsService: FcitxInputMethodService? = null
 
+    /** Set while dictation itself commits text, as opposed to a key, see [onCommit]. */
+    private var writing = false
+
     private fun editsFor(service: FcitxInputMethodService): VoiceEdits {
         edits?.takeIf { editsService === service }?.let { return it }
         return VoiceEdits(object : VoiceEdits.Editor {
@@ -87,7 +90,14 @@ object VoiceInput {
 
             override fun deleteBeforeCursor(n: Int) = service.deleteBeforeCursor(n)
 
-            override fun insert(text: String) = service.commitText(text)
+            override fun insert(text: String) {
+                writing = true
+                try {
+                    service.commitText(text)
+                } finally {
+                    writing = false
+                }
+            }
         }).also {
             edits = it
             editsService = service
@@ -106,7 +116,7 @@ object VoiceInput {
     private var lastFinal = ""
 
     /**
-     * Something other than dictation changed the text (a key of the dictation panel): what is
+     * Something other than dictation changed the text (a key pressed while dictating): what is
      * said next is a new utterance, and the last one gets no full stop.
      */
     fun closeSentence() {
@@ -162,7 +172,7 @@ object VoiceInput {
         VoiceSamples.field(session, dictated, found)
     }
 
-    /** Typed in the dictation panel while an utterance was being previewed, see [type]. */
+    /** Typed while an utterance was being previewed, see [onCommit]. */
     private val typedAhead = StringBuilder()
 
     private fun insertTypedAhead(service: FcitxInputMethodService) {
@@ -540,15 +550,20 @@ object VoiceInput {
         }
 
     /**
-     * Text typed from the dictation panel (punctuation, space). While an utterance is being
-     * previewed it waits until that is final: inserting it now would replace the preview.
+     * The keyboard is about to commit [text] that was typed by hand (punctuation, a digit,
+     * space). While dictation previews an utterance it waits until that is final: committing it
+     * now would replace the preview. Otherwise it ends the sentence where it stands and is
+     * remembered as part of what the session wrote.
+     * @return true if the text is kept back, to be written after the utterance
      */
-    fun type(service: FcitxInputMethodService, text: String) {
-        if (current != null && service.hasComposingText) {
+    fun onCommit(service: FcitxInputMethodService, text: String): Boolean {
+        if (writing || current == null) return false
+        if (service.hasComposingText) {
             typedAhead.append(text)
-            return
+            return true
         }
         closeSentence()
-        editsFor(service).insertTyped(text)
+        editsFor(service).typed(text)
+        return false
     }
 }

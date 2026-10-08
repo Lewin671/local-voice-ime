@@ -43,7 +43,7 @@ class VoiceTextTest {
         assertEquals("", VoiceText.joiner("Hello", "你好"))
         assertEquals("", VoiceText.joiner("", "Hello"))
         assertEquals("", VoiceText.joiner(null, "Hello"))
-        // a space typed from the dictation panel is not doubled
+        // a space typed while dictating is not doubled
         assertEquals("", VoiceText.joiner("word ", "next"))
     }
 

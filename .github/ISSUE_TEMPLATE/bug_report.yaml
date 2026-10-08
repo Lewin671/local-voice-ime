@@ -27,7 +27,7 @@ body:
       label: Area
       options:
         - Voice dictation (hold space)
-        - Voice dictation (hands-free panel)
+        - Voice dictation (hands-free)
         - Recognition accuracy
         - Typing (pinyin / English)
         - Appearance

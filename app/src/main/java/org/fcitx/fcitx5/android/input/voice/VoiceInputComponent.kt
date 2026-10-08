@@ -4,6 +4,7 @@
  */
 package org.fcitx.fcitx5.android.input.voice
 
+import android.annotation.SuppressLint
 import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -16,6 +17,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.StringRes
 import androidx.core.widget.TextViewCompat
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.CapabilityFlag
@@ -30,16 +32,27 @@ import org.fcitx.fcitx5.android.input.dependency.context
 import org.fcitx.fcitx5.android.input.dependency.inputMethodService
 import org.fcitx.fcitx5.android.input.dependency.inputView
 import org.fcitx.fcitx5.android.input.dependency.theme
-import org.fcitx.fcitx5.android.input.wm.InputWindowManager
+import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
+import org.fcitx.fcitx5.android.input.keyboard.KeyAction
+import org.fcitx.fcitx5.android.input.keyboard.KeyActionListener
+import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
+import org.fcitx.fcitx5.android.input.wm.InputWindow
+import org.fcitx.fcitx5.android.utils.AppUtil
 import org.mechdancer.dependency.manager.must
 import splitties.dimensions.dp
+import timber.log.Timber
 
 /**
- * Push-to-talk dictation: hold the space bar to speak, release to insert, slide up to cancel.
+ * Both ways of dictating, and the entry point other components use.
  *
- * The keyboard must stay in place while the key is held (otherwise the touch gesture would be
- * cancelled), so the listening surface is a non-interactive overlay [view] that covers the
- * keyboard. See "Hold space" in `docs/design/mockup.html`.
+ * Push-to-talk: hold the space bar to speak, release to insert, slide up to cancel. The keyboard
+ * must stay in place while the key is held (otherwise the touch gesture would be cancelled), so
+ * the listening surface is a non-interactive overlay [view] that covers the keyboard. See "Hold
+ * space" in `docs/design/mockup.html`.
+ *
+ * Hands-free: tap the microphone pill. The keyboard stays as it is and keeps working; the
+ * [strip] takes the toolbar's place for as long as it has something to say. See "Hands-free
+ * dictation" there, and "Keys while dictating hands-free" in `docs/design/DESIGN.md`.
  */
 class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout>(),
     InputBroadcastReceiver {
@@ -48,7 +61,8 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
     private val theme by manager.theme()
     private val service by manager.inputMethodService()
     private val inputView by manager.inputView()
-    private val windowManager: InputWindowManager by manager.must()
+    private val keyActions: CommonKeyActionListener by manager.must()
+    private val toolbar: KawaiiBarComponent by manager.must()
 
     private val disableAnimation by AppPrefs.getInstance().advanced.disableAnimation
 
@@ -72,6 +86,10 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         isPasswordField = capFlags.has(CapabilityFlag.Password)
         // an undo offer does not carry over to another text field
         endUndoOffer()
+        // back from the settings or the permission dialog
+        if (need != null) {
+            if (isAvailable && missing() == null) startDictation() else dismissStrip()
+        }
         if (isAvailable && VoiceEngine.isAvailable(context)) VoiceInput.warmUp(service)
     }
 
@@ -211,6 +229,31 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         heldKey.requestLayout()
     }
 
+    private fun fadeIn(v: View) {
+        v.animate().cancel()
+        if (v.visibility == View.VISIBLE) {
+            v.alpha = 1f
+            return
+        }
+        v.visibility = View.VISIBLE
+        if (disableAnimation) {
+            v.alpha = 1f
+        } else {
+            v.alpha = 0f
+            v.animate().alpha(1f).setDuration(FADE_MS).start()
+        }
+    }
+
+    private fun fadeOut(v: View) {
+        v.animate().cancel()
+        if (disableAnimation || v.visibility != View.VISIBLE) {
+            v.visibility = View.GONE
+        } else {
+            v.animate().alpha(0f).setDuration(FADE_MS)
+                .withEndAction { v.visibility = View.GONE }.start()
+        }
+    }
+
     private fun show() {
         view.removeCallbacks(hideSurface)
         cancelling = false
@@ -218,25 +261,10 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         waveform.level = 0f
         render()
         alignToSpaceBar()
-        view.animate().cancel()
-        view.visibility = View.VISIBLE
-        if (disableAnimation) {
-            view.alpha = 1f
-        } else {
-            view.alpha = 0f
-            view.animate().alpha(1f).setDuration(FADE_MS).start()
-        }
+        fadeIn(view)
     }
 
-    private fun hide() {
-        view.animate().cancel()
-        if (disableAnimation) {
-            view.visibility = View.GONE
-        } else {
-            view.animate().alpha(0f).setDuration(FADE_MS)
-                .withEndAction { view.visibility = View.GONE }.start()
-        }
-    }
+    private fun hide() = fadeOut(view)
 
     private val listener = object : VoiceSession.Listener {
         override fun onState(state: VoiceSession.State) {
@@ -277,18 +305,20 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
 
     /**
      * Whether dictation can be offered for the current editor; never on password fields. It is
-     * offered before the speech model has been downloaded, too: the panel then says how to get it.
+     * offered before the speech model has been downloaded, too: the strip then says how to get it.
      */
     val isAvailable get() = !isPasswordField
 
     /** Space bar is being held. */
     fun startPushToTalk() {
-        if (!isAvailable || session != null) return
-        if (!VoiceEngine.isAvailable(context) || !VoiceInput.hasPermission(context)) {
-            // the panel says what is missing (the speech model, microphone access) and offers the fix
-            showWindow()
+        // not while the microphone is on already
+        if (!isAvailable || session != null || dictation != null) return
+        missing()?.let {
+            // the strip says what is missing (the speech model, microphone access) and offers the fix
+            showNeed(it)
             return
         }
+        dismissStrip()
         endUndoOffer()
         VoiceHints.onPushToTalkUsed(context)
         show()
@@ -315,7 +345,7 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
     }
 
     /**
-     * The toolbar's microphone pill. It normally opens the dictation panel; for a few seconds
+     * The toolbar's microphone pill. It normally starts hands-free dictation; for a few seconds
      * after push-to-talk inserted text, it offers to undo that instead.
      */
     fun bindPill(pill: VoicePillButton) {
@@ -323,16 +353,17 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         VoiceInput.refiningListeners["toolbar"] = {
             // refinement finished: the undo offer starts counting now
             if (pill.mode == VoicePillButton.Mode.Refining && !VoiceInput.isRefining) {
-                if (VoiceInput.canUndoLastSession) offerUndo() else endUndoOffer()
+                if (pill.undoes && VoiceInput.canUndoLastSession) offerUndo() else endUndoOffer()
             }
         }
         pill.setOnClickListener {
-            if (pill.mode != VoicePillButton.Mode.Speak) {
-                InputFeedbacks.hapticFeedback(pill)
-                VoiceInput.undoLastSession(service)
-                endUndoOffer()
-            } else {
-                showWindow()
+            when {
+                pill.mode != VoicePillButton.Mode.Speak && pill.undoes -> {
+                    InputFeedbacks.hapticFeedback(pill)
+                    VoiceInput.undoLastSession(service)
+                    endUndoOffer()
+                }
+                else -> startDictation()
             }
         }
     }
@@ -341,15 +372,22 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
     private fun showAfterSession() {
         if (!VoiceInput.canUndoLastSession) return
         if (VoiceInput.isRefining) {
-            pill?.removeCallbacks(endUndo)
-            pill?.mode = VoicePillButton.Mode.Refining
+            showRefining(undoes = true)
         } else {
             offerUndo()
         }
     }
 
+    private fun showRefining(undoes: Boolean) {
+        val pill = pill ?: return
+        pill.removeCallbacks(endUndo)
+        pill.undoes = undoes
+        pill.mode = VoicePillButton.Mode.Refining
+    }
+
     private fun offerUndo() {
         val pill = pill ?: return
+        pill.undoes = true
         pill.mode = VoicePillButton.Mode.Undo
         pill.removeCallbacks(endUndo)
         pill.postDelayed(endUndo, UNDO_OFFER_MS)
@@ -360,14 +398,238 @@ class VoiceInputComponent : UniqueViewComponent<VoiceInputComponent, FrameLayout
         pill?.mode = VoicePillButton.Mode.Speak
     }
 
-    /** Open the hands-free dictation panel. */
-    fun showWindow() {
-        windowManager.attachWindow(VoiceInputWindow())
+    // ---- hands-free dictation --------------------------------------------------------------
+
+    private var dictation: VoiceSession? = null
+
+    private var dictationFailed = false
+
+    /** What dictation cannot start without, and the button that gets it. */
+    private enum class Need(
+        @StringRes val text: Int, val action: VoiceStripUi.Action, @StringRes val button: Int
+    ) {
+        Model(R.string.voice_model_needed_title, VoiceStripUi.Action.OpenSettings, R.string.voice_open_settings),
+        Permission(R.string.voice_permission_title, VoiceStripUi.Action.Allow, R.string.voice_allow)
+    }
+
+    /** What the strip is asking for at the moment, if anything. */
+    private var need: Need? = null
+
+    private fun missing() = when {
+        !VoiceEngine.isAvailable(context) -> Need.Model
+        !VoiceInput.hasPermission(context) -> Need.Permission
+        else -> null
+    }
+
+    private val stripUi by lazy { VoiceStripUi(context, theme, palette) }
+
+    /** Covers the toolbar, candidates included, while dictation is on or has something to say. */
+    val strip: View by lazy {
+        @SuppressLint("ViewConstructor")
+        object : FrameLayout(context) {
+            override fun onDetachedFromWindow() {
+                // e.g. the keyboard is built again for another theme: nobody would see the
+                // microphone being on
+                stopDictation("view_detached")
+                super.onDetachedFromWindow()
+            }
+        }.apply {
+            visibility = View.GONE
+            setBackgroundColor(palette.surface)
+            // nothing under it is to be touched through it
+            isClickable = true
+            addView(stripUi.root, FrameLayout.LayoutParams(-1, -1))
+            stripUi.pill.setOnClickListener {
+                when (stripUi.action) {
+                    VoiceStripUi.Action.Stop -> {
+                        InputFeedbacks.hapticFeedback(it)
+                        stopDictation("strip_button")
+                    }
+                    VoiceStripUi.Action.Speak -> startDictation()
+                    // the keyboard does not go online; the settings do, after saying what is fetched
+                    VoiceStripUi.Action.OpenSettings -> AppUtil.launchMainToVoiceInput(context)
+                    VoiceStripUi.Action.Allow -> VoiceInput.requestPermission(context)
+                    VoiceStripUi.Action.None -> {}
+                }
+            }
+            stripUi.hideButton.setOnClickListener { service.requestHideSelf(0) }
+        }
+    }
+
+    private val dismiss = Runnable { dismissStrip() }
+
+    /** Take the strip away, unless the microphone is on: then it stays until that is over. */
+    private fun dismissStrip() {
+        if (dictation != null) return
+        need = null
+        // asked on every key press
+        if (strip.visibility != View.VISIBLE) return
+        strip.removeCallbacks(dismiss)
+        fadeOut(strip)
+        toolbar.view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+    }
+
+    private fun showStrip() {
+        strip.removeCallbacks(dismiss)
+        fadeIn(strip)
+        // what the strip covers is not there for a screen reader either
+        toolbar.view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+    }
+
+    private fun showNeed(need: Need) {
+        this.need = need
+        stripUi.needs(need.text, need.action, need.button)
+        showStrip()
+    }
+
+    private val dictationListener = object : VoiceSession.Listener {
+        override fun onState(state: VoiceSession.State) {
+            when (state) {
+                VoiceSession.State.Preparing,
+                VoiceSession.State.Listening -> stripUi.listening()
+                VoiceSession.State.Finishing -> stripUi.finishing()
+                VoiceSession.State.Stopped -> {
+                    val timedOut = dictation?.endedByIdleTimeout == true
+                    dictation = null
+                    val typing = heldKeys.isNotEmpty()
+                    Timber.d("Voice dictation over: timed out=$timedOut, failed=$dictationFailed, typing=$typing")
+                    releaseKeys()
+                    when {
+                        // typing has the toolbar now
+                        typing -> dismissStrip()
+                        // an error stays long enough to be read
+                        dictationFailed -> strip.postDelayed(dismiss, NOTICE_VISIBLE_MS)
+                        // say why the microphone went off by itself
+                        timedOut -> {
+                            stripUi.off(R.string.voice_off_after_silence)
+                            strip.postDelayed(dismiss, NOTICE_VISIBLE_MS)
+                        }
+                        else -> dismissStrip()
+                    }
+                    // refinement can outlast listening; the pill says so until it is done
+                    if (VoiceInput.isRefining) showRefining(undoes = false)
+                }
+            }
+        }
+
+        override fun onFinal(text: String, samples: FloatArray, continues: Boolean) {
+            InputFeedbacks.hapticFeedback(strip)
+        }
+
+        override fun onLevel(level: Float) {
+            stripUi.waveform.level = level
+        }
+
+        override fun onError(e: Throwable) {
+            dictationFailed = true
+            stripUi.error(e)
+        }
+    }
+
+    /** The microphone pill was tapped: listen until told otherwise, the keyboard stays. */
+    fun startDictation() {
+        if (!isAvailable || dictation != null || session != null) return
+        endUndoOffer()
+        missing()?.let {
+            showNeed(it)
+            return
+        }
+        need = null
+        dictationFailed = false
+        heldKeys.clear()
+        InputFeedbacks.hapticFeedback(strip)
+        stripUi.listening()
+        showStrip()
+        dictation = VoiceInput.start(
+            service,
+            VoiceInput.SILENCE_HANDS_FREE,
+            VoiceInput.HANDS_FREE_IDLE_TIMEOUT_MS,
+            dictationListener
+        )
+    }
+
+    /** Turn the microphone off; what has been said is still transcribed and inserted. */
+    private fun stopDictation(reason: String) {
+        dictation?.stop(reason = reason)
+    }
+
+    // Keys pressed after the one that ended dictation, until its last words are written.
+    private val heldKeys = ArrayDeque<Pair<KeyAction, KeyActionListener.Source>>()
+
+    private var replaying = false
+
+    private fun releaseKeys() {
+        replaying = true
+        try {
+            while (heldKeys.isNotEmpty()) {
+                val (action, source) = heldKeys.removeFirst()
+                keyActions.listener.onKeyAction(action, source)
+            }
+        } finally {
+            replaying = false
+        }
+    }
+
+    // null for the space bar's own gesture, which is push-to-talk's business
+    private fun effectOf(action: KeyAction) = when (action) {
+        is KeyAction.FcitxKeyAction -> VoiceKeys.ofText(action.act)
+        is KeyAction.SymAction -> VoiceKeys.ofSym(action.sym.sym)
+        is KeyAction.CommitAction,
+        is KeyAction.CapsAction,
+        is KeyAction.LayoutSwitchAction -> VoiceKeys.Effect.Keeps
+        is KeyAction.MoveSelectionAction,
+        is KeyAction.DeleteSelectionAction -> VoiceKeys.Effect.Edits
+        is KeyAction.SpaceLongPressAction,
+        is KeyAction.SpaceHoldMoveAction,
+        is KeyAction.SpaceReleaseAction -> null
+        // whatever else starts a composition or leaves the keyboard
+        else -> VoiceKeys.Effect.Types
+    }
+
+    /**
+     * A key of the keyboard was pressed. While dictating hands-free, a letter turns the
+     * microphone off, and is typed once what was said has been written: pinyin and the preview
+     * of an utterance cannot share the text field.
+     * @return true if the key is held back; it is passed on again later
+     */
+    fun onKeyAction(action: KeyAction, source: KeyActionListener.Source): Boolean {
+        if (replaying) return false
+        val effect = effectOf(action) ?: return false
+        if (dictation == null) {
+            // what typing shows in the toolbar must not be hidden by a strip that only says something
+            dismissStrip()
+            return false
+        }
+        if (heldKeys.isNotEmpty()) {
+            // behind the keys that are waiting already
+            heldKeys += action to source
+            return true
+        }
+        return when (effect) {
+            VoiceKeys.Effect.Keeps -> false
+            VoiceKeys.Effect.Edits -> {
+                VoiceInput.closeSentence()
+                false
+            }
+            VoiceKeys.Effect.Types -> {
+                stopDictation("typing")
+                heldKeys += action to source
+                true
+            }
+        }
+    }
+
+    override fun onWindowAttached(window: InputWindow) {
+        if (window is KeyboardWindow) return
+        // another panel has the toolbar: neither a live microphone nor a notice under its title
+        stopDictation("window")
+        dismissStrip()
     }
 
     companion object {
         const val FADE_MS = 140L
         const val ERROR_VISIBLE_MS = 2500L
+        const val NOTICE_VISIBLE_MS = 4000L
         const val UNDO_OFFER_MS = 8000L
     }
 }

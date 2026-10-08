@@ -122,17 +122,27 @@ for theme in light dark; do
     adb shell input motionevent UP "$sx" $((top - 2 * (bottom - top)))
     sleep 2
 
-    # hands-free panel: listening, then paused
+    # hands-free: the dictation strip while listening
     dump_ui
     adb shell input tap $(center "Voice input")
-    sleep 4
-    shot 4-panel-listening
-    # the test recording ends about now, and listening with it: only tap stop if it has not
-    sleep 4
+    # the test recording lasts under 6 s, and listening ends with it
+    sleep 2
+    shot 4-dictation-listening
+    # only tap stop if listening has not ended by itself
+    sleep 6
     dump_ui
     if stop=$(center "Stop listening" 2>/dev/null); then adb shell input tap $stop; fi
     sleep 3
-    shot 5-panel-paused
+
+    # the microphone, and nobody speaking: off after 10 s, and the strip says so for 4 s
+    # (needs a quiet room, or an emulator started with -no-audio)
+    adb shell rm -f "$remote_wav"
+    open_keyboard
+    adb shell input tap $(center "Voice input")
+    sleep 12
+    shot 5-dictation-off-after-silence
+    sleep 4
+    adb push voice/test-wavs/zh.wav "$remote_wav" >/dev/null 2>&1
 
     # without microphone access (revoking the permission restarts the app)
     adb shell pm revoke "$pkg" android.permission.RECORD_AUDIO
@@ -141,7 +151,7 @@ for theme in light dark; do
     open_keyboard
     adb shell input tap $(center "Voice input")
     sleep 2
-    shot 6-panel-permission
+    shot 6-dictation-permission
 
     # without the speech model, as after a fresh install (the app reads what is installed once
     # per process, hence the restart)
@@ -152,7 +162,7 @@ for theme in light dark; do
     open_keyboard
     adb shell input tap $(center "Voice input")
     sleep 2
-    shot 7-panel-model-needed
+    shot 7-dictation-model-needed
     dump_ui
     adb shell input tap $(center "Open settings")
     sleep 3

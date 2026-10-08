@@ -85,8 +85,11 @@ Reasons of a `stop_request`:
 | `reason` | Who |
 |---|---|
 | `release`, `release_cancel` | the space bar was released, below or above the cancel line (look for a `touch_cancel` right before it) |
-| `panel_button`, `panel_detached` | the dictation panel's microphone button, or the panel was closed |
-| `idle_timeout` | 10 s without speech in the dictation panel |
+| `strip_button` | *Stop* in the dictation strip |
+| `typing` | a letter (or another key that starts a composition) was pressed while dictating hands-free |
+| `window` | another panel of the keyboard was opened (emoji, clipboard, text editing) |
+| `view_detached` | the keyboard's view was replaced while dictating hands-free, e.g. for another theme |
+| `idle_timeout` | 10 s without speech while dictating hands-free |
 | `input_view_finish` | the keyboard was hidden |
 | `preview_lost` | the preview was taken away and could not be taken back; the `preview_lost` event before it says by what |
 | `replaced` | another session started |

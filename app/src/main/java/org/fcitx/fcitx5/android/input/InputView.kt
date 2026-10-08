@@ -277,6 +277,11 @@ class InputView(
             centerHorizontally()
             bottomOfParent()
         })
+        // the dictation strip takes the toolbar's place while it has something to say
+        add(voiceInput.strip, lParams(matchParent, dp(KawaiiBarComponent.HEIGHT)) {
+            topToTopOf(keyboardView)
+            centerHorizontally()
+        })
         add(popup.root, lParams(matchParent, matchParent) {
             centerVertically()
             centerHorizontally()
