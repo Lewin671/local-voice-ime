@@ -371,9 +371,15 @@ adb shell input motionevent UP "$sx" "$sy"
 sleep 3
 settle
 text=$(field)
-said=${text//时间早上/}
+# The sample is said three times and begins with 开 each time (开放 or 开饭, see above). Counting
+# a longer piece of it would miss a preview that was left behind before it got that long.
+said=${text//开/}
 expect "restarting input while space is held: everything is written, once" \
-    '[[ $(( (${#text} - ${#said}) / 4 )) -eq 3 && $text == *。 ]]' "field: '$text'"
+    '[[ $(( ${#text} - ${#said} )) -eq 3 && $text == *。 ]]' "field: '$text'"
+adb logcat -d >"$work/log.txt" 2>/dev/null
+expect "restarting input while space is held: the cursor stays where the keyboard expects it" \
+    '! grep -q "unable to consume\|handleCursorUpdate: focus out/in" "$work/log.txt"' \
+    "$(grep -c 'unable to consume' "$work/log.txt") unexpected cursor reports"
 
 # a pause in the middle of a sentence must not split it in two
 use_paused_wav

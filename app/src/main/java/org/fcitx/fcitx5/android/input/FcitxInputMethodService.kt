@@ -170,9 +170,11 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     fun deleteBeforeCursor(n: Int): Boolean {
         val ic = currentInputConnection ?: return false
         if (n <= 0) return true
-        if (!ic.deleteSurroundingText(n, 0)) return false
+        // Predicted before the request, like every other write: an editor in this app's own
+        // process reports the new cursor before the request returns, and a report that finds
+        // no prediction is taken for the user moving the cursor.
         selection.predictOffset(-n)
-        return true
+        return ic.deleteSurroundingText(n, 0)
     }
 
     private var cursorUpdateIndex: Int = 0

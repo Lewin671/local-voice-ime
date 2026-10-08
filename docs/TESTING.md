@@ -94,11 +94,14 @@ With `REFINER=1`, a scenario that depends on the large model waits until it has 
 took 34 s on a warm Pixel 3. After a long utterance the script lets the model finish before the
 next scenario starts.
 
-Known failure with `REFINER=1` on a Pixel 3 (v0.7.4 and v0.8.0 alike, four runs of four each):
-"restarting input while space is held: everything is written, once" leaves the first preview in
-the field a second time. The keyboard's idea of the cursor is off by the length of the preview
-that was taken back, and the next preview is then taken for a cursor move. Not yet explained;
-the test field lives in the keyboard's own process, which may be part of it.
+The test field (`TestInputActivity`) runs in the keyboard's own process. There the editor's
+reports of the cursor arrive before the request that caused them returns, which no other app
+does: a write to the editor must tell the cursor tracker what to expect before it is requested,
+not after. Up to v0.8.0 the deletion of a preview that is taken back did it afterwards, and the
+"restarting input while space is held" scenario left that preview in the field a second time,
+with or without the large model; its check counted a piece of the sentence the leftover did
+not always contain, so it passed or failed by the length of the first preview. With the test
+field in a process of its own the order was right and nothing was left behind (four runs).
 
 It reinstalls the debug build from scratch (its data is reset) and needs a microphone that
 delivers silence for the timeout scenario, e.g. an emulator started with `-no-audio`.
