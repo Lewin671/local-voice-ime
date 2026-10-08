@@ -5,6 +5,160 @@ SenseVoice recognition and the selected FireRedASR2 refinement are retained. Thi
 preview latency and storage overhead, not model weights, quantization, language detection,
 inverse text normalization, VAD thresholds, audio rate, endpointing, margins or text merging.
 
+## Follow-up: energy measured on a phone (2026-10-08)
+
+The first measurements of energy rather than CPU time. Nothing in the app was changed.
+
+### Method
+
+Pixel 3 (Snapdragon 845: four Cortex-A75 and four Cortex-A55 cores, 3.6 GB of memory), AOSP
+Android 11 userdebug, debug build v0.8.1-1-g11fc5997, both models installed. USB charging was
+suspended as root (`echo 1 > /sys/class/power_supply/battery/input_suspend`, written back to 0
+afterwards), so that the fuel gauge reports what the phone draws; `current_now` times
+`voltage_now` was read about 4.5 times per second over adb. The screen stayed on at a fixed
+manual brightness. Energy is the mean power of a window minus the mean power of the same
+screen idle just before it, times the length of the window. Idle was 0.74 to 0.88 W, except
+before the first run of two benchmark series (1.21 and 1.25 W, noted there).
+
+- **Dictation:** hands-free dictation in the debug build's test field from a WAV file, as
+  `scripts/e2e-voice.sh` does it. The recording is 22.3 seconds: the public Chinese clip, the
+  English one and the Chinese one again, 2 seconds of silence between them (18.3 seconds of
+  speech, three utterances). The window is the recording plus 30 seconds, by which time
+  refinement had finished; 15 seconds of idle before it. One dictation to load the models,
+  then three measured.
+- **Decoding alone:** `VoiceBenchActivity`, as `scripts/bench/device-bench.sh` drives it, each
+  recording decoded twice; the window runs from its "loaded" log line to "DONE", so loading
+  is not part of it. The idle reference is the same activity started on a model directory
+  that does not exist.
+
+The microphone is not part of this (the audio comes from a file), nor is loading a model.
+
+**The temperature of the phone decides more than most settings.** The same configuration
+(FireRedASR2, 4 threads, no spinning, the same two recordings) cost 130.8 J on a phone that
+had rested (battery 34 °C at the start) and 86.2 J after twenty minutes of benchmarks (38 °C),
+while taking 23% longer:
+a warm phone runs the same work at lower clock rates, which costs less energy. Only
+comparisons that were repeated in alternation are relied on below, and a single run is
+called a single run.
+
+### One dictation
+
+| | Energy above idle | CPU time of the keyboard process |
+|---|---:|---|
+| Refinement off | 36.4 / 36.7 J | `voice-engine` 29.1 s, `RenderThread` 3.6 s, session and VAD 2.5 s, main thread 1.2 s |
+| Refinement on, battery at 37 °C | 99.1 / 94.2 / 93.6 J | `voice-refiner` 64 s, `voice-engine` 36 to 41 s, the rest as above |
+| Refinement on, battery at 33 °C (one run, 45-second tail) | 146.2 J | `voice-refiner` 51.9 s, `voice-engine` 31.0 s |
+
+The third run without refinement drew 69.6 J for the same CPU time as the other two (36.6 s);
+it is taken for something else on the phone and left out.
+
+- **Refinement is most of it:** about 60 J of 95, nearly twice what SenseVoice, the
+  interface, VAD and capture need together. 95 J is 0.24% of this phone's 2,915 mAh battery
+  for 22 seconds of dictation.
+- **The two models get in each other's way on a phone.** With refinement running, the same
+  SenseVoice decodes took 9.0 to 10.4 s instead of 7.2 s, and `voice-engine` 36 to 41 s of CPU
+  time instead of 29 s. The emulator did not show this (see "A lower priority for the
+  refinement threads" below).
+- **Previews are already rationed by the cost limit here.** SenseVoice ran 14 to 16 times per
+  dictation on 43.5 to 49.1 seconds of audio; on the emulator it was 27 to 30 times.
+- **Interface, VAD and capture are small:** about 7 s of CPU time against 29 s for SenseVoice
+  alone.
+
+Refinement changed the text, as it is meant to: without it this recording came out with
+"开饭时间" for "开放时间" and "good" for "gold".
+
+### SenseVoice: threads and spinning
+
+Seven recordings of 1 to 16.8 seconds (48.3 seconds in all), each decoded twice; raw text
+identical in all eight runs. In the order they ran:
+
+| Threads | Spinning | Energy | Window | Second decodes, sum | CPU time of those | Battery |
+|---:|---|---:|---:|---:|---:|---:|
+| 4 (current) | default | 75.8 J | 14.9 s | 7.05 s | 27.7 s | 34.5 °C |
+| 2 | default | 83.5 J | 24.6 s | 11.87 s | 23.5 s | 35.3 °C |
+| 3 | default | 78.5 J | 18.4 s | 8.81 s | 26.0 s | 36.0 °C |
+| 1 | default | 88.9 J | 49.2 s | 24.88 s | 24.7 s | 35.8 °C |
+| 4 | off | 77.0 J | 15.9 s | 7.56 s | 26.6 s | 36.8 °C |
+| 2 | off | 67.1 J | 29.4 s | 14.41 s | 27.7 s | 36.8 °C |
+| 4 | default | 76.6 J | 15.4 s | 7.31 s | 28.7 s | 37.3 °C |
+| 2 | default | 60.5 J | 32.3 s | 15.59 s | 30.9 s | 37.0 °C |
+
+Four threads are the fastest and cost the same both times. Three threads and one thread cost
+more and take longer; four threads without spinning cost the same and take 3 to 7% longer. Two
+threads gave 83.5 J and 60.5 J for the same work, the cheaper run being 31% slower than the
+other, so it shows the phone's state, not a saving. This settles the question left open under
+"Fewer SenseVoice threads on phones with eight or more cores": unchanged. CPU time did not
+predict energy here: one thread had nearly the lowest CPU time and the highest energy.
+
+### FireRedASR2: threads and spinning
+
+The Chinese and the English clip (12.7 seconds), each decoded twice; raw text identical in
+all runs. In the order they ran:
+
+| Threads | Spinning | Energy | Second decodes, sum | CPU time of those | Battery |
+|---:|---|---:|---:|---:|---:|
+| 4 (current) | off | 130.8 J | 15.76 s | 42.8 s | 37.0 °C |
+| 2 | off | 101.3 J | 27.13 s | 46.8 s | 37.0 °C |
+| 4 | off | 115.2 J | 17.73 s | 47.9 s | 37.8 °C |
+| 2 | off | 98.6 J | 27.69 s | 47.8 s | 37.5 °C |
+| 3 | off | 91.9 J | 21.75 s | 49.4 s | 37.8 °C |
+| 4 | on | 98.0 J | 17.75 s | 60.2 s | 38.5 °C |
+
+The series started at 34.3 °C; the temperatures are those after each run. The idle reference
+of the first row was 1.21 W, so its 130.8 J is if anything too low (144 J against a reference
+of 0.8 W). Energy fell from run to run whatever the setting: the last
+run, with spinning and 25% more CPU time, cost less than both runs of the current setting
+before it. The differences between thread counts are within that drift, and two threads take
+1.6 to 1.7 times as long. Nothing here justifies a change. Spinning was not measured in
+alternation on the phone; the emulator result that switched it off stands untested here.
+
+### FireRedASR2 on the small cores
+
+The same two recordings with 4 threads and no spinning, with all threads of the process
+confined from outside (`taskset -a -p <mask> <pid>` as root, repeated every second) to the
+four small cores (mask `0f`) or the four big ones (`f0`). Raw text identical in all runs.
+In the order they ran, battery at 37.5 to 38.8 °C throughout:
+
+| Cores | Energy | Second decodes, sum | 5.6 s clip | 7.2 s clip |
+|---|---:|---:|---:|---:|
+| Any (current) | 86.2 J | 19.41 s | 7.69 s | 11.73 s |
+| Small only | 69.1 J | 35.63 s | 14.65 s | 20.98 s |
+| Any (current) | 94.7 J | 18.80 s | 7.69 s | 11.12 s |
+| Small only | 69.2 J | 35.59 s | 14.60 s | 20.99 s |
+| Big only | 107.6 J | 17.51 s | 6.38 s | 11.14 s |
+
+On the small cores refinement costs 20 to 27% less energy and takes 1.9 times as long; both
+runs agree to 0.1 J. With refinement at about 60 J of a 95 J dictation, that would be about
+15% of the dictation. The first row's idle reference was 1.25 W; against 0.8 W it would be
+104 J, and the saving larger.
+
+**Not adopted, and not built.** What it would cost: the corrected text arrives about twice as
+late (a 5.6-second sentence after about 14.6 s instead of 7.7 s). What is not known:
+
+- Loading the model took 26.5 s on the small cores against about 10 s, so loading would have
+  to stay where it is; only decoding was measured.
+- The measurement confined the process from outside. Inside the app the candidate is ONNX
+  Runtime's `session.intra_op_thread_affinities` in the configuration file that
+  `VoiceRuntimeOptions` already writes; whether the pinned sherpa-onnx passes that entry on
+  was not checked, the thread that calls the runtime is not covered by it, and the app would
+  have to find out which cores are the small ones.
+- Whether it also ends the slowdown of SenseVoice during refinement (above) was not measured.
+- Another chip may answer differently, in particular one with three kinds of cores.
+
+It could also apply only in Battery Saver or on a hot device. This is a decision about how
+late corrections may arrive, not only a measurement.
+
+### What this leaves
+
+On this phone the order is: refinement (about 60 J per 22-second dictation), SenseVoice
+(about 30 J), everything else (a few joules). The only candidate that showed a repeatable saving is running refinement on the
+small cores. Thread counts and spinning of either model, fewer previews, and the waveform are
+not worth changing on this evidence.
+
+Not measured: the microphone, cold loads, a session with long silences, push-to-talk, a
+release build, and any phone other than this one. Results are single runs or pairs, not
+statistics.
+
 ## Follow-up: where the CPU time goes, and the large model's lifetime (2026-10-07)
 
 ### Per-thread profile
@@ -110,7 +264,8 @@ loaded model. A final decode of a long sentence would take about 0.1 to 0.2 s lo
 emulator and more on a phone. That is the same kind of trade that was rejected for SenseVoice
 worker spinning, and an emulator's identical cores say little about a phone's mix of fast and
 slow ones. Unchanged until measured on a phone as described under "Measuring energy on the
-target phone".
+target phone". Measured on a Pixel 3 on 2026-10-08 (see "SenseVoice: threads and
+spinning" above): four threads stay.
 
 ### Validation
 
@@ -401,6 +556,12 @@ do not prove a universal zero regression in real microphone conditions.
   stall can grow memory use. A bounded queue that silently drops audio is not acceptable.
 
 ## Measuring energy on the target phone
+
+A first set of such measurements, with the battery's own current as the meter, is under
+"Follow-up: energy measured on a phone (2026-10-08)"; its method works on any device that lets
+charging be suspended while adb stays connected. Alternate the builds or settings compared and
+note the battery temperature of every run: it moved the result of one unchanged setting by a
+third.
 
 Use the same pinned models, release build configuration, recordings, screen brightness and
 power mode for both builds. Keep the starting battery level and temperature comparable; let
