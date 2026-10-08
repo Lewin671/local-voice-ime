@@ -96,7 +96,7 @@ class VoiceStripUi(private val ctx: Context, theme: Theme, private val palette: 
             ColorStateList.valueOf(palette.pressHighlight),
             GradientDrawable().apply {
                 cornerRadius = ctx.dp(15f)
-                setColor(palette.primaryContainer)
+                setColor(if (text == 0) palette.buttonContainer else palette.primaryContainer)
             },
             null
         )

@@ -250,7 +250,7 @@ figcaption p { color: var(--muted); font-size: 14px; }
     <tr><td>Key gap</td><td>6 dp horizontal, 9 dp vertical</td><td>Visible gap between key caps; touch targets stay edge to edge</td></tr>
     <tr><td>Key label</td><td>21 sp regular; hints 9 sp top right</td><td>Letters; swipe-down symbols</td></tr>
     <tr><td>Toolbar</td><td>40 dp tall, 40 dp icon targets</td><td>Suggestions, tools, microphone pill; the dictation strip while the microphone is on</td></tr>
-    <tr><td>Waveform</td><td>Hold space: 27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall. Dictation strip: a trace of the last seconds, bars 1.5 dp wide every 4 dp, 1.5 – 16 dp tall, primary at 80 %, the left half fading out; ordinary speech reaches about half the height</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
+    <tr><td>Waveform</td><td>Hold space: 27 bars, 3 dp wide, 3 dp gap, 4 – 56 dp tall. Dictation strip: a trace of the last seconds, bars 1.5 dp wide every 4 dp, 1.5 – 16 dp tall, primary at 80 %, the left half fading out; the height follows the syllables</td><td>The only moving element while listening; follows input level with 80 ms smoothing</td></tr>
     <tr><td>Surface change</td><td>fade 140 ms, decelerate</td><td>Keys ↔ listening surface, toolbar ↔ dictation strip</td></tr>
     <tr><td>Haptics</td><td>tick on start, tick on insert, double tick on cancel</td><td>Confirms each step without looking</td></tr>
   </table></div>
@@ -310,7 +310,7 @@ const status = (text, err) => `<div class="bar"><span class="chip"><span class="
 const idleBar = `<div class="bar"><span class="icon">${I.more}</span><span class="grow"></span><span class="pill">${I.mic}Speak</span><span class="icon">${I.down}</span></div>`;
 const held = `<div class="spacebar"><div class="ghost w15"></div><div class="ghost"></div><div class="ghost"></div><div class="key space held" style="flex:4.200">Release to insert</div><div class="ghost"></div><div class="ghost w15"></div></div>`;
 // the strip's trace of the microphone level: the newest sound on the right, older sound fading out to the left
-const trace = () => { const h = [1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,5,8,9,10,9,10,11,9,8,10,12,11,9,10,8,6,7,9,8,7,8,9,7,6,8,9,8,7];
+const trace = () => { const h = [1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,3,7,12,14,9,4,2,6,11,15,13,8,3,1.5,1.5,5,10,13,16,12,7,9,13,10,5,2,4,9,12,8];
   return `<div class="trace">${h.map(x => `<i style="height:${x}px"></i>`).join('')}</div>`; };
 // the dictation strip. Microphone on: lock, trace, round stop button. Otherwise: words, and at most one pill.
 // error: the words in the error colour; pill: 'stop' | 'speak' | a button label | '' for none

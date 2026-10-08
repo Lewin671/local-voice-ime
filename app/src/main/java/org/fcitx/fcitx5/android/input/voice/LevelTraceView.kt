@@ -17,8 +17,8 @@ import kotlin.math.pow
  * seconds. New sound enters on the right and moves left, fading out.
  *
  * Spec (`docs/design/DESIGN.md`): bars 1.5 dp wide, 4 dp from one to the next, 1.5–16 dp tall,
- * the left half fading to nothing. Ordinary speech reaches about half the height: a row of
- * bars that all touch the limit says nothing about the voice.
+ * the left half fading to nothing. The height follows the syllables and spreads the range of
+ * speech over the whole height: a row of bars that are all alike says nothing about the voice.
  */
 class LevelTraceView(context: Context) : View(context) {
 
@@ -90,13 +90,16 @@ class LevelTraceView(context: Context) : View(context) {
     }
 
     private fun advance() {
-        shown += (level - shown) * if (level > shown) 0.6f else 0.25f
+        // quick both ways: the trace is to show syllables, not their average
+        shown += (level - shown) * if (level > shown) 0.9f else 0.6f
         half = !half
         if (half) return
         head = (head + 1) % CAPACITY
         if (levels[head] > QUIET) loud--
-        // leaves headroom: only a raised voice comes near the full height
-        val bar = if (shown > QUIET) 0.9f * shown.pow(1.8f) else 0f
+        // Speech sits in the upper half of the level's range (it is measured in decibels):
+        // spread that half over the whole height, or every bar would be about as tall.
+        val spread = ((shown - SPEECH_FLOOR) / (1f - SPEECH_FLOOR)).coerceIn(0f, 1f)
+        val bar = if (shown > QUIET) maxOf(0.08f, spread.pow(1.5f)) else 0f
         levels[head] = bar
         if (bar > QUIET) loud++
     }
@@ -132,6 +135,7 @@ class LevelTraceView(context: Context) : View(context) {
         // more than fit on any phone held upright or sideways
         const val CAPACITY = 256
         const val QUIET = 0.01f
+        const val SPEECH_FLOOR = 0.45f
         const val FRAME_INTERVAL_MS = 33L
     }
 }

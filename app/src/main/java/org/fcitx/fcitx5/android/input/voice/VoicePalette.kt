@@ -41,6 +41,10 @@ class VoicePalette(theme: Theme) {
     @ColorInt
     val primaryContainer: Int = ColorUtils.blendARGB(surface, primary, 0.2f)
 
+    /** Under a glyph that has no label to carry it: on a dark keyboard [primaryContainer] is too faint. */
+    @ColorInt
+    val buttonContainer: Int = ColorUtils.blendARGB(surface, primary, if (theme.isDark) 0.32f else 0.2f)
+
     @ColorInt
     val error: Int = if (theme.isDark) 0xfff2b8b5.toInt() else 0xffb3261e.toInt()
 
