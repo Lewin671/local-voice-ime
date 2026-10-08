@@ -124,7 +124,12 @@ class VoiceSampleStore(
         const val AUDIO_DIR = "audio"
         const val LOG_FILE = "log.jsonl"
 
-        /** Mono 16-bit PCM, which every speech toolkit reads. */
+        /**
+         * Mono 16-bit PCM, which every speech toolkit reads. The microphone delivers 16-bit
+         * samples and the recognizer gets them divided by 32768 ([AudioSource]); multiplying by
+         * the same number and rounding gives those samples back exactly, so that a model
+         * trained or tested on the file hears what the recognizer heard.
+         */
         fun wav(samples: FloatArray, sampleRate: Int): ByteArray {
             val data = samples.size * 2
             val b = ByteBuffer.allocate(44 + data).order(ByteOrder.LITTLE_ENDIAN)
@@ -132,7 +137,7 @@ class VoiceSampleStore(
             b.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
             b.putInt(sampleRate).putInt(sampleRate * 2).putShort(2).putShort(16)
             b.put("data".toByteArray()).putInt(data)
-            for (v in samples) b.putShort((v.coerceIn(-1f, 1f) * 32767f).toInt().toShort())
+            for (v in samples) b.putShort(Math.round(v * 32768f).coerceIn(-32768, 32767).toShort())
             return b.array()
         }
     }

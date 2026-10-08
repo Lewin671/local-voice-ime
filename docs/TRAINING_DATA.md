@@ -20,6 +20,9 @@ local-voice-ime-recordings-20261004.zip
 
 An audio file is one **utterance**: the stretch of speech between two pauses, exactly the
 samples the recognizer was given (the voice activity detector's segment plus a short margin).
+Exactly, sample for sample, from the version after 0.8.2 on; up to 0.8.2 every non-zero sample
+in the file is one step (of 32768) closer to zero than what the recognizer got, which is
+inaudible and still enough to change what a model writes for about one utterance in twenty.
 Its name is `<session>-<number>`; a **session** is one use of dictation, from holding the space
 bar or tapping the microphone pill until it ends, and its name is its starting time on the
 phone's clock.

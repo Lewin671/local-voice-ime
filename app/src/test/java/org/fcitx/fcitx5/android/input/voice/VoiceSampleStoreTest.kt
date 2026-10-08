@@ -51,8 +51,8 @@ class VoiceSampleStoreTest {
         assertEquals(32000, b.getInt(28))
         assertEquals(16, b.getShort(34).toInt())
         assertEquals(16000, b.getInt(40))
-        assertEquals(16383, b.getShort(44).toInt())
-        assertEquals(-16383, b.getShort(46).toInt())
+        assertEquals(16384, b.getShort(44).toInt())
+        assertEquals(-16384, b.getShort(46).toInt())
 
         val line = lines(dir).single()
         assertEquals("utterance", line["type"]!!.jsonPrimitive.content)
@@ -71,7 +71,16 @@ class VoiceSampleStoreTest {
         val wav = VoiceSampleStore.wav(floatArrayOf(2f, -2f), 16000)
         val b = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN)
         assertEquals(32767, b.getShort(44).toInt())
-        assertEquals(-32767, b.getShort(46).toInt())
+        assertEquals(-32768, b.getShort(46).toInt())
+    }
+
+    @Test
+    fun theFileHoldsTheSamplesTheRecognizerWasGiven() {
+        // what AudioSource makes of the microphone's 16-bit samples
+        val pcm = shortArrayOf(0, 1, -1, 2, -2, 99, -99, 1000, -1000, 32767, -32768)
+        val wav = VoiceSampleStore.wav(FloatArray(pcm.size) { pcm[it] / 32768f }, 16000)
+        val b = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN)
+        for (i in pcm.indices) assertEquals(pcm[i], b.getShort(44 + 2 * i))
     }
 
     @Test
