@@ -427,4 +427,7 @@
     <string name="update_install_permission">请在 Android 设置中允许本应用安装未知应用，然后返回此页面。</string>
     <string name="update_allow_installation">允许安装</string>
     <string name="update_refused_blocked">Android 阻止了安装。请检查安装权限和设备限制后重试。</string>
+    <string name="update_refused_aborted">安装已取消或中止。请尝试“打开系统安装器”。</string>
+    <string name="update_system_installer">打开系统安装器</string>
+    <string name="update_system_installer_summary">如果点击安装后没有出现确认页面，请使用此入口。</string>
 </resources>

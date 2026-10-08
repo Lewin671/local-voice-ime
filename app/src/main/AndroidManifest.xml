@@ -143,6 +143,12 @@
             android:name=".update.AppUpdateReceiver"
             android:exported="false" />
 
+        <provider
+            android:name=".update.AppUpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <service
             android:name=".input.FcitxInputMethodService"
             android:directBootAware="true"

@@ -163,7 +163,7 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/build.gradle.kts` | sherpa-onnx AAR dependency, `voice/assets` as extra asset dir (the VAD model), `noCompress onnx`, own `applicationId` |
 | `build-logic/convention/src/main/kotlin/Versions.kt` | release version codes are incremented so signed APKs upgrade previous versions |
 | `app/proguard-rules.pro` | keep `com.k2fsa.sherpa.onnx.**` |
-| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download and app update only), `REQUEST_INSTALL_PACKAGES` and `AppUpdateReceiver` (app update), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
+| `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download and app update only), `REQUEST_INSTALL_PACKAGES`, `AppUpdateReceiver`, and a non-exported `AppUpdateFileProvider` (app update), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models and kept recordings are excluded from backups |
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
 | `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
@@ -210,7 +210,7 @@ unless the user taps a button in *Settings → App update*.
 |---|---|
 | `AppRelease` | A published version: parses GitHub's description of the newest release, picks the package for the device's processor (it must be an asset of this project's release and come with a SHA-256), turns release notes into plain text, compares versions. Pure Kotlin, unit-tested. |
 | `AppUpdateStore` | Asks for the newest release when told to, remembers a newer one in `files/app-update/` until it is installed, and downloads its package with a `VoiceModelStore` (resumable, verified). Pure Kotlin, unit-tested. |
-| `AppUpdate` | The process-wide store, and the hand-over of the verified package to Android's `PackageInstaller`, which asks the user and checks the signature. `AppUpdateReceiver` gets the installer's answer. |
+| `AppUpdate` | The process-wide store, and the hand-over of the verified package to Android's `PackageInstaller`, which asks the user and checks the signature. `AppUpdateReceiver` gets the installer's answer. Xiaomi uses a content-URI file installer, also offered as a manual compatibility retry on all devices. `AppUpdateFileProvider` is non-exported and grants read access only to the requested update URI under `files/app-update/`; no speech data is shared. |
 | `AppUpdateFragment`, `AppUpdatePreference` | *Settings → App update*; the row reuses the model row's layout. |
 
 The installed version is `BuildConfig.VERSION_NAME` (`git describe`, so a release build is

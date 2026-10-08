@@ -432,4 +432,7 @@
     <string name="update_install_permission">Allow installation from this app in Android settings, then return here.</string>
     <string name="update_allow_installation">Allow installation</string>
     <string name="update_refused_blocked">Android blocked installation. Check installation permission and device restrictions, then try again.</string>
+    <string name="update_refused_aborted">Installation was cancelled or stopped. Try Open system installer.</string>
+    <string name="update_system_installer">Open system installer</string>
+    <string name="update_system_installer_summary">Use this if Install does not open the confirmation screen.</string>
 </resources>

@@ -178,8 +178,13 @@ Behaviour rules that are easy to get wrong:
   System confirmation is opened only while the update screen is resumed; a callback received
   while the app is hidden waits until the user returns. Cancelling confirmation keeps the
   package and allows retry. A blocked install names device restrictions as a possible cause.
+  On Xiaomi devices, Install opens the system file installer with a read-only content URI
+  for the verified APK, rather than using the session confirmation path. All devices also
+  offer an Open system installer row after verification, for compatibility retries. It
+  observes the same install-source permission and never bypasses system verification.
+  A cancelled or stopped install is shown explicitly; it is not treated as success.
   *Install* hands it to Android's installer, which asks the user and verifies that the package
-  is signed like the installed app; declining leaves the row at "Downloaded and verified", a
+  is signed like the installed app; declining keeps the package with a cancelled/stopped notice; a
   refusal (no storage, another signature, wrong processor) is shown with its cause. Once the
   installed version is the downloaded one (or newer), the file is deleted. Versions compare by
   their numbers (`0.10.0` is newer than `0.9.2`); anything not newer than the installed version

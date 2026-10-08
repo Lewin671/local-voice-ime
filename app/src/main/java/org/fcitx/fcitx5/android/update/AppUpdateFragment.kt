@@ -53,19 +53,39 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
     private lateinit var installed: AppUpdatePreference
     private lateinit var newVersion: PreferenceCategory
     private lateinit var update: AppUpdatePreference
+    private lateinit var systemInstaller: Preference
+    private var useSystemInstaller = false
 
     private val host = AppRelease.HOST
 
     private val installationPermission = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        if (AppUpdate.canInstall(requireContext())) AppUpdate.install(requireContext())
+        if (AppUpdate.canInstall(requireContext())) startInstallation()
         else AppUpdate.permissionRequired()
     }
 
-    private fun requestInstallation() {
-        if (AppUpdate.canInstall(requireContext())) {
+    private val fileInstallation = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { AppUpdate.systemInstallerResult(it.resultCode) }
+
+    private fun startInstallation() {
+        if (!useSystemInstaller) {
             AppUpdate.install(requireContext())
+            return
+        }
+        val intent = AppUpdate.systemInstallerIntent(requireContext()) ?: return
+        try {
+            fileInstallation.launch(intent)
+        } catch (e: Exception) {
+            AppUpdate.systemInstallerUnavailable(e)
+        }
+    }
+
+    private fun requestInstallation(system: Boolean = AppUpdate.prefersSystemInstaller()) {
+        useSystemInstaller = system
+        if (AppUpdate.canInstall(requireContext())) {
+            startInstallation()
             return
         }
         AppUpdate.permissionRequired()
@@ -85,6 +105,7 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
     private fun size(bytes: Long) = Formatter.formatShortFileSize(requireContext(), bytes)
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        useSystemInstaller = savedInstanceState?.getBoolean("systemInstaller") ?: false
         val ctx = requireContext()
         preferenceScreen = preferenceManager.createPreferenceScreen(ctx).apply {
             addPreference(Preference(ctx).apply {
@@ -108,8 +129,24 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
                 newVersion = this
                 update = AppUpdatePreference(ctx)
                 addPreference(update)
+                systemInstaller = Preference(ctx).apply {
+                    title = getString(R.string.update_system_installer)
+                    summary = getString(R.string.update_system_installer_summary)
+                    isIconSpaceReserved = false
+                    isVisible = false
+                    setOnPreferenceClickListener {
+                        requestInstallation(system = true)
+                        true
+                    }
+                }
+                addPreference(systemInstaller)
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("systemInstaller", useSystemInstaller)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -131,6 +168,8 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
             combine(store.check, download, AppUpdate.install) { check, (found, state), install ->
                 installed.content = installed(check, found != null)
                 newVersion.isVisible = found != null
+                systemInstaller.isVisible = state == State.Installed &&
+                        install != Install.Starting && install !is Install.Confirmation
                 if (found != null) {
                     update.title = getString(R.string.update_version, found.release.version)
                     update.summary = found.release.notes
@@ -224,6 +263,7 @@ class AppUpdateFragment : PaddingPreferenceFragment() {
                         Refusal.Conflict -> getString(R.string.update_refused_conflict)
                         Refusal.Incompatible -> getString(R.string.update_refused_incompatible)
                         Refusal.Blocked -> getString(R.string.update_refused_blocked)
+                        Refusal.Aborted -> getString(R.string.update_refused_aborted)
                         Refusal.Other -> getString(R.string.update_refused)
                         null -> getString(R.string.update_downloaded)
                     },

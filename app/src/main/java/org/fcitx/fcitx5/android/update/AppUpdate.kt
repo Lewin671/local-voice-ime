@@ -7,11 +7,13 @@ package org.fcitx.fcitx5.android.update
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
 import androidx.core.content.IntentCompat
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,7 +32,7 @@ import java.io.File
  */
 object AppUpdate {
 
-    enum class Refusal { Storage, Conflict, Incompatible, Blocked, Other }
+    enum class Refusal { Storage, Conflict, Incompatible, Blocked, Aborted, Other }
 
     sealed interface Install {
         data object None : Install
@@ -74,6 +76,54 @@ object AppUpdate {
             context.packageManager.canRequestPackageInstalls()
 
     fun permissionRequired() { _install.value = Install.PermissionRequired }
+
+    // MIUI session confirmation can immediately abort without displaying its installer UI.
+    // The content-URI path still uses Android's install-source permission and verification.
+    fun prefersSystemInstaller() = Build.MANUFACTURER.equals("xiaomi", ignoreCase = true) ||
+            listOf("xiaomi", "redmi", "poco").any { Build.BRAND.equals(it, ignoreCase = true) }
+
+    @Suppress("DEPRECATION") // Compatibility path for vendor session installers.
+    fun systemInstallerIntent(context: Context): Intent? {
+        if (!canInstall(context)) {
+            permissionRequired()
+            return null
+        }
+        val apk = store(context).found.value?.apk ?: return null
+        synchronized(this) {
+            if (_install.value == Install.Starting || _install.value is Install.Confirmation) return null
+            try {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", apk)
+                val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    clipData = ClipData.newRawUri("App update", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    putExtra(Intent.EXTRA_RETURN_RESULT, true)
+                }
+                // A late callback from an earlier session must not overwrite this attempt.
+                activeSession = -1
+                _install.value = Install.Starting
+                return intent
+            } catch (e: Exception) {
+                Timber.w(e, "Could not prepare the system file installer")
+                _install.value = Install.Refused(Refusal.Other)
+                return null
+            }
+        }
+    }
+
+    fun systemInstallerResult(resultCode: Int) {
+        Timber.i("System file installer: result $resultCode")
+        _install.value = when (resultCode) {
+            Activity.RESULT_OK -> Install.None
+            Activity.RESULT_CANCELED -> Install.Refused(Refusal.Aborted)
+            else -> Install.Refused(Refusal.Other)
+        }
+    }
+
+    fun systemInstallerUnavailable(e: Exception) {
+        Timber.w(e, "Could not open the system file installer")
+        _install.value = Install.Refused(Refusal.Other)
+    }
 
     /** Only a resumed Activity calls this; a receiver must never launch the installer UI. */
     fun confirmInstallation(activity: Activity) {
@@ -147,8 +197,8 @@ object AppUpdate {
             PackageInstaller.STATUS_PENDING_USER_ACTION ->
                 IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
                     ?.let { Install.Confirmation(it) } ?: Install.Refused(Refusal.Other)
-            // declining is not an error
-            PackageInstaller.STATUS_SUCCESS, PackageInstaller.STATUS_FAILURE_ABORTED -> Install.None
+            PackageInstaller.STATUS_SUCCESS -> Install.None
+            PackageInstaller.STATUS_FAILURE_ABORTED -> Install.Refused(Refusal.Aborted)
             PackageInstaller.STATUS_FAILURE_BLOCKED -> Install.Refused(Refusal.Blocked)
             PackageInstaller.STATUS_FAILURE_STORAGE -> Install.Refused(Refusal.Storage)
             PackageInstaller.STATUS_FAILURE_CONFLICT -> Install.Refused(Refusal.Conflict)

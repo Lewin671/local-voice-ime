@@ -255,3 +255,13 @@ Pending confirmation is consumed only by a resumed update screen, following
 [foreground activity-launch restrictions](https://developer.android.com/guide/components/activities/secure-bal);
 the broadcast receiver never starts a UI. Android 8+ permission APIs and Android 12+ explicit
 user-action APIs are guarded for the app's Android 6 minimum.
+
+### Vendor file installer compatibility
+
+On Xiaomi/Redmi/Poco, Install uses the system file installer with a verified APK content URI.
+Other devices retain session installation and offer Open system installer as a compatibility
+retry. Both paths require install-source permission. Check denied permission, grant and return,
+confirmation, cancel and retry, and a signed production-to-production upgrade. Confirm that
+models and settings survive; a debug-to-production installation alone does not verify self-update.
+The file provider must not allow access to voice files or grant write access. A stopped session
+now displays a cancelled/stopped message instead of silently resetting the Install button.
