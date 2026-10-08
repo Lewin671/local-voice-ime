@@ -30,9 +30,13 @@ if [[ ${REFINER:-} == 1 ]]; then
     # with the large model: inserted text is corrected in place a few seconds later
     hq=true
     settle() { sleep 10; }
+    # After a long utterance: the large model takes several times as long as the audio lasts,
+    # and what it has not finished would slow down the scenario that follows.
+    drain() { sleep "$1"; }
 else
     hq=false
     settle() { :; }
+    drain() { :; }
 fi
 # true if $1 is the sample sentence (without the large model either reading of it)
 is_sentence() { [[ $1 == "$refined" ]] || { ! $hq && [[ $1 == "$fast_alt" ]]; }; }
@@ -292,6 +296,7 @@ expect "Stop turns the microphone off and gives the toolbar back" \
      ui center "$work/ui.xml" "Voice input" >/dev/null 2>&1' "the strip is still up"
 text=$(field)
 expect "what was said until Stop is written" '[[ -n $text ]]' "the field is empty"
+drain 20
 
 use_wav
 open_keyboard
@@ -327,6 +332,7 @@ settle
 text=$(field)
 expect "punctuation typed mid-utterance is written after the utterance, in place of its full stop" \
     '[[ ${#text} -gt 10 && ( $text == *[!。]， || $text == *[!。], ) ]]' "field: '$text'"
+drain 45
 
 # a letter while dictating: typing takes over. The microphone goes off, what was said is written
 # first, and only then is the letter typed
@@ -344,6 +350,7 @@ expect "a letter turns the microphone off" \
     '! ui center "$work/ui.xml" "Stop listening" >/dev/null 2>&1' "still listening"
 expect "what was said is written before the letter that ended dictation" \
     '[[ ${#text} -gt 3 && $text == *[!q]q ]]' "field: '$text'"
+drain 30
 use_wav
 
 # an app that restarts input while the space bar is held must not end dictation: the preview it
@@ -482,7 +489,8 @@ dictate() {
     wait_log "Voice final inserted"
     adb shell input motionevent UP "$sx" "$sy"
     sleep 3
-    settle
+    # the large model may have to be loaded first, which alone can take 20 s on a warm phone
+    if $hq; then wait_log "Voice refine: audio" 90; sleep 2; fi
 }
 
 expect "nothing that was dictated so far has been kept" '[[ $(kept) == 0 ]]' "$(kept) recordings on the device"

@@ -89,6 +89,17 @@ is turned off again. Last, the voice diagnostics: nothing is noted until the swi
 a session is noted from start to end with what ended it, every value is a number or a fixed
 word, and nothing is noted in a private field or after the switch is turned off.
 
+With `REFINER=1`, a scenario that depends on the large model waits until it has transcribed
+(a log line), not for a fixed time: loading it in a fresh process and transcribing one sentence
+took 34 s on a warm Pixel 3. After a long utterance the script lets the model finish before the
+next scenario starts.
+
+Known failure with `REFINER=1` on a Pixel 3 (v0.7.4 and v0.8.0 alike, four runs of four each):
+"restarting input while space is held: everything is written, once" leaves the first preview in
+the field a second time. The keyboard's idea of the cursor is off by the length of the preview
+that was taken back, and the next preview is then taken for a cursor move. Not yet explained;
+the test field lives in the keyboard's own process, which may be part of it.
+
 It reinstalls the debug build from scratch (its data is reset) and needs a microphone that
 delivers silence for the timeout scenario, e.g. an emulator started with `-no-audio`.
 When you fix a behaviour bug or add a rule, add a scenario for it.
