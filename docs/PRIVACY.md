@@ -51,7 +51,7 @@ leave your phone, unless you copy them off it yourself.
   about 240 MB), or the optional high-accuracy model
   ([FireRedASR2](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx), about
   1.2 GB). One optional model comes from github.com, run by GitHub (Microsoft): a
-  [fine-tuned SenseVoice Small](https://github.com/Lewin671/sensevoice-finetune/releases/tag/model-20261008) (about 240 MB), from a
+  [fine-tuned SenseVoice Small](https://github.com/Lewin671/sensevoice-finetune/releases/tag/model-20261009) (about 240 MB), from a
   release of a sister project. Once a model is on the phone, using it needs no connection.
   The files are accepted only if they match checksums fixed in the app, so a server or
   network that delivers something else cannot make the app run it.

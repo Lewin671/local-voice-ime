@@ -30,7 +30,7 @@ adb install -r -g "$apk" >/dev/null
 ./scripts/push-voice-model.sh "$pkg"
 model=files/voice-models/sense-voice-small-int8
 # a test device may also carry the fine-tuned model, which voice input works with just as well
-tuned=files/voice-models/sense-voice-small-tuned-20261008-int8
+tuned=files/voice-models/sense-voice-small-tuned-20261009-int8
 
 previous_ime=$(adb shell settings get secure default_input_method | tr -d '\r')
 previous_night=$(adb shell cmd uimode night | tr -d '\r' | awk '{print $NF}')

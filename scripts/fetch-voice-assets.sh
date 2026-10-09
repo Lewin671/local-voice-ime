@@ -13,7 +13,7 @@
 #                                              (FireRedASR2 AED, 1.2 GB)
 #
 # with --tuned (implies --models):
-#   voice/models/sense-voice-small-tuned-20261008-int8/
+#   voice/models/sense-voice-small-tuned-20261009-int8/
 #                                              SenseVoice Small fine-tuned on one speaker (240 MB)
 #
 # voice/libs and voice/assets are bundled into the APK at build time, and are all a build needs.
@@ -108,10 +108,10 @@ fi
 
 if [[ ${1:-} == --tuned ]]; then
     # the files and checksums of VoiceModels.SenseVoiceTuned
-    TUNED=https://github.com/Lewin671/sensevoice-finetune/releases/download/model-20261008
-    tuned_dir=voice/models/sense-voice-small-tuned-20261008-int8
+    TUNED=https://github.com/Lewin671/sensevoice-finetune/releases/download/model-20261009
+    tuned_dir=voice/models/sense-voice-small-tuned-20261009-int8
     fetch "$TUNED/model.int8.onnx" "$tuned_dir/model.int8.onnx" \
-        c5aa67a25d595439970f849eee7a43a747a31242766634a6bad19b8369cdb723
+        7e698cb387aee6cbf656762afe2c5bd9984fdeb3b8057db8c7c95151db90f047
     fetch "$TUNED/tokens.txt" "$tuned_dir/tokens.txt" \
         f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc
 fi

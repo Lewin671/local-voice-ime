@@ -36,7 +36,7 @@ in `VoiceModels.kt` and fetched by the app.
 | Model | Files | Source | License |
 |---|---|---|---|
 | SenseVoice Small int8 | `model.int8.onnx` (239 MB), `tokens.txt` | [ModelScope `pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue`](https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue) | FunASR Model Open Source License Agreement 1.1 |
-| SenseVoice Small int8, fine-tuned (2026-10-08) | `model.int8.onnx` (239 MB), `tokens.txt` | [GitHub release `model-20261008` of `Lewin671/sensevoice-finetune`](https://github.com/Lewin671/sensevoice-finetune/releases/tag/model-20261008) | FunASR Model Open Source License Agreement 1.1 |
+| SenseVoice Small int8, fine-tuned (2026-10-09) | `model.int8.onnx` (239 MB), `tokens.txt` | [GitHub release `model-20261009` of `Lewin671/sensevoice-finetune`](https://github.com/Lewin671/sensevoice-finetune/releases/tag/model-20261009) | FunASR Model Open Source License Agreement 1.1 |
 | FireRedASR2 AED int8 | `encoder.int8.onnx` (817 MB), `decoder.int8.onnx` (417 MB), `tokens.txt` | [ModelScope `csukuangfj/FireRedASR2-AED-onnx`](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx), directory `aed/` | Apache-2.0 |
 
 The FireRedASR2 files are byte-identical to those in sherpa-onnx's GitHub release archive
@@ -54,9 +54,11 @@ weights, which sherpa-onnx cannot load.
 The fine-tuned SenseVoice Small is the standard model trained further on 24 minutes of one
 speaker's dictation (Mandarin with English technical terms) with
 [sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune), whose README has the method and the measurements: on that
-speaker's held-out utterances 2.94 % → 1.86 % errors in five-fold cross-validation and hardly
-any gain on a later day with new subjects; on the seven public sets used here level with the
-original on five, better on ASCEND (14.80 % → 13.40 %), worse on KeSpeech (12.09 % → 13.42 %).
+speaker's held-out utterances 2.94 % → 1.73 % errors in five-fold cross-validation and hardly
+any gain on a later day with new subjects; on the seven public sets used here slightly worse
+on six, measurably on KeSpeech (12.15 % → 13.63 %), and better on ASCEND (14.80 % → 13.50 %),
+which that README does not take for a general gain. (0.9.0 offered an earlier training run of
+the same data, `model-20261008`; the two are within noise of each other.)
 It is offered as an example of what training on one's own recordings gives, not as a better
 model for everyone: the settings say so, and the standard model stays the default for anyone
 who does not download it. When it is installed and *Use the fine-tuned model* is on, it

@@ -62,5 +62,5 @@ if $refiner; then
     push fire-red-asr2-aed-int8 encoder.int8.onnx decoder.int8.onnx tokens.txt
 fi
 if $tuned; then
-    push sense-voice-small-tuned-20261008-int8 model.int8.onnx tokens.txt
+    push sense-voice-small-tuned-20261009-int8 model.int8.onnx tokens.txt
 fi

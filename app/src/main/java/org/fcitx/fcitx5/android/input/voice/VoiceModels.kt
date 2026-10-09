@@ -90,18 +90,18 @@ object VoiceModels {
     /**
      * SenseVoice Small, fine-tuned on one speaker's dictation and exported in the same format:
      * an alternative to [SenseVoice] ([recognition]). The files are those of the release
-     * `model-20261008` of https://github.com/Lewin671/sensevoice-finetune, whose README says
+     * `model-20261009` of https://github.com/Lewin671/sensevoice-finetune, whose README says
      * how it was made and measured; `tokens.txt` is that of [SenseVoice].
      */
     val SenseVoiceTuned = VoiceModel(
-        id = "sense-voice-small-tuned-20261008-int8",
+        id = "sense-voice-small-tuned-20261009-int8",
         name = "SenseVoice Small, fine-tuned",
         host = "github.com",
-        baseUrl = "/Lewin671/sensevoice-finetune/releases/download/model-20261008/",
+        baseUrl = "/Lewin671/sensevoice-finetune/releases/download/model-20261009/",
         files = listOf(
             VoiceModel.File(
                 "model.int8.onnx", 239234129,
-                "c5aa67a25d595439970f849eee7a43a747a31242766634a6bad19b8369cdb723"
+                "7e698cb387aee6cbf656762afe2c5bd9984fdeb3b8057db8c7c95151db90f047"
             ),
             VoiceModel.File(
                 "tokens.txt", 315894,
@@ -140,6 +140,9 @@ object VoiceModels {
         stores.getOrPut(model.id) {
             // left behind by the builds that carried the large model inside the APK
             File(context.applicationContext.filesDir, "voice-refiner").deleteRecursively()
+            // the fine-tuned model 0.9.0 offered, replaced by [SenseVoiceTuned]
+            File(context.applicationContext.filesDir, "voice-models/sense-voice-small-tuned-20261008-int8")
+                .deleteRecursively()
             VoiceModelStore(model, dir(context, model))
         }
     }
