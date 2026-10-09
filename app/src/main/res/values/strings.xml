@@ -351,7 +351,7 @@
     <string name="voice_tuned">Use the fine-tuned model</string>
     <string name="voice_tuned_summary">Recognize speech with the fine-tuned model instead of the standard one.</string>
     <string name="voice_privacy_title">Recognition runs on this phone</string>
-    <string name="voice_privacy_summary">Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</string>
+    <string name="voice_privacy_summary">Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model or to look for a newer one.</string>
     <string name="voice_models">Speech models</string>
     <string name="voice_dictation">Dictation</string>
     <string name="voice_samples">Recordings</string>

@@ -4,7 +4,7 @@
 
 | What | Where | How long |
 |---|---|---|
-| Text post-processing, merging two transcripts, what may be edited in the text field, downloading a model (resume, verification), the files of kept recordings and finding a corrected passage in the field | JVM unit tests (`app/src/test/.../voice/`) | seconds |
+| Text post-processing, merging two transcripts, what may be edited in the text field, downloading a model (resume, verification), finding and taking over a newer version of the fine-tuned model, the files of kept recordings and finding a corrected passage in the field | JVM unit tests (`app/src/test/.../voice/`) | seconds |
 | Which model, how accurate, how fast | desktop benchmark (`scripts/bench/`, results in `MODELS.md`) | minutes |
 | That it is all wired together on Android | device scripts below | 5–10 minutes each |
 
@@ -151,6 +151,14 @@ and delete in quick succession while a download hangs). Before a release, do it 
 *Settings → Voice input → Download*, pause and resume it, switch to another app while it runs,
 and check that the row ends at "Installed" and that dictated text is refined afterwards.
 
+Updating the fine-tuned model is covered on the JVM as well: `VoiceModelReleaseTest` (what
+counts as a release of a model) and `VoiceTunedStoreTest` (a check finds a newer version, the
+installed one stays until the newer one is complete, restarts, deletion, failed checks), with
+a simulated network. No device script exercises it, and there is nothing newer to find until
+`sensevoice-finetune` publishes a release after the version pinned in `VoiceModels.kt`. Before
+a release, tap *Check for a newer fine-tuned model* once and check that the row answers; as of
+0.10.0 this has not been done on a device (0.9.1 and 0.10.0 were released without device runs).
+
 ## Release builds
 
 ```sh
@@ -172,6 +180,29 @@ EOF
 
 `scripts/build.sh` loads `signing.env` automatically. Keep the keystore: Android only allows
 updating an installed app with an APK signed by the same key. Never commit it.
+
+### Cutting a release
+
+The version name comes from `git describe`, so the tag makes the version; the version code
+does not, and the app's own update check reads the release from GitHub, so the names below
+matter.
+
+1. On the branch to release: raise `baseVersionCode` in
+   `build-logic/convention/src/main/kotlin/Versions.kt` (Android refuses an update whose code
+   is not higher), commit, and tag that commit `vX.Y.Z`.
+2. `./scripts/build.sh release`, then `./scripts/check-privacy.sh <apk>`, and the device
+   checks of the [verification policy](#verification-policy) with that APK. Check that it is
+   signed with the same certificate as the previous release (`apksigner verify --print-certs`).
+3. Merge to `main`, push `main` and the tag.
+4. Publish a GitHub release for the tag in `Lewin671/local-voice-ime` (`gh release create -R
+   Lewin671/local-voice-ime`; in a checkout with the `upstream` remote, `gh` otherwise picks
+   fcitx5-android) with two files: the APK renamed `local-voice-ime-vX.Y.Z-arm64-v8a.apk` (the
+   app looks for an asset ending in `-<abi>.apk`) and `SHA256SUMS.txt`. The notes say what
+   changed, what changed for privacy, and exactly which checks ran and which did not.
+
+A new version of the fine-tuned model needs none of this: publish it as a release of
+`sensevoice-finetune` tagged `model-<yyyymmdd>` with `model.int8.onnx` and `tokens.txt`, and
+the app finds it (`VoiceModelRelease`). Releases of that repository must be models only.
 
 ## Privacy check
 

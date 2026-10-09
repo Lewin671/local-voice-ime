@@ -346,7 +346,7 @@
     <string name="voice_tuned">使用微調模型</string>
     <string name="voice_tuned_summary">用微調模型代替標準模型辨識語音。</string>
     <string name="voice_privacy_title">辨識在本機完成</string>
-    <string name="voice_privacy_summary">音訊和文字不會離開這支手機。應用程式只在你要求時連網：在這裡，是下載語音模型。</string>
+    <string name="voice_privacy_summary">音訊和文字不會離開這支手機。應用程式只在你要求時連網：在這裡，是下載語音模型或檢查其更新。</string>
     <string name="voice_models">語音模型</string>
     <string name="voice_dictation">聽寫</string>
     <string name="voice_model_standard">標準</string>

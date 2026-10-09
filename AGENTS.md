@@ -12,8 +12,10 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
   Upstream provides the keyboard, pinyin engine (libime), clipboard, themes, settings.
 - This fork adds speech recognition with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx),
   running the SenseVoice Small model on the phone's CPU. A larger model (FireRedASR2) that
-  re-checks dictated text is optional. Neither model is part of the APK: the user downloads
-  them inside the app, the first one before voice input can be used at all.
+  re-checks dictated text is optional, as is a SenseVoice Small fine-tuned on one person's
+  dictation ([sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune)), offered
+  as an example and updated from that repository's releases. No model is part of the APK: the
+  user downloads them inside the app, the first one before voice input can be used at all.
 
 ## Non-negotiable rules
 
@@ -31,7 +33,7 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
    Android additionally installs only if it is signed like the installed app). No other network use, no other network-capable permission, no
    dependency that goes online (analytics, crash reporting, HTTP clients, WebView content).
    `scripts/check-privacy.sh` enforces this; run it after touching the manifest, dependencies
-   or anything under `input/voice/VoiceModel*` or `update/`. `docs/PRIVACY.md` states the promise to users:
+   or anything under `input/voice/VoiceModel*`, `input/voice/VoiceTunedStore.kt` or `update/`. `docs/PRIVACY.md` states the promise to users:
    change it first if the promise has to change, and say so in the release notes.
 2. **Everything in the repo is written in English**: code, comments, docs, commit messages, UI
    source strings (`values/strings.xml`). Translations go in `values-*/`.

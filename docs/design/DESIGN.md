@@ -150,8 +150,14 @@ Behaviour rules that are easy to get wrong:
   if the model is installed by then (likewise for microphone access); otherwise the strip goes.
 - **Downloads**: only *Download* and *Resume* in the model row start one; *Download* asks first
   and names size and source. Nothing is fetched twice: pause, a lost connection and a killed
-  process all keep what has arrived. A model is used only once every file matched its pinned
-  checksum; a file that does not match is discarded and reported as such.
+  process all keep what has arrived. A model is used only once every file matched its
+  checksum (pinned in the app; for a newer version of the fine-tuned model, the one published
+  with its release); a file that does not match is discarded and reported as such.
+- **A newer fine-tuned model**: only a tap on *Check for a newer fine-tuned model* asks, and
+  the row says beforehand whom it asks and that nothing about the user is sent. A newer
+  version is a row of its own, downloaded like any model; the version in use keeps
+  recognizing until the newer one is installed, then gives way to it and is deleted. Nothing
+  announces a newer version anywhere else.
 - **Recordings**: nothing that was dictated is kept unless *Keep what I dictate* is on, and
   turning it on asks first and says what is kept, where, and that it is not sent anywhere.
   Dictation looks and behaves the same with it on: no indicator in the keyboard, no extra

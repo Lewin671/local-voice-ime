@@ -370,7 +370,7 @@ const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedA
   <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
 const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>'), tuned = tunedRow + tunedCheck(tunedAsk)) => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
-  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</span></div></div>
+  <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model or to look for a newer one.</span></div></div>
   <div class="group">Speech models</div>
   ${standardRow(standard)}
   ${tuned}

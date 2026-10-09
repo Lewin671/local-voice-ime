@@ -221,10 +221,13 @@ remembered release is no longer newer, and the next start of the screen deletes 
 
 ## Privacy model
 
-- The network is used for two things, both only on a tap in the settings. `VoiceModelFetch`
+- The network is used for two things, speech models and app updates, both only on a tap in the settings. `VoiceModelFetch`
   downloads the files of a model listed in `VoiceModels` when the user taps *Download* (or
   *Resume*): a GET for a fixed HTTPS URL and nothing else, and what arrives is used only if it
-  matches the pinned size and SHA-256. For *Settings → App update* it reads GitHub's description
+  matches the pinned size and SHA-256. When the user taps *Check for a newer fine-tuned model*
+  it reads GitHub's description of the newest release of `sensevoice-finetune`; a newer
+  version found there is downloaded like any model, verified against the size and SHA-256
+  GitHub publishes for its files instead of pinned ones. For *Settings → App update* it reads GitHub's description
   of the newest release when the user taps *Check for updates*, and downloads that release's
   package the same way as a model, verified against the SHA-256 GitHub publishes for it;
   Android then installs it only if it is signed like the installed app. Nothing starts a

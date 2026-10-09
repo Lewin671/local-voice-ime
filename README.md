@@ -50,15 +50,18 @@ the app before they are used.
 
 A third download is an example of where this is going: the standard model
 [fine-tuned on one person's dictation](https://github.com/Lewin671/sensevoice-finetune), which can be used in place of the standard one.
-It knows that person's vocabulary, not yours; it comes from GitHub.
+It knows that person's vocabulary, not yours; it comes from GitHub. It is trained again from
+time to time: *Check for a newer fine-tuned model* on the same screen asks GitHub for the
+newest version when tapped, and a newer one replaces the one in use once it is downloaded and
+verified. The app never looks by itself.
 
 ## How it stays private
 
 | Guarantee | How it is enforced |
 |---|---|
-| Audio and text stay on the phone | No code sends anything. The app's only network code is one file that downloads a speech model on request ([`VoiceModelFetch.kt`](app/src/main/java/org/fcitx/fcitx5/android/input/voice/VoiceModelFetch.kt)); `scripts/check-privacy.sh` verifies that for every APK |
+| Audio and text stay on the phone | No code sends anything. The app's only network code is one file that downloads a speech model or an app update, or asks whether there is a newer one, on request ([`VoiceModelFetch.kt`](app/src/main/java/org/fcitx/fcitx5/android/input/voice/VoiceModelFetch.kt)); `scripts/check-privacy.sh` verifies that for every APK |
 | Speech is recognized on the device | [SenseVoice Small](https://github.com/FunAudioLLM/SenseVoice) (and, if downloaded, [FireRedASR2](https://github.com/FireRedTeam/FireRedASR2S)) run on the CPU via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) |
-| Downloads cannot be tampered with | Every model file must match a SHA-256 fixed in the app |
+| Downloads cannot be tampered with | Every file of the standard and the high-accuracy model must match a SHA-256 fixed in the app. A newer fine-tuned model and an app update must match the SHA-256 GitHub publishes with their release; Android installs an update only if it is signed like the installed app |
 | Audio is not stored unless you ask for it | Samples live in memory for the utterance in progress only. Keeping recordings, to fine-tune a model on your own speech, is a switch that is off until you turn it on; they stay on the phone until you export or delete them ([docs/PRIVACY.md](docs/PRIVACY.md)) |
 
 Details: [docs/PRIVACY.md](docs/PRIVACY.md).
@@ -104,7 +107,7 @@ for signing.
   (`docs/MODELS.md`); the way forward is fine-tuning on one's own speech, for which the app can
   keep recordings on request (`docs/TRAINING_DATA.md`) and
   [sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune) trains on an export of them. One model made that way can be
-  downloaded in the settings as an example; importing a model of one's own is still to come.
+  downloaded in the settings as an example, and updated there when it is trained again; importing a model of one's own is still to come.
 - Enable Pinyin by default regardless of the system language.
 
 ## Documentation

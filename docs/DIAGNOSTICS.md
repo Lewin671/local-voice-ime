@@ -78,7 +78,7 @@ then gives Android's reason.
 | `trim_memory` | `level` | Android asked for memory |
 | `fcitx_commit`, `fcitx_preedit` | `composing`, `empty` | the pinyin engine wrote something while dictation was on |
 | `touch_up`, `touch_cancel` | `long_press` | a touch on a key ended: lifted, or taken away by Android (`touch_cancel` on the space bar ends push-to-talk like a release) |
-| `model_release`, `model_reload` | | the standard model was freed while a session ran, and loaded again for it |
+| `model_release`, `model_reload` | | the recognition model (standard or fine-tuned) was freed while a session ran, and loaded again for it |
 
 Reasons of a `stop_request`:
 

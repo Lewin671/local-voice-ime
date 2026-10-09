@@ -39,8 +39,9 @@ about the same session its `session`; later lines add to earlier ones and never 
 | `field` | the text field was read back after the session | `session`, `dictated`, `text` |
 | `undone` | the user removed the session's text with Undo | `session` |
 
-- **`utterance.text`** is what the recognition model (`model`: the standard one, or the
-  fine-tuned one if that was in use) wrote, with its punctuation and
+- **`utterance.text`** is what the recognition model (`model`: the standard one,
+  `sense-voice-small-int8`, or the fine-tuned one if that was in use, whose name carries the
+  day its version was made: `sense-voice-small-tuned-20261009-int8`) wrote, with its punctuation and
   number formatting. If `continues` is true, the speaker went on after a short pause and the
   sentence was transcribed again as a whole: `text` then covers this audio file **and** the ones
   of the preceding utterances of the session, back to the last one with `continues` false. An
