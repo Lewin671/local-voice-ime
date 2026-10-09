@@ -372,6 +372,13 @@
     <string name="voice_model_delete_title">刪除高精度模型？</string>
     <string name="voice_model_delete_message">可釋放 %s。語音輸入會繼續使用標準模型。</string>
     <string name="voice_model_tuned_delete_title">刪除微調模型？</string>
+    <string name="voice_model_update">微調版，版本 %s</string>
+    <string name="voice_model_update_summary">較新的版本。下載並驗證通過後會取代使用中的版本，舊版本隨即刪除。</string>
+    <string name="voice_model_check">檢查微調模型更新</string>
+    <string name="voice_model_check_summary">向 %s 詢問最新版本，不傳送任何關於你的資訊。應用程式不會自行檢查。</string>
+    <string name="voice_model_check_newest">版本 %s 已是最新。</string>
+    <string name="voice_model_update_delete_title">刪除新版本已下載的部分？</string>
+    <string name="voice_model_update_delete_message">可釋放 %s。使用中的版本保留。</string>
     <string name="voice_model_standard_delete_message_tuned">可釋放 %s。語音輸入會繼續使用微調模型。</string>
     <string name="app_update">應用程式更新</string>
     <string name="update_privacy_title">只在你要求時檢查更新</string>

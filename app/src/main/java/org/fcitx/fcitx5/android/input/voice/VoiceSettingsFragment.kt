@@ -15,6 +15,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 import androidx.preference.TwoStatePreference
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.FcitxApplication
 import org.fcitx.fcitx5.android.R
@@ -36,7 +39,8 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
 
     /** A model as this screen presents it. */
     private class Entry(
-        val model: VoiceModel,
+        /** The fine-tuned model is whichever version is in use. */
+        val model: (Context) -> VoiceModel,
         @StringRes val title: Int,
         @StringRes val summary: Int,
         @StringRes val deleteTitle: Int,
@@ -48,26 +52,33 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
 
     private val entries = listOf(
         Entry(
-            VoiceModels.SenseVoice,
+            { VoiceModels.SenseVoice },
             R.string.voice_model_standard, R.string.voice_model_standard_summary,
             R.string.voice_model_standard_delete_title, R.string.voice_model_standard_delete_message,
             { VoiceEngine.uninstall(it, VoiceModels.SenseVoice) }
         ),
         Entry(
-            VoiceModels.SenseVoiceTuned,
+            { VoiceModels.tuned(it).versions.value.current.model },
             R.string.voice_model_tuned, R.string.voice_model_tuned_summary,
             R.string.voice_model_tuned_delete_title, R.string.voice_model_delete_message,
-            { VoiceEngine.uninstall(it, VoiceModels.SenseVoiceTuned) }
+            { VoiceModels.tuned(it).delete() }
         ),
         Entry(
-            VoiceModels.FireRedAsr2,
+            { VoiceModels.FireRedAsr2 },
             R.string.voice_model_accurate, R.string.voice_model_accurate_summary,
             R.string.voice_model_delete_title, R.string.voice_model_delete_message,
             VoiceRefiner::uninstall
         )
     )
 
+    private val standardEntry get() = entries[0]
+    private val tunedEntry get() = entries[1]
+
     private lateinit var rows: List<VoiceModelPreference>
+
+    /** A newer version of the fine-tuned model, while the one in use is still there. */
+    private lateinit var update: VoiceModelPreference
+    private lateinit var check: Preference
 
     private lateinit var refine: Preference
 
@@ -166,15 +177,38 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         screen.addCategory(R.string.voice_models) {
             isIconSpaceReserved = false
             rows = entries.map { entry ->
-                VoiceModelPreference(ctx, entry.model).apply {
+                VoiceModelPreference(ctx, entry.model(ctx)).apply {
                     setTitle(entry.title)
                     setSummary(entry.summary)
-                    onDownload = { download(entry.model) }
-                    onPause = { VoiceModels.pause(ctx, entry.model) }
+                    onDownload = { download(entry.model(ctx)) }
+                    onPause = { VoiceModels.pause(ctx, entry.model(ctx)) }
                     onDelete = { confirmDelete(entry) }
                 }
             }
-            rows.forEach(::addPreference)
+            update = VoiceModelPreference(ctx, tunedEntry.model(ctx)).apply {
+                setSummary(R.string.voice_model_update_summary)
+                isVisible = false
+                onDownload = { download(model) }
+                onPause = { VoiceModels.pause(ctx, model) }
+                onDelete = { confirmDeleteUpdate(model) }
+            }
+            check = Preference(ctx).apply {
+                setTitle(R.string.voice_model_check)
+                isIconSpaceReserved = false
+                isPersistent = false
+                // going online is the result of this tap, and of nothing else
+                setOnPreferenceClickListener {
+                    VoiceModels.tuned(ctx).check()
+                    true
+                }
+            }
+            rows.forEach {
+                addPreference(it)
+                if (it === rows[entries.indexOf(tunedEntry)]) {
+                    addPreference(update)
+                    addPreference(check)
+                }
+            }
         }
         screen.addCategory(R.string.voice_dictation) {
             isIconSpaceReserved = false
@@ -205,12 +239,49 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         super.onViewCreated(view, savedInstanceState)
         // a row is updated several times per second while downloading; don't cross-fade it
         listView.itemAnimator = null
+        val ctx = requireContext()
         entries.zip(rows).forEach { (entry, row) ->
+            if (entry === tunedEntry) return@forEach
             viewLifecycleOwner.lifecycleScope.launch {
-                VoiceModels.state(requireContext(), entry.model).collect {
+                VoiceModels.state(ctx, entry.model(ctx)).collect {
                     row.state = it
-                    if (entry.model === VoiceModels.FireRedAsr2) refine.isEnabled = it == State.Installed
-                    if (entry.model === VoiceModels.SenseVoiceTuned) tuned.isEnabled = it == State.Installed
+                    if (entry !== standardEntry) refine.isEnabled = it == State.Installed
+                }
+            }
+        }
+        val versions = VoiceModels.tuned(ctx)
+        val tunedRow = rows[entries.indexOf(tunedEntry)]
+        viewLifecycleOwner.lifecycleScope.launch {
+            versions.versions.collectLatest { now ->
+                tunedRow.model = now.current.model
+                update.isVisible = now.update != null
+                now.update?.let {
+                    update.model = it.model
+                    update.title = getString(R.string.voice_model_update, it.release.version)
+                }
+                coroutineScope {
+                    launch {
+                        VoiceModels.state(ctx, now.current.model).collect {
+                            tunedRow.state = it
+                            tuned.isEnabled = it == State.Installed
+                        }
+                    }
+                    now.update?.let { newer ->
+                        launch { VoiceModels.state(ctx, newer.model).collect { update.state = it } }
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            versions.check.combine(versions.versions) { state, now -> state to now }.collect { (state, now) ->
+                val host = VoiceModelRelease.HOST
+                check.isEnabled = state != VoiceTunedStore.Check.Checking
+                check.summary = when (state) {
+                    VoiceTunedStore.Check.Checking -> getString(R.string.update_checking, host)
+                    VoiceTunedStore.Check.Failed -> getString(R.string.update_check_failed, host)
+                    VoiceTunedStore.Check.UpToDate ->
+                        getString(R.string.voice_model_check_newest, (now.update ?: now.current).release.version)
+                    VoiceTunedStore.Check.Idle -> getString(R.string.voice_model_check_summary, host)
                 }
             }
         }
@@ -264,11 +335,11 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
     /** What deleting a recognition model does depends on whether the other one is there. */
     private fun deleteMessage(context: Context, entry: Entry): Int {
         fun installed(model: VoiceModel) = VoiceModels.isInstalled(context, model)
-        return when (entry.model) {
-            VoiceModels.SenseVoice ->
-                if (installed(VoiceModels.SenseVoiceTuned)) R.string.voice_model_standard_delete_message_tuned
+        return when (entry) {
+            standardEntry ->
+                if (installed(tunedEntry.model(context))) R.string.voice_model_standard_delete_message_tuned
                 else entry.deleteMessage
-            VoiceModels.SenseVoiceTuned ->
+            tunedEntry ->
                 if (installed(VoiceModels.SenseVoice)) entry.deleteMessage
                 else R.string.voice_model_standard_delete_message
             else -> entry.deleteMessage
@@ -277,10 +348,11 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
 
     private fun confirmDelete(entry: Entry) {
         val ctx = requireContext().applicationContext
-        val onDevice = when (val state = VoiceModels.state(ctx, entry.model).value) {
+        val model = entry.model(ctx)
+        val onDevice = when (val state = VoiceModels.state(ctx, model).value) {
             is State.Absent -> state.downloaded
             is State.Downloading -> state.downloaded
-            State.Installed -> entry.model.size
+            State.Installed -> model.size
         }
         AlertDialog.Builder(requireContext())
             .setTitle(entry.deleteTitle)
@@ -288,6 +360,24 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             .setPositiveButton(R.string.delete) { _, _ ->
                 // not tied to this screen: it must finish even if the user leaves
                 FcitxApplication.getInstance().coroutineScope.launch { entry.uninstall(ctx) }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Only what has arrived of a newer version; the one in use stays. */
+    private fun confirmDeleteUpdate(model: VoiceModel) {
+        val ctx = requireContext().applicationContext
+        val onDevice = when (val state = VoiceModels.state(ctx, model).value) {
+            is State.Absent -> state.downloaded
+            is State.Downloading -> state.downloaded
+            State.Installed -> return
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.voice_model_update_delete_title)
+            .setMessage(getString(R.string.voice_model_update_delete_message, size(onDevice)))
+            .setPositiveButton(R.string.delete) { _, _ ->
+                FcitxApplication.getInstance().coroutineScope.launch { VoiceModels.delete(ctx, model) }
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

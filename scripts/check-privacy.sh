@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Keep the app's network use to what docs/PRIVACY.md promises: downloading a speech model, and
-# looking for and downloading a new version of the app, each when the user asks for it, and
-# nothing else.
+# looking for and downloading a new version of the app or of the fine-tuned model, each when the
+# user asks for it, and nothing else.
 #
 #   1. the APK holds INTERNET and no other network-capable permission, and refuses cleartext
 #   2. VoiceModelFetch.kt is the only source file that opens a connection

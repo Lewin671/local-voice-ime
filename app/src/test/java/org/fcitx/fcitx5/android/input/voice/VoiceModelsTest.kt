@@ -25,14 +25,14 @@ class VoiceModelsTest {
     @Test
     fun theFineTunedModelRecognizesWhenInstalledAndWanted() {
         val standard = VoiceModels.SenseVoice
-        val tuned = VoiceModels.SenseVoiceTuned
-        assertEquals(null, VoiceModels.recognition(false, false, true))
-        assertEquals(standard, VoiceModels.recognition(true, false, true))
-        assertEquals(tuned, VoiceModels.recognition(true, true, true))
-        assertEquals(standard, VoiceModels.recognition(true, true, false))
+        val tuned = VoiceModels.SenseVoiceTuned.model()
+        assertEquals(null, VoiceModels.recognition(null, null, true))
+        assertEquals(standard, VoiceModels.recognition(standard, null, true))
+        assertEquals(tuned, VoiceModels.recognition(standard, tuned, true))
+        assertEquals(standard, VoiceModels.recognition(standard, tuned, false))
         // switched off, but all there is
-        assertEquals(tuned, VoiceModels.recognition(false, true, false))
-        assertEquals(tuned, VoiceModels.recognition(false, true, true))
+        assertEquals(tuned, VoiceModels.recognition(null, tuned, false))
+        assertEquals(tuned, VoiceModels.recognition(null, tuned, true))
     }
 
     /** The device tests push the files that `scripts/fetch-voice-assets.sh` fetched: the same ones. */

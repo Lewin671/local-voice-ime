@@ -42,8 +42,8 @@ leave your phone, unless you copy them off it yourself.
   private storage on your device and can be cleared or disabled in the app's settings.
   Nothing is learned from fields that apps mark as private/incognito, and voice input is not
   offered on password fields.
-- **The network is used only when you ask, for two things: downloading a speech model, and
-  updating the app.** Typing works without ever going online; voice input needs a speech model, which is not part
+- **The network is used only when you ask, for two things: downloading a speech model (or
+  looking for a newer version of one), and updating the app.** Typing works without ever going online; voice input needs a speech model, which is not part
   of the installed app. If you tap *Download* under *Settings → Voice input*, the app fetches
   the model of that row over HTTPS from modelscope.cn, a model hosting service run by Alibaba
   Cloud: the standard model
@@ -55,6 +55,17 @@ leave your phone, unless you copy them off it yourself.
   release of a sister project. Once a model is on the phone, using it needs no connection.
   The files are accepted only if they match checksums fixed in the app, so a server or
   network that delivers something else cannot make the app run it.
+- **A newer fine-tuned model.** That one model is trained again from time to time. The app
+  does not look for a newer version by itself. If you tap *Check for a newer fine-tuned
+  model* under *Settings → Voice input*, it asks api.github.com, over HTTPS, for the
+  description of the sister project's
+  [newest release](https://github.com/Lewin671/sensevoice-finetune/releases/latest). If that
+  is a newer version, it appears as a row of its own, and its files (about 240 MB) are fetched
+  from github.com when you tap *Download*. They must match the checksums published with that
+  release, not ones fixed in the app: here the app trusts what this project publishes on
+  GitHub, as it does for its own updates, without the second check Android makes on an app
+  package. The version you have stays in use until the newer one is complete and verified,
+  and is then deleted. The other two models never change.
 - **Updating the app.** The app does not look for updates by itself. If you tap *Check for
   updates* under *Settings → App update*, it asks api.github.com, over HTTPS, for the
   description of this project's

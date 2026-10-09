@@ -89,38 +89,35 @@ object VoiceModels {
 
     /**
      * SenseVoice Small, fine-tuned on one speaker's dictation and exported in the same format:
-     * an alternative to [SenseVoice] ([recognition]). The files are those of the release
-     * `model-20261009` of https://github.com/Lewin671/sensevoice-finetune, whose README says
-     * how it was made and measured; `tokens.txt` is that of [SenseVoice].
+     * an alternative to [SenseVoice] ([recognition]). This is the version the app knows by
+     * itself, release `model-20261009` of https://github.com/Lewin671/sensevoice-finetune, whose
+     * README says how it was made and measured; `tokens.txt` is that of [SenseVoice]. Newer
+     * versions are found by asking, see [tuned].
      */
-    val SenseVoiceTuned = VoiceModel(
-        id = "sense-voice-small-tuned-20261009-int8",
-        name = "SenseVoice Small, fine-tuned",
-        host = "github.com",
-        baseUrl = "/Lewin671/sensevoice-finetune/releases/download/model-20261009/",
+    val SenseVoiceTuned = VoiceModelRelease(
+        tag = "model-20261009",
         files = listOf(
-            VoiceModel.File(
+            VoiceModelRelease.File(
                 "model.int8.onnx", 239234129,
                 "7e698cb387aee6cbf656762afe2c5bd9984fdeb3b8057db8c7c95151db90f047"
             ),
-            VoiceModel.File(
+            VoiceModelRelease.File(
                 "tokens.txt", 315894,
                 "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
             )
         )
     )
 
-    val all = listOf(SenseVoice, SenseVoiceTuned, FireRedAsr2)
+    /** The models whose files are fixed in the app. */
+    val all = listOf(SenseVoice, SenseVoiceTuned.model(), FireRedAsr2)
 
     /**
-     * The model that turns speech into text: the fine-tuned one if it is installed and wanted,
-     * or if it is all there is; else the standard one; null if neither is installed.
+     * The model that turns speech into text: the fine-tuned one ([tuned], if it is installed)
+     * when it is wanted or all there is; else the standard one ([standard], if it is
+     * installed); null if neither is installed.
      */
-    fun recognition(standardInstalled: Boolean, tunedInstalled: Boolean, preferTuned: Boolean) = when {
-        tunedInstalled && (preferTuned || !standardInstalled) -> SenseVoiceTuned
-        standardInstalled -> SenseVoice
-        else -> null
-    }
+    fun recognition(standard: VoiceModel?, tuned: VoiceModel?, preferTuned: Boolean) =
+        if (tuned != null && (preferTuned || standard == null)) tuned else standard
 
     enum class Error { Network, Storage, Content }
 
@@ -140,11 +137,21 @@ object VoiceModels {
         stores.getOrPut(model.id) {
             // left behind by the builds that carried the large model inside the APK
             File(context.applicationContext.filesDir, "voice-refiner").deleteRecursively()
-            // the fine-tuned model 0.9.0 offered, replaced by [SenseVoiceTuned]
-            File(context.applicationContext.filesDir, "voice-models/sense-voice-small-tuned-20261008-int8")
-                .deleteRecursively()
             VoiceModelStore(model, dir(context, model))
         }
+    }
+
+    @Volatile
+    private var tuned: VoiceTunedStore? = null
+
+    /** The versions of the fine-tuned model: the one in use, and a newer one if there is one. */
+    fun tuned(context: Context) = tuned ?: synchronized(this) {
+        val app = context.applicationContext
+        tuned ?: VoiceTunedStore(
+            File(app.filesDir, "voice-models"), SenseVoiceTuned,
+            state = { state(app, it) },
+            remove = { VoiceEngine.uninstall(app, it) }
+        ).also { tuned = it }
     }
 
     fun state(context: Context, model: VoiceModel): StateFlow<State> = store(context, model).state

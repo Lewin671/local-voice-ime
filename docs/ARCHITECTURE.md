@@ -31,7 +31,7 @@ touches the network (the only network code downloads a model from the settings, 
 
 | File | Responsibility |
 |---|---|
-| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded (the standard SenseVoice Small, or the fine-tuned one if it is installed and switched on: `VoiceModels.recognition`; a change takes effect when the next session loads), confines all native calls to one thread, frees the model after 5 idle minutes. |
+| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded (the standard SenseVoice Small, or the fine-tuned one, in the version `VoiceTunedStore` says is in use, if it is installed and switched on: `VoiceModels.recognition`; a change takes effect when the next session loads), confines all native calls to one thread, frees the model after 5 idle minutes. |
 | `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
 | `VoiceCapture` | Lossless reader loop and one-time source teardown before queued recognition finishes. Preserves the last completed read when stopping. Pure Kotlin, unit-tested. |
@@ -42,6 +42,8 @@ touches the network (the only network code downloads a model from the settings, 
 | `VoiceRefiner` | The optional large model (FireRedASR2 AED) on its own thread; loaded from the files `VoiceModels` downloaded. Freed after 3 idle minutes, or after up to 10 on a device with memory to spare. |
 | `VoiceModelResidency` | Decides how long the unused large model stays in memory, from the idle time and what the system reports as available. Pure Kotlin, unit-tested. |
 | `VoiceModels` | Catalogue of the speech models, all of them downloads (files pinned by size and SHA-256), and the entry points the rest of the app uses. |
+| `VoiceModelRelease` | A published version of the fine-tuned model: parses GitHub's description of the newest release of `sensevoice-finetune` (tag `model-<date>`, both files with size, SHA-256 and the expected address) and names the model's directory after the date. Pure Kotlin, unit-tested. |
+| `VoiceTunedStore` | Which version of the fine-tuned model is in use, and a newer one if a check found one (remembered in `files/voice-models/fine-tuned.json`). Asks only when told to. A newer version is downloaded like any model; the one in use keeps recognizing until the newer one is installed, then is deleted. Pure Kotlin, unit-tested. |
 | `VoiceModelStore` | One model on this device: its state (a `StateFlow`) and download, pause, resume, delete. Operations on the files run strictly one after the other, and only the newest one publishes state, so fast taps on a stalled connection cannot corrupt anything. Pure Kotlin, unit-tested. |
 | `VoiceModelFetch` | Downloads one file, resumable, verified; also reads the short description of the newest release for the update check. **The only code in the app that opens a network connection.** Pure Kotlin, unit-tested against a local server. |
 | `VoiceSettingsFragment`, `VoiceModelPreference`, `VoiceSamplesPreference` | *Settings → Voice input*: privacy statement, model list with download controls, refinement switch, and the recordings (switch, count, export, delete). |

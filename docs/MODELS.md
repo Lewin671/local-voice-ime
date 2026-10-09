@@ -61,7 +61,11 @@ which that README does not take for a general gain. (0.9.0 offered an earlier tr
 the same data, `model-20261008`; the two are within noise of each other.)
 It is offered as an example of what training on one's own recordings gives, not as a better
 model for everyone: the settings say so, and the standard model stays the default for anyone
-who does not download it. When it is installed and *Use the fine-tuned model* is on, it
+who does not download it. The app knows that version by itself; when the model is trained
+again, the newer release is found by *Check for a newer fine-tuned model* in the settings and
+downloaded there, without a new version of the app (`VoiceTunedStore`; every release of that
+repository must therefore be a model, tagged `model-<yyyymmdd>` with `model.int8.onnx` and
+`tokens.txt`). When it is installed and *Use the fine-tuned model* is on, it
 recognizes instead of the standard model (`VoiceModels.recognition`); same graph, size, speed
 and memory. It is hosted on GitHub, which breaks the rule below about mainland China: it is
 optional, and the app already depends on GitHub for its own updates.

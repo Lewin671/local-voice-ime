@@ -359,15 +359,21 @@ const standardRow = (rest) => `<div class="item"><b>Standard</b><span>SenseVoice
   <span style="margin-top:4px">Needed for voice input. Text appears while you speak, with punctuation and numbers.</span>${rest}</div>`;
 const tunedRow = `<div class="item"><b>Fine-tuned (example)</b><span>SenseVoice Small, fine-tuned · 240 MB · from github.com</span>
   <span style="margin-top:4px">The standard model trained further on one person's dictation: Mandarin with English technical terms. Better at that speaker's words, not at yours; it shows what training on your own recordings can give. Used instead of the standard model.</span><div class="actions"><span></span><div class="btn">Download</div></div></div>`;
+const tunedInstalled = `<div class="item"><b>Fine-tuned (example)</b><span>SenseVoice Small, fine-tuned 2026-10-09 · 240 MB · from github.com</span>
+  <span style="margin-top:4px">The standard model trained further on one person's dictation: Mandarin with English technical terms. Better at that speaker's words, not at yours; it shows what training on your own recordings can give. Used instead of the standard model.</span><div class="actions"><span>Installed</span><div class="tbtn">Delete</div></div></div>`;
+const tunedUpdate = (rest) => `<div class="item"><b>Fine-tuned, version 2026-11-02</b><span>SenseVoice Small, fine-tuned 2026-11-02 · 240 MB · from github.com</span>
+  <span style="margin-top:4px">A newer version. Once downloaded and verified it takes the place of the one in use, which is then deleted.</span>${rest}</div>`;
+const tunedCheck = (status) => `<div class="item"><b>Check for a newer fine-tuned model</b><span>${status}</span></div>`;
+const tunedAsk = 'Asks github.com for the newest version and sends nothing about you. The app never checks by itself.';
 const tunedSwitch = `<div class="item lead off" style="justify-content:space-between"><div class="item" style="padding:0"><b>Use the fine-tuned model</b><span>Recognize speech with the fine-tuned model instead of the standard one.</span></div><div class="switch"></div></div>`;
 const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
   <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
-const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>')) => `<div class="app">
+const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>'), tuned = tunedRow + tunedCheck(tunedAsk)) => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
   <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</span></div></div>
   <div class="group">Speech models</div>
   ${standardRow(standard)}
-  ${tunedRow}
+  ${tuned}
   ${modelRow(row)}
   <div class="group">Dictation</div>
   ${tunedSwitch}
@@ -387,6 +393,10 @@ const T = [
     k: settings(acts({ t: 'Download interrupted. Check the connection, then resume.', err: 1 }, '<div class="tbtn">Delete</div>', '<div class="btn">Resume</div>'), false) },
   { t: 'Installed', d: 'Both verified and in use: the switch is live. Deleting the high-accuracy model frees the space again and dictation continues with the standard model; deleting the standard one turns voice input off until it is downloaded again.',
     k: settings(acts('Installed', '<div class="tbtn">Delete</div>'), true) },
+  { t: 'A newer fine-tuned model: asking', d: 'The fine-tuned model is trained again from time to time. The row under it asks for the newest version when tapped, and says beforehand whom it asks and that nothing about the user is sent; it is the only way the app learns of one. While the answer is awaited the row says so and cannot be tapped again; if there is nothing newer it names the newest version, and a failure names the server and the fix.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false, '', undefined, tunedInstalled + tunedCheck('Version 2026-10-09 is the newest.')) },
+  { t: 'A newer fine-tuned model: found', d: 'A newer version gets a row of its own between the model in use and the check, with the same download, pause and resume as any model. The version in use keeps recognizing until the newer one is complete and verified; then the newer one takes its row and the old files are deleted. If no version was installed when the check found a newer one, the model\'s own row simply offers the newer version.',
+    k: settings(acts('', '<div class="btn">Download</div>'), false, '', undefined, tunedInstalled + tunedUpdate(acts('', '<div class="btn">Download</div>')) + tunedCheck(tunedAsk)) },
 ];
 document.getElementById('settings').innerHTML = T.map(s => `<figure>
   <div class="pair">${['', 'dark'].map(th => `<div class="phone ${th}">${s.k}</div>`).join('')}</div>

@@ -411,6 +411,13 @@
     <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
     <string name="voice_model_delete_message">Frees %s. Dictation keeps working with the standard model.</string>
     <string name="voice_model_tuned_delete_title">Delete the fine-tuned model?</string>
+    <string name="voice_model_update">Fine-tuned, version %s</string>
+    <string name="voice_model_update_summary">A newer version. Once downloaded and verified it takes the place of the one in use, which is then deleted.</string>
+    <string name="voice_model_check">Check for a newer fine-tuned model</string>
+    <string name="voice_model_check_summary">Asks %s for the newest version and sends nothing about you. The app never checks by itself.</string>
+    <string name="voice_model_check_newest">Version %s is the newest.</string>
+    <string name="voice_model_update_delete_title">Delete what was downloaded of the newer version?</string>
+    <string name="voice_model_update_delete_message">Frees %s. The version in use stays.</string>
     <string name="voice_model_standard_delete_message_tuned">Frees %s. Dictation keeps working with the fine-tuned model.</string>
     <string name="app_update">App update</string>
     <string name="update_privacy_title">Updates are looked for only when you ask</string>

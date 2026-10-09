@@ -21,7 +21,15 @@ import splitties.resources.styledColor
  * how much of it is on the device, and the one or two things that can be done about that.
  * See "Settings: voice input" in docs/design/mockup.html.
  */
-class VoiceModelPreference(context: Context, private val model: VoiceModel) : Preference(context) {
+class VoiceModelPreference(context: Context, model: VoiceModel) : Preference(context) {
+
+    /** The fine-tuned model's row changes its model when a newer version takes over. */
+    var model: VoiceModel = model
+        set(value) {
+            if (field === value) return
+            field = value
+            notifyChanged()
+        }
 
     var state: State = State.Absent(0)
         set(value) {

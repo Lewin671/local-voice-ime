@@ -46,8 +46,8 @@ object VoiceEngine {
 
     /** The model to recognize with now: see [VoiceModels.recognition]. */
     private fun model(context: Context) = VoiceModels.recognition(
-        VoiceModels.isInstalled(context, VoiceModels.SenseVoice),
-        VoiceModels.isInstalled(context, VoiceModels.SenseVoiceTuned),
+        VoiceModels.SenseVoice.takeIf { VoiceModels.isInstalled(context, it) },
+        VoiceModels.tuned(context).versions.value.current.model.takeIf { VoiceModels.isInstalled(context, it) },
         preferTuned
     )
 
@@ -109,8 +109,8 @@ object VoiceEngine {
     private fun load(context: Context) {
         touch()
         val model = checkNotNull(model(context)) { "The speech model is not installed" }
-        if (recognizer != null && loaded === model) return
-        // the user chose the other model since
+        if (recognizer != null && loaded?.id == model.id) return
+        // the user chose the other model since, or it was updated
         releaseNow()
         val t0 = SystemClock.elapsedRealtime()
         val dir = VoiceModels.dir(context, model)
@@ -196,7 +196,7 @@ object VoiceEngine {
 
     /** Delete [model]. On the engine thread, so that it cannot happen while it is being loaded. */
     suspend fun uninstall(context: Context, model: VoiceModel) = withContext(dispatcher) {
-        if (loaded === model) releaseNow()
+        if (loaded?.id == model.id) releaseNow()
         VoiceModels.delete(context, model)
     }
 }

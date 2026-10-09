@@ -19,12 +19,15 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
 
 1. **Audio and text never leave the device; the network is used only when the user asks, for
    speech models and app updates.** The app holds `android.permission.INTERNET` for two things:
-   fetching a speech model when the user taps *Download* in *Settings → Voice input*, and, in
+   fetching a speech model when the user taps *Download* in *Settings → Voice input* (and
+   asking GitHub for the newest fine-tuned model when they tap *Check for a newer fine-tuned
+   model* there), and, in
    *Settings → App update*, asking GitHub for the newest release when the user taps *Check for
    updates* and fetching its package when they tap *Download*. Nothing connects by itself: no
    check at start-up or in the background. `VoiceModelFetch.kt` is the only file that may open
    a connection; it sends a plain GET for a fixed URL and accepts only files that match a known
-   SHA-256 (pinned in the app for models, published with the release for an update, which
+   SHA-256 (pinned in the app for models, published with the release for a newer fine-tuned
+   model and for an update, which
    Android additionally installs only if it is signed like the installed app). No other network use, no other network-capable permission, no
    dependency that goes online (analytics, crash reporting, HTTP clients, WebView content).
    `scripts/check-privacy.sh` enforces this; run it after touching the manifest, dependencies
@@ -39,7 +42,8 @@ humans just as well. `CLAUDE.md` is a symlink to this file.
    upstream file we touch.
 4. **Don't commit large binaries.** The speech runtime and models live in `voice/` (git-ignored)
    and are fetched by `scripts/fetch-voice-assets.sh` with pinned checksums. Models the app
-   downloads are listed in `VoiceModels.kt`, each file pinned by size and SHA-256.
+   downloads are listed in `VoiceModels.kt`, each file pinned by size and SHA-256; newer
+   versions of the fine-tuned one are releases of `sensevoice-finetune` (`VoiceModelRelease`).
 5. **License hygiene.** The project is LGPL-2.1-or-later, like upstream. Keep upstream copyright
    headers; when you add a dependency, model or asset, check that its license allows
    redistribution, then record it in `NOTICE.md` and `app/licenses/libraries/`. When you change
