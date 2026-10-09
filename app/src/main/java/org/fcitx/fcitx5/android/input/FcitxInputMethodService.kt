@@ -830,7 +830,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         postFcitxJob {
             focus(true)
         }
-        if (inputDeviceMgr.evaluateOnStartInputView(info, this)) {
+        if (inputDeviceMgr.evaluateOnStartInputView(info, restarting, this)) {
             // because onStartInputView will always be called after onStartInput,
             // editorInfo and capFlags should be up-to-date
             inputView?.startInput(info, capabilityFlags, restarting)

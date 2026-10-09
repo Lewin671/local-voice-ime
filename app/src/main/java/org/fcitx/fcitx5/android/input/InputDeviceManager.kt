@@ -5,6 +5,7 @@
 
 package org.fcitx.fcitx5.android.input
 
+import android.content.res.Configuration
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -73,12 +74,20 @@ class InputDeviceManager(private val onChange: (Boolean) -> Unit) {
     /**
      * @return should use virtual keyboard
      */
-    fun evaluateOnStartInputView(info: EditorInfo, service: FcitxInputMethodService): Boolean {
+    fun evaluateOnStartInputView(
+        info: EditorInfo,
+        restarting: Boolean,
+        service: FcitxInputMethodService
+    ): Boolean {
         startedInputView = true
         isNullInputType = info.isTypeNull()
         isVirtualKeyboard = when (candidatesViewMode) {
             FloatingCandidatesMode.SystemDefault -> service.superEvaluateInputViewShown()
-            FloatingCandidatesMode.InputDevice -> isVirtualKeyboard
+            FloatingCandidatesMode.InputDevice -> KeyboardModeOnShow.useVirtualKeyboard(
+                isVirtualKeyboard,
+                restarting,
+                service.resources.configuration.keyboard != Configuration.KEYBOARD_NOKEYS
+            )
             FloatingCandidatesMode.Disabled -> true
         }
         return isVirtualKeyboard
