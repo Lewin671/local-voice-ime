@@ -1,7 +1,7 @@
 {
     "uniqueId": "FunAudioLLM/SenseVoice",
     "artifactVersion": "SenseVoiceSmall (int8, 2024-07-17)",
-    "description": "SenseVoice Small speech recognition model by FunAudioLLM / Alibaba Group, converted to ONNX by the sherpa-onnx project. Not part of the app: downloaded on request in Settings → Voice input. Licensed under the FunASR Model Open Source License Agreement 1.1 (https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)",
+    "description": "SenseVoice Small speech recognition model by FunAudioLLM / Alibaba Group, converted to ONNX by the sherpa-onnx project. Not part of the app: downloaded on request in Settings → Voice input, as is the optional fine-tuned variant (https://github.com/Lewin671/sensevoice-finetune). Licensed under the FunASR Model Open Source License Agreement 1.1 (https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)",
     "name": "SenseVoice Small (speech model)",
     "website": "https://github.com/FunAudioLLM/SenseVoice",
     "tag": "native",

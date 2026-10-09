@@ -48,6 +48,10 @@ Downloads come from ModelScope ([standard](https://www.modelscope.cn/models/peng
 from mainland China), can be paused and resumed, and are verified against checksums fixed in
 the app before they are used.
 
+A third download is an example of where this is going: the standard model
+[fine-tuned on one person's dictation](https://github.com/Lewin671/sensevoice-finetune), which can be used in place of the standard one.
+It knows that person's vocabulary, not yours; it comes from GitHub.
+
 ## How it stays private
 
 | Guarantee | How it is enforced |
@@ -98,7 +102,9 @@ for signing.
 - A speech model that knows the user's names and technical terms (the models tend to mis-spell
   English jargon inside Chinese sentences). Hot word lists were measured and do not get there
   (`docs/MODELS.md`); the way forward is fine-tuning on one's own speech, for which the app can
-  keep recordings on request (`docs/TRAINING_DATA.md`). The training scripts are still to come.
+  keep recordings on request (`docs/TRAINING_DATA.md`) and
+  [sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune) trains on an export of them. One model made that way can be
+  downloaded in the settings as an example; importing a model of one's own is still to come.
 - Enable Pinyin by default regardless of the system language.
 
 ## Documentation

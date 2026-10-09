@@ -348,6 +348,8 @@
     <string name="voice_refining">Refining…</string>
     <string name="voice_refine">High-accuracy refinement</string>
     <string name="voice_refine_summary">Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</string>
+    <string name="voice_tuned">Use the fine-tuned model</string>
+    <string name="voice_tuned_summary">Recognize speech with the fine-tuned model instead of the standard one.</string>
     <string name="voice_privacy_title">Recognition runs on this phone</string>
     <string name="voice_privacy_summary">Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</string>
     <string name="voice_models">Speech models</string>
@@ -390,6 +392,8 @@
     <string name="voice_model_standard_summary">Needed for voice input. Text appears while you speak, with punctuation and numbers.</string>
     <string name="voice_model_accurate">High accuracy</string>
     <string name="voice_model_accurate_summary">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</string>
+    <string name="voice_model_tuned">Fine-tuned (example)</string>
+    <string name="voice_model_tuned_summary">The standard model trained further on one person\'s dictation: Mandarin with English technical terms. Better at that speaker\'s words, not at yours; it shows what training on your own recordings can give. Used instead of the standard model.</string>
     <string name="voice_model_source">%1$s · %2$s · from %3$s</string>
     <string name="voice_model_progress">%1$s of %2$s</string>
     <string name="voice_model_paused">Paused · %s</string>
@@ -406,6 +410,8 @@
     <string name="voice_model_standard_delete_message">Frees %s. Voice input stops working until the model is downloaded again.</string>
     <string name="voice_model_delete_title">Delete the high-accuracy model?</string>
     <string name="voice_model_delete_message">Frees %s. Dictation keeps working with the standard model.</string>
+    <string name="voice_model_tuned_delete_title">Delete the fine-tuned model?</string>
+    <string name="voice_model_standard_delete_message_tuned">Frees %s. Dictation keeps working with the fine-tuned model.</string>
     <string name="app_update">App update</string>
     <string name="update_privacy_title">Updates are looked for only when you ask</string>
     <string name="update_privacy_summary">Check for updates asks %s for the newest release and sends nothing about you. The app never checks by itself.</string>

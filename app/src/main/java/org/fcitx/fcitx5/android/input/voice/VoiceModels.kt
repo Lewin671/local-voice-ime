@@ -87,7 +87,40 @@ object VoiceModels {
         )
     )
 
-    val all = listOf(SenseVoice, FireRedAsr2)
+    /**
+     * SenseVoice Small, fine-tuned on one speaker's dictation and exported in the same format:
+     * an alternative to [SenseVoice] ([recognition]). The files are those of the release
+     * `model-20261008` of https://github.com/Lewin671/sensevoice-finetune, whose README says
+     * how it was made and measured; `tokens.txt` is that of [SenseVoice].
+     */
+    val SenseVoiceTuned = VoiceModel(
+        id = "sense-voice-small-tuned-20261008-int8",
+        name = "SenseVoice Small, fine-tuned",
+        host = "github.com",
+        baseUrl = "/Lewin671/sensevoice-finetune/releases/download/model-20261008/",
+        files = listOf(
+            VoiceModel.File(
+                "model.int8.onnx", 239234129,
+                "c5aa67a25d595439970f849eee7a43a747a31242766634a6bad19b8369cdb723"
+            ),
+            VoiceModel.File(
+                "tokens.txt", 315894,
+                "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+            )
+        )
+    )
+
+    val all = listOf(SenseVoice, SenseVoiceTuned, FireRedAsr2)
+
+    /**
+     * The model that turns speech into text: the fine-tuned one if it is installed and wanted,
+     * or if it is all there is; else the standard one; null if neither is installed.
+     */
+    fun recognition(standardInstalled: Boolean, tunedInstalled: Boolean, preferTuned: Boolean) = when {
+        tunedInstalled && (preferTuned || !standardInstalled) -> SenseVoiceTuned
+        standardInstalled -> SenseVoice
+        else -> null
+    }
 
     enum class Error { Network, Storage, Content }
 

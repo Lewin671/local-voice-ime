@@ -27,6 +27,7 @@ Versions and checksums are pinned in `VoiceModels.kt` (what the app downloads) a
 `scripts/fetch-voice-assets.sh` (runtime, VAD, and the same models for tests); the model is
 configured in `VoiceEngine.kt`.
 
+
 ## Downloadable models
 
 Speech models are kept out of the APK, which would otherwise be 300 MB and more; they are listed
@@ -35,6 +36,7 @@ in `VoiceModels.kt` and fetched by the app.
 | Model | Files | Source | License |
 |---|---|---|---|
 | SenseVoice Small int8 | `model.int8.onnx` (239 MB), `tokens.txt` | [ModelScope `pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue`](https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue) | FunASR Model Open Source License Agreement 1.1 |
+| SenseVoice Small int8, fine-tuned (2026-10-08) | `model.int8.onnx` (239 MB), `tokens.txt` | [GitHub release `model-20261008` of `Lewin671/sensevoice-finetune`](https://github.com/Lewin671/sensevoice-finetune/releases/tag/model-20261008) | FunASR Model Open Source License Agreement 1.1 |
 | FireRedASR2 AED int8 | `encoder.int8.onnx` (817 MB), `decoder.int8.onnx` (417 MB), `tokens.txt` | [ModelScope `csukuangfj/FireRedASR2-AED-onnx`](https://www.modelscope.cn/models/csukuangfj/FireRedASR2-AED-onnx), directory `aed/` | Apache-2.0 |
 
 The FireRedASR2 files are byte-identical to those in sherpa-onnx's GitHub release archive
@@ -48,6 +50,19 @@ checksums can take its place by changing `baseUrl`. ModelScope was chosen becaus
 proxy (GitHub releases and Hugging Face are not, reliably), needs no account, and supports
 resuming (HTTP range requests). FireRedTeam's own ModelScope repository only has the PyTorch
 weights, which sherpa-onnx cannot load.
+
+The fine-tuned SenseVoice Small is the standard model trained further on 24 minutes of one
+speaker's dictation (Mandarin with English technical terms) with
+[sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune), whose README has the method and the measurements: on that
+speaker's held-out utterances 2.94 % → 1.86 % errors in five-fold cross-validation and hardly
+any gain on a later day with new subjects; on the seven public sets used here level with the
+original on five, better on ASCEND (14.80 % → 13.40 %), worse on KeSpeech (12.09 % → 13.42 %).
+It is offered as an example of what training on one's own recordings gives, not as a better
+model for everyone: the settings say so, and the standard model stays the default for anyone
+who does not download it. When it is installed and *Use the fine-tuned model* is on, it
+recognizes instead of the standard model (`VoiceModels.recognition`); same graph, size, speed
+and memory. It is hosted on GitHub, which breaks the rule below about mainland China: it is
+optional, and the app already depends on GitHub for its own updates.
 
 To offer another model for download:
 

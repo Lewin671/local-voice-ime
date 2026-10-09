@@ -22,7 +22,7 @@ An audio file is one **utterance**: the stretch of speech between two pauses, ex
 samples the recognizer was given (the voice activity detector's segment plus a short margin).
 Exactly, sample for sample, from the version after 0.8.2 on; up to 0.8.2 every non-zero sample
 in the file is one step (of 32768) closer to zero than what the recognizer got, which is
-inaudible and still enough to change what a model writes for about one utterance in twenty.
+inaudible and still enough to change what a model writes for about one utterance in twenty-five.
 Its name is `<session>-<number>`; a **session** is one use of dictation, from holding the space
 bar or tapping the microphone pill until it ends, and its name is its starting time on the
 phone's clock.
@@ -39,7 +39,8 @@ about the same session its `session`; later lines add to earlier ones and never 
 | `field` | the text field was read back after the session | `session`, `dictated`, `text` |
 | `undone` | the user removed the session's text with Undo | `session` |
 
-- **`utterance.text`** is what the standard model (`model`) wrote, with its punctuation and
+- **`utterance.text`** is what the recognition model (`model`: the standard one, or the
+  fine-tuned one if that was in use) wrote, with its punctuation and
   number formatting. If `continues` is true, the speaker went on after a short pause and the
   sentence was transcribed again as a whole: `text` then covers this audio file **and** the ones
   of the preceding utterances of the session, back to the last one with `continues` false. An
@@ -72,3 +73,7 @@ together. A workable recipe:
    with the strongest model a computer can run and keep the ones where it agrees with the phone.
 
 The utterances that teach a model most are the corrected ones: they are where it was wrong.
+
+[sensevoice-finetune](https://github.com/Lewin671/sensevoice-finetune) implements this, with one change that turned out to matter: it
+trusts agreement between recognizers rather than the status of a session, and leaves the rest
+to a review by hand. Its README has the recipe and what a first export gained.

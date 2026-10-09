@@ -135,7 +135,7 @@ object VoiceSamples {
         val record = VoiceSampleRecord.utterance(
             id, session.id, System.currentTimeMillis(),
             samples.size.toFloat() / VoiceEngine.SAMPLE_RATE, text, continues,
-            VoiceModels.SenseVoice.id, BuildConfig.VERSION_NAME
+            VoiceEngine.modelId, BuildConfig.VERSION_NAME
         )
         submit(session.context) { it.add(id, samples, VoiceEngine.SAMPLE_RATE, record) }
         return id

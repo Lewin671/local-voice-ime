@@ -4,10 +4,11 @@
 # the private storage of an installed DEBUG build and marks them as installed, exactly as
 # VoiceModels.kt would after a download. A model that is already installed is left alone.
 #
-#   scripts/push-voice-model.sh [--refiner] [package]
+#   scripts/push-voice-model.sh [--refiner | --tuned] [package]
 #
 #   --refiner   also the large model (FireRedASR2 AED, 1.2 GB); without it only the standard
 #               model (SenseVoice Small), which voice input cannot do without
+#   --tuned     also the fine-tuned SenseVoice Small (240 MB), which the app then recognizes with
 #   package     default: package of the newest debug APK
 set -euo pipefail
 
@@ -15,7 +16,9 @@ cd "$(dirname "$0")/.."
 source scripts/env.sh
 
 refiner=false
+tuned=false
 [[ ${1:-} == --refiner ]] && { refiner=true; shift; }
+[[ ${1:-} == --tuned ]] && { tuned=true; shift; }
 
 pkg=${1:-}
 if [[ -z $pkg ]]; then
@@ -25,6 +28,7 @@ if [[ -z $pkg ]]; then
 fi
 
 ./scripts/fetch-voice-assets.sh "$($refiner && echo --refiner || echo --models)" >/dev/null
+$tuned && ./scripts/fetch-voice-assets.sh --tuned >/dev/null
 
 # push <model id> <file>...      keep in sync with VoiceModels.kt
 push() {
@@ -56,4 +60,7 @@ adb shell am force-stop "$pkg"
 push sense-voice-small-int8 model.int8.onnx tokens.txt
 if $refiner; then
     push fire-red-asr2-aed-int8 encoder.int8.onnx decoder.int8.onnx tokens.txt
+fi
+if $tuned; then
+    push sense-voice-small-tuned-20261008-int8 model.int8.onnx tokens.txt
 fi

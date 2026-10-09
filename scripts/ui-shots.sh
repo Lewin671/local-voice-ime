@@ -29,12 +29,15 @@ echo "Installing $apk"
 adb install -r -g "$apk" >/dev/null
 ./scripts/push-voice-model.sh "$pkg"
 model=files/voice-models/sense-voice-small-int8
+# a test device may also carry the fine-tuned model, which voice input works with just as well
+tuned=files/voice-models/sense-voice-small-tuned-20261008-int8
 
 previous_ime=$(adb shell settings get secure default_input_method | tr -d '\r')
 previous_night=$(adb shell cmd uimode night | tr -d '\r' | awk '{print $NF}')
 cleanup() {
     adb shell rm -f "$remote_wav" >/dev/null 2>&1 || true
     adb shell run-as "$pkg" mv "$model.aside" "$model" >/dev/null 2>&1 || true
+    adb shell run-as "$pkg" mv "$tuned.aside" "$tuned" >/dev/null 2>&1 || true
     adb shell run-as "$pkg" rm -rf files/app-update files/voice-samples >/dev/null 2>&1 || true
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO >/dev/null 2>&1 || true
     adb shell cmd uimode night "$previous_night" >/dev/null 2>&1 || true
@@ -158,6 +161,7 @@ for theme in light dark; do
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" mv "$model" "$model.aside"
+    adb shell run-as "$pkg" mv "$tuned" "$tuned.aside" >/dev/null 2>&1 || true
     adb shell ime set "$ime" >/dev/null
     open_keyboard
     adb shell input tap $(center "Voice input")
@@ -169,6 +173,7 @@ for theme in light dark; do
     shot 8-settings-voice-input
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" mv "$model.aside" "$model"
+    adb shell run-as "$pkg" mv "$tuned.aside" "$tuned" >/dev/null 2>&1 || true
 
     # app update: not checked, then with a newer version. The app remembers what a check found
     # in a file; writing that file shows the state without asking github.com

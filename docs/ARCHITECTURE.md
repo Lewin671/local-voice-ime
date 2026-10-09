@@ -31,7 +31,7 @@ touches the network (the only network code downloads a model from the settings, 
 
 | File | Responsibility |
 |---|---|
-| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded, confines all native calls to one thread, frees the model after 5 idle minutes. |
+| `VoiceEngine` | Process-wide singleton owning the sherpa-onnx `OfflineRecognizer`. Loads the model lazily from the files `VoiceModels` downloaded (the standard SenseVoice Small, or the fine-tuned one if it is installed and switched on: `VoiceModels.recognition`; a change takes effect when the next session loads), confines all native calls to one thread, frees the model after 5 idle minutes. |
 | `VoiceSession` | One dictation session. Reads audio, runs VAD, produces partial and final transcripts (see below). UI-agnostic; reports through `VoiceSession.Listener` on the main thread. |
 | `AudioSource` | `MicrophoneSource` (16 kHz mono `AudioRecord`) and `WavFileSource` (debug-only test input). |
 | `VoiceCapture` | Lossless reader loop and one-time source teardown before queued recognition finishes. Preserves the last completed read when stopping. Pure Kotlin, unit-tested. |

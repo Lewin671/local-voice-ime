@@ -357,6 +357,9 @@ document.getElementById('screens').innerHTML = S.map(s => `<figure>
 const arrow = '<svg viewBox="0 0 24 24"><path d="M20 11H7.800l5.600-5.600L12 4l-8 8 8 8 1.400-1.400L7.800 13H20z"/></svg>';
 const standardRow = (rest) => `<div class="item"><b>Standard</b><span>SenseVoice Small · 240 MB · from modelscope.cn</span>
   <span style="margin-top:4px">Needed for voice input. Text appears while you speak, with punctuation and numbers.</span>${rest}</div>`;
+const tunedRow = `<div class="item"><b>Fine-tuned (example)</b><span>SenseVoice Small, fine-tuned · 240 MB · from github.com</span>
+  <span style="margin-top:4px">The standard model trained further on one person's dictation: Mandarin with English technical terms. Better at that speaker's words, not at yours; it shows what training on your own recordings can give. Used instead of the standard model.</span><div class="actions"><span></span><div class="btn">Download</div></div></div>`;
+const tunedSwitch = `<div class="item lead off" style="justify-content:space-between"><div class="item" style="padding:0"><b>Use the fine-tuned model</b><span>Recognize speech with the fine-tuned model instead of the standard one.</span></div><div class="switch"></div></div>`;
 const modelRow = (rest) => `<div class="item"><b>High accuracy</b><span>FireRedASR2 · 1.2 GB · from modelscope.cn</span>
   <span style="margin-top:4px">Re-checks each sentence after it is inserted and corrects wrong words in place: roughly half as many mistakes. Uses about 1.5 GB of memory while dictating.</span>${rest}</div>`;
 const settings = (row, on, extra = '', standard = acts('Installed', '<div class="tbtn">Delete</div>')) => `<div class="app">
@@ -364,8 +367,10 @@ const settings = (row, on, extra = '', standard = acts('Installed', '<div class=
   <div class="item lead">${I.lock}<div class="item" style="padding:0"><b>Recognition runs on this phone</b><span>Audio and text never leave it. The app goes online only when you ask it to: here, to download a speech model.</span></div></div>
   <div class="group">Speech models</div>
   ${standardRow(standard)}
+  ${tunedRow}
   ${modelRow(row)}
   <div class="group">Dictation</div>
+  ${tunedSwitch}
   <div class="item lead ${on ? '' : 'off'}" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>
   ${extra}</div>`;
 const acts = (status, ...btns) => `<div class="actions"><span${status.err ? ' class="err"' : ''}>${status.t || status}</span>${btns.join('')}</div>`;
@@ -374,7 +379,7 @@ const T = [
     k: settings(acts('', '<div class="btn">Download</div>'), false, '', acts('', '<div class="btn">Download</div>')) },
   { t: 'Before going online', d: 'Tapping Download asks once. The dialog says how much, from where, and that nothing is sent. No download starts any other way.',
     k: settings(acts('', '<div class="btn">Download</div>'), false, `<div class="scrim"><div class="dialog"><b>Download 240 MB?</b><span>SenseVoice Small is fetched from modelscope.cn over HTTPS and verified before it is used. Nothing is uploaded. Wi-Fi is recommended; the download goes on if you leave this screen.</span><div class="actions"><div class="tbtn">Cancel</div><div class="tbtn">Download</div></div></div></div>`, acts('', '<div class="btn">Download</div>')) },
-  { t: 'Ready to dictate', d: 'With the standard model installed, voice input works. The high-accuracy model stays an offer; until it is there, its switch is disabled.',
+  { t: 'Ready to dictate', d: 'With the standard model installed, voice input works. The high-accuracy model stays an offer; until it is there, its switch is disabled. So does the fine-tuned example between them: a standard model that has heard one person before, offered to show what training on one\'s own recordings gives. Once installed, its switch (on by default) makes it the model that recognizes; switched off or deleted, the standard model is back from the next dictation on. If it is the only model on the phone it is used regardless.',
     k: settings(acts('', '<div class="btn">Download</div>'), false) },
   { t: 'Downloading', d: 'Progress in the row itself, in amounts rather than a bare percentage. Pause is the only action; leaving the screen does not stop the download.',
     k: settings('<div class="meter"><i style="width:34%"></i></div>' + acts('412 MB of 1.2 GB', '<div class="tbtn">Pause</div>'), false) },
@@ -391,6 +396,7 @@ document.getElementById('settings').innerHTML = T.map(s => `<figure>
 const recordings = (on, rest, extra = '') => `<div class="app">
   <div class="appbar">${arrow}Voice input</div>
   <div class="group">Dictation</div>
+  ${tunedSwitch}
   <div class="item lead" style="justify-content:space-between"><div class="item" style="padding:0"><b>High-accuracy refinement</b><span>Re-check dictated text with the high-accuracy model and correct it in place. Accuracy is preserved in Battery Saver; previews update less often.</span></div><div class="switch on"></div></div>
   <div class="group">Recordings</div>
   <div class="item lead" style="justify-content:space-between"><div class="item" style="padding:0"><b>Keep what I dictate</b><span>Save the audio and text of each sentence on this phone, to fine-tune a speech model with on a computer of yours. Nothing is sent anywhere.</span></div><div class="switch ${on ? 'on' : ''}"></div></div>

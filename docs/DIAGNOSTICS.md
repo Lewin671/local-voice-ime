@@ -42,7 +42,7 @@ contains and how to read it. The promise to users is in [PRIVACY.md](PRIVACY.md)
 
 The first line of an export is `export`: when it was written, the app version and build type,
 Android's API level, maker and model of the phone, and the settings dictation depends on
-(`refine`, `keep_recordings`, `long_press_ms`, `space_swipe`, `vivo_workaround`).
+(`refine`, `model`, `keep_recordings`, `long_press_ms`, `space_swipe`, `vivo_workaround`).
 
 Every other line has `e` (the event), `n` (a counter, to see gaps; it restarts with the
 process), `t` (wall clock, ms), `up` (ms since boot, monotonic), `s` (the session's number;

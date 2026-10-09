@@ -51,7 +51,13 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             VoiceModels.SenseVoice,
             R.string.voice_model_standard, R.string.voice_model_standard_summary,
             R.string.voice_model_standard_delete_title, R.string.voice_model_standard_delete_message,
-            VoiceEngine::uninstall
+            { VoiceEngine.uninstall(it, VoiceModels.SenseVoice) }
+        ),
+        Entry(
+            VoiceModels.SenseVoiceTuned,
+            R.string.voice_model_tuned, R.string.voice_model_tuned_summary,
+            R.string.voice_model_tuned_delete_title, R.string.voice_model_delete_message,
+            { VoiceEngine.uninstall(it, VoiceModels.SenseVoiceTuned) }
         ),
         Entry(
             VoiceModels.FireRedAsr2,
@@ -64,6 +70,8 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
     private lateinit var rows: List<VoiceModelPreference>
 
     private lateinit var refine: Preference
+
+    private lateinit var tuned: Preference
 
     private lateinit var recordings: VoiceSamplesPreference
 
@@ -78,6 +86,7 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             // what dictation depends on, so that the events can be read without asking
             val settings = arrayOf<Pair<String, Any?>>(
                 "refine" to VoiceRefiner.isActive(ctx),
+                "model" to VoiceEngine.modelId,
                 "keep_recordings" to prefs.voiceInput.keepRecordings.getValue(),
                 "long_press_ms" to prefs.keyboard.longPressDelay.getValue(),
                 "space_swipe" to prefs.keyboard.spaceSwipeMoveCursor.getValue(),
@@ -103,6 +112,8 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         val ctx = screen.context
         refine = screen.findPreference(AppPrefs.getInstance().voiceInput.voiceRefine.key)!!
         screen.removePreference(refine)
+        tuned = screen.findPreference(AppPrefs.getInstance().voiceInput.voiceTuned.key)!!
+        screen.removePreference(tuned)
         val keep = screen.findPreference<TwoStatePreference>(
             AppPrefs.getInstance().voiceInput.keepRecordings.key
         )!!
@@ -167,6 +178,10 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         }
         screen.addCategory(R.string.voice_dictation) {
             isIconSpaceReserved = false
+            // each still carries its position in the list it was created in
+            tuned.order = 0
+            refine.order = 1
+            addPreference(tuned)
             addPreference(refine)
         }
         screen.addCategory(R.string.voice_samples) {
@@ -195,6 +210,7 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
                 VoiceModels.state(requireContext(), entry.model).collect {
                     row.state = it
                     if (entry.model === VoiceModels.FireRedAsr2) refine.isEnabled = it == State.Installed
+                    if (entry.model === VoiceModels.SenseVoiceTuned) tuned.isEnabled = it == State.Installed
                 }
             }
         }
@@ -245,6 +261,20 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
             .show()
     }
 
+    /** What deleting a recognition model does depends on whether the other one is there. */
+    private fun deleteMessage(context: Context, entry: Entry): Int {
+        fun installed(model: VoiceModel) = VoiceModels.isInstalled(context, model)
+        return when (entry.model) {
+            VoiceModels.SenseVoice ->
+                if (installed(VoiceModels.SenseVoiceTuned)) R.string.voice_model_standard_delete_message_tuned
+                else entry.deleteMessage
+            VoiceModels.SenseVoiceTuned ->
+                if (installed(VoiceModels.SenseVoice)) entry.deleteMessage
+                else R.string.voice_model_standard_delete_message
+            else -> entry.deleteMessage
+        }
+    }
+
     private fun confirmDelete(entry: Entry) {
         val ctx = requireContext().applicationContext
         val onDevice = when (val state = VoiceModels.state(ctx, entry.model).value) {
@@ -254,7 +284,7 @@ class VoiceSettingsFragment : ManagedPreferenceFragment(AppPrefs.getInstance().v
         }
         AlertDialog.Builder(requireContext())
             .setTitle(entry.deleteTitle)
-            .setMessage(getString(entry.deleteMessage, size(onDevice)))
+            .setMessage(getString(deleteMessage(ctx, entry), size(onDevice)))
             .setPositiveButton(R.string.delete) { _, _ ->
                 // not tied to this screen: it must finish even if the user leaves
                 FcitxApplication.getInstance().coroutineScope.launch { entry.uninstall(ctx) }

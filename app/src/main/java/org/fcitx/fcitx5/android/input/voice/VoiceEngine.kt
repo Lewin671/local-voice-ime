@@ -15,6 +15,7 @@ import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
+import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.ScheduledThreadPoolExecutor
@@ -41,7 +42,21 @@ object VoiceEngine {
     /** Window size (in samples) expected by the VAD model. */
     const val VAD_WINDOW = 512
 
-    private val model = VoiceModels.SenseVoice
+    private val preferTuned by AppPrefs.getInstance().voiceInput.voiceTuned
+
+    /** The model to recognize with now: see [VoiceModels.recognition]. */
+    private fun model(context: Context) = VoiceModels.recognition(
+        VoiceModels.isInstalled(context, VoiceModels.SenseVoice),
+        VoiceModels.isInstalled(context, VoiceModels.SenseVoiceTuned),
+        preferTuned
+    )
+
+    /** The model [recognizer] was made from. */
+    @Volatile
+    private var loaded: VoiceModel? = null
+
+    /** Id of the model that transcribes, for what is recorded about an utterance. */
+    val modelId get() = (loaded ?: VoiceModels.SenseVoice).id
 
     /** Small enough (2 MB) to be part of the APK. */
     private const val VAD_MODEL = "voice/silero_vad.onnx"
@@ -67,6 +82,7 @@ object VoiceEngine {
         if (recognizer != null) VoiceDiagnostics.log("model_release")
         recognizer?.release()
         recognizer = null
+        loaded = null
     }
 
     @Volatile
@@ -75,8 +91,8 @@ object VoiceEngine {
     /** Whether the model is in memory; if not, the next session has to wait for [ensureLoaded]. */
     val isLoaded get() = recognizer != null
 
-    /** Whether the speech model has been downloaded; there is no voice input without it. */
-    fun isAvailable(context: Context) = VoiceModels.isInstalled(context, model)
+    /** Whether a speech model has been downloaded; there is no voice input without one. */
+    fun isAvailable(context: Context) = model(context) != null
 
     private val numThreads: Int
         get() = if (Runtime.getRuntime().availableProcessors() >= 8) 4 else 2
@@ -92,8 +108,10 @@ object VoiceEngine {
     // must be called on the engine thread
     private fun load(context: Context) {
         touch()
-        if (recognizer != null) return
-        check(isAvailable(context)) { "The speech model is not installed" }
+        val model = checkNotNull(model(context)) { "The speech model is not installed" }
+        if (recognizer != null && loaded === model) return
+        // the user chose the other model since
+        releaseNow()
         val t0 = SystemClock.elapsedRealtime()
         val dir = VoiceModels.dir(context, model)
         val config = OfflineRecognizerConfig(
@@ -111,7 +129,8 @@ object VoiceEngine {
             )
         )
         recognizer = OfflineRecognizer(null, config)
-        Timber.i("Voice recognizer loaded in ${SystemClock.elapsedRealtime() - t0} ms")
+        loaded = model
+        Timber.i("Voice recognizer ${model.id} loaded in ${SystemClock.elapsedRealtime() - t0} ms")
     }
 
     /**
@@ -175,9 +194,9 @@ object VoiceEngine {
         executor.execute(::releaseNow)
     }
 
-    /** Delete the model. On the engine thread, so that it cannot happen while it is being loaded. */
-    suspend fun uninstall(context: Context) = withContext(dispatcher) {
-        releaseNow()
+    /** Delete [model]. On the engine thread, so that it cannot happen while it is being loaded. */
+    suspend fun uninstall(context: Context, model: VoiceModel) = withContext(dispatcher) {
+        if (loaded === model) releaseNow()
         VoiceModels.delete(context, model)
     }
 }

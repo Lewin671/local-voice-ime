@@ -12,6 +12,10 @@
 #   voice/models/fire-red-asr2-aed-int8/       the large model that re-checks dictated text
 #                                              (FireRedASR2 AED, 1.2 GB)
 #
+# with --tuned (implies --models):
+#   voice/models/sense-voice-small-tuned-20261008-int8/
+#                                              SenseVoice Small fine-tuned on one speaker (240 MB)
+#
 # voice/libs and voice/assets are bundled into the APK at build time, and are all a build needs.
 # The speech models are not bundled: users download them in the app's settings (VoiceModels.kt
 # pins the same files). --models and --refiner fetch them for scripts/push-voice-model.sh, which
@@ -71,7 +75,7 @@ if [[ -d $old_model_dir ]]; then
     echo "moved    $old_model_dir -> $model_dir"
 fi
 
-[[ ${1:-} == --models || ${1:-} == --refiner ]] || exit 0
+[[ ${1:-} == --models || ${1:-} == --refiner || ${1:-} == --tuned ]] || exit 0
 
 # the files and checksums of VoiceModels.SenseVoice, taken from sherpa-onnx's release archive
 if [[ -f $model_dir/model.int8.onnx && $(sha256 "$model_dir/model.int8.onnx") == "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51" && -f $model_dir/tokens.txt && $(sha256 "$model_dir/tokens.txt") == "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc" && -f $wavs_dir/zh.wav && -f $wavs_dir/en.wav ]]; then
@@ -100,4 +104,14 @@ if [[ ${1:-} == --refiner ]]; then
         b840ce7196ae4a14d05ae84bbf56082b6b61ccec5610fda907dddbcea37354ff
     fetch "$REFINER/tokens.txt" "$refiner_dir/tokens.txt" \
         1bc613de2112d257e61a349c3e72d1b1a9cf19c33d3ca954197ad2171e5ea07b
+fi
+
+if [[ ${1:-} == --tuned ]]; then
+    # the files and checksums of VoiceModels.SenseVoiceTuned
+    TUNED=https://github.com/Lewin671/sensevoice-finetune/releases/download/model-20261008
+    tuned_dir=voice/models/sense-voice-small-tuned-20261008-int8
+    fetch "$TUNED/model.int8.onnx" "$tuned_dir/model.int8.onnx" \
+        c5aa67a25d595439970f849eee7a43a747a31242766634a6bad19b8369cdb723
+    fetch "$TUNED/tokens.txt" "$tuned_dir/tokens.txt" \
+        f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc
 fi

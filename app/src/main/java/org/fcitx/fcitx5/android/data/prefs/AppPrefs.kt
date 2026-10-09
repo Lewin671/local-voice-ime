@@ -335,6 +335,9 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         val voiceRefine = switch(
             R.string.voice_refine, "voice_refine", true, R.string.voice_refine_summary
         )
+        val voiceTuned = switch(
+            R.string.voice_tuned, "voice_tuned", true, R.string.voice_tuned_summary
+        )
         val keepRecordings = switch(
             R.string.voice_samples_keep, "voice_keep_recordings", false,
             R.string.voice_samples_keep_summary

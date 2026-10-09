@@ -105,3 +105,6 @@ lint/tmp/
 
 ### Kotlin ###
 .kotlin/
+
+# Python bytecode of scripts/
+__pycache__/

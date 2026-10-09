@@ -343,6 +343,8 @@
     <string name="voice_refining">精修中…</string>
     <string name="voice_refine">高精度精修</string>
     <string name="voice_refine_summary">用高精度模型複核語音輸入的文字並原地修正。開啟省電模式或裝置過熱時暫停。</string>
+    <string name="voice_tuned">使用微調模型</string>
+    <string name="voice_tuned_summary">用微調模型代替標準模型辨識語音。</string>
     <string name="voice_privacy_title">辨識在本機完成</string>
     <string name="voice_privacy_summary">音訊和文字不會離開這支手機。應用程式只在你要求時連網：在這裡，是下載語音模型。</string>
     <string name="voice_models">語音模型</string>
@@ -351,6 +353,8 @@
     <string name="voice_model_standard_summary">語音輸入必需。邊說邊出字，自帶標點和數字格式。</string>
     <string name="voice_model_accurate">高精度</string>
     <string name="voice_model_accurate_summary">每句話上屏後再複核一遍，原地修正聽錯的字詞，錯誤大約減半。語音輸入時約佔用 1.5 GB 記憶體。</string>
+    <string name="voice_model_tuned">微調版（範例）</string>
+    <string name="voice_model_tuned_summary">在標準模型基礎上，用一個人的語音輸入繼續訓練而成（國語夾英文技術詞）。它更熟悉那位說話者的用詞，對你未必更準；用來展示拿自己的錄音訓練能得到什麼。啟用後代替標準模型。</string>
     <string name="voice_model_source">%1$s · %2$s · 來自 %3$s</string>
     <string name="voice_model_progress">%1$s / %2$s</string>
     <string name="voice_model_paused">已暫停 · %s</string>
@@ -367,6 +371,8 @@
     <string name="voice_model_standard_delete_message">可釋放 %s。重新下載之前，語音輸入將無法使用。</string>
     <string name="voice_model_delete_title">刪除高精度模型？</string>
     <string name="voice_model_delete_message">可釋放 %s。語音輸入會繼續使用標準模型。</string>
+    <string name="voice_model_tuned_delete_title">刪除微調模型？</string>
+    <string name="voice_model_standard_delete_message_tuned">可釋放 %s。語音輸入會繼續使用微調模型。</string>
     <string name="app_update">應用程式更新</string>
     <string name="update_privacy_title">只在你要求時檢查更新</string>
     <string name="update_privacy_summary">「檢查更新」會向 %s 詢問最新版本，不會傳送任何關於你的資訊。應用程式從不自行檢查。</string>
