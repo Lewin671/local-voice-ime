@@ -214,7 +214,7 @@ events that the pinyin engine composes).
 | File | Responsibility |
 |---|---|
 | `AdbText` | The text a broadcast carries: as is or as Base64-encoded UTF-8, exactly one, not empty, at most 100,000 characters. Pure Kotlin, unit-tested. |
-| `AdbTextReceiver` | Registered by the input method service while it runs, for `<applicationId>.COMMIT_TEXT`, exported but only to senders holding `android.permission.DUMP` (adb's shell; no installed app can). Does nothing unless `AppPrefs.advanced.acceptAdbText` is on (off by default). Drops unfinished pinyin, commits through `FcitxInputMethodService.commitText` and reports the outcome as the broadcast's result. Never logs the text. |
+| `AdbTextReceiver` | Registered by the input method service while it runs, for `<applicationId>.COMMIT_TEXT`, exported but only to senders holding `android.permission.DUMP` (adb's shell; no installed app can). Does nothing unless `AppPrefs.advanced.acceptAdbText` is on (off by default). Commits only while the keyboard is shown (not into a hidden field, nor the connection kept from the last one); drops unfinished pinyin, commits through `FcitxInputMethodService.commitText` and reports the outcome as the broadcast's result. Never logs the text. |
 
 ## App update
 

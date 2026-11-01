@@ -8,8 +8,13 @@ adb shell am broadcast -a io.github.lewin671.localvoiceime.COMMIT_TEXT \
     --es base64 "$(printf '%s' '净化器6 PM2.5 高于 12' | base64)"
 ```
 
-The keyboard must be the active input method and a text field must have it. The text is
-committed in one piece, like a candidate: no key events, no pinyin, whatever the language.
+`adb shell input text` is no substitute: it sends ASCII key events, which the keyboard treats
+like a physical keyboard's. Pinyin composes letters, and after Chinese text is committed, digits
+select the predicted words the floating candidate bar offers (press Escape first to close it).
+
+The keyboard must be the active input method and be shown for the field: tap the field first
+if it is hidden. The text is committed in one piece, like a candidate: no key events, no
+pinyin, whatever the language. Unfinished pinyin is dropped first.
 
 | Extra | Meaning |
 |---|---|
@@ -26,7 +31,7 @@ Give exactly one of them. Debug builds listen for
 | `-1` | `committed N characters` |
 | `1` | the switch is off |
 | `2` | why the text was refused (missing, not Base64-encoded UTF-8, empty, longer than 100,000 characters) |
-| `3` | no text field has the keyboard |
+| `3` | the keyboard is not shown for a text field |
 | `0`, no data | nothing received it: the keyboard is not the active input method, or the installed version predates this feature |
 
 Only a sender that holds `android.permission.DUMP` gets through: adb's shell has it, and an app

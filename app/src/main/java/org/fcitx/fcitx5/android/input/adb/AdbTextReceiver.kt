@@ -45,8 +45,11 @@ class AdbTextReceiver(private val service: FcitxInputMethodService) : BroadcastR
                 return
             }
         }
-        if (service.currentInputConnection == null) {
-            reply(RESULT_NO_FIELD, "no text field has the keyboard")
+        // The field being edited is the one the keyboard is shown for. Without one, the text would
+        // vanish silently into the connection kept from the last field, or into a hidden one
+        // (a launcher's search box).
+        if (!service.isInputViewShown || service.currentInputConnection == null) {
+            reply(RESULT_NO_FIELD, "the keyboard is not shown for a text field")
             return
         }
         // drop unfinished pinyin composition, so that it doesn't come back after the text
