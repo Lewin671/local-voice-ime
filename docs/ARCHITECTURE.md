@@ -21,7 +21,8 @@
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Everything runs inside the IME process. There is no service and no IPC, and dictation never
+Everything runs inside the IME process. There is no service and no IPC (other than the opt-in
+[text from adb](#text-from-adb), which only arrives), and dictation never
 touches the network (the only network code downloads a model from the settings, see
 [Privacy model](#privacy-model)).
 
@@ -168,9 +169,9 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `app/src/main/AndroidManifest.xml` | `RECORD_AUDIO`, `INTERNET` (model download and app update only), `REQUEST_INSTALL_PACKAGES`, `AppUpdateReceiver`, and a non-exported `AppUpdateFileProvider` (app update), `usesCleartextTraffic="false"`, `VoicePermissionActivity` |
 | `app/src/main/res/xml/data_extraction_rules.xml`, `full_backup_content.xml` | downloaded models and kept recordings are excluded from backups |
 | `ui/main/MainFragment.kt`, `ui/main/settings/SettingsRoute.kt`, `utils/AppUtil.kt` | entry and route for *Settings → Voice input* and *Settings → App update*, and opening the former from the keyboard |
-| `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, app name |
+| `app/src/main/res/values/strings.xml` | `voice_*` strings, `space_behavior_voice_input`, `accept_adb_text*`, app name |
 | `input/InputView.kt` | create `VoiceInputComponent`, add it to the scope, its overlay and its strip to the layout |
-| `input/FcitxInputMethodService.kt` | `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `VoiceInput.onCommit()` at the top of `commitText` (does nothing unless a session runs); `restarting` passed on to `evaluateOnStartInputView` |
+| `input/FcitxInputMethodService.kt` | `AdbTextReceiver` registered in `onCreate`, unregistered in `onDestroy`; `VoiceInput.stopCurrent()` in `onFinishInputView`; `VoiceInput.onFieldChanged()` in `onUpdateSelection` (does nothing unless recordings are kept); `setVoicePreview()`, `hasComposingText`; `deleteBeforeCursor()` (a deletion whose cursor movement is expected, like the service's other writes), `hasCollapsedSelection`, `editorSerial` (counts the editors input started in), `composingLostTo` (what cleared composing text last: `resetComposingState` takes the reason); `VoiceDiagnostics.log` in the lifecycle callbacks, `handleCursorUpdate` and the engine's commit/preedit events (kept only while dictation runs); `VoiceInput.onCommit()` at the top of `commitText` (does nothing unless a session runs); `restarting` passed on to `evaluateOnStartInputView` |
 | `input/InputDeviceManager.kt` | `KeyboardModeOnShow` in `evaluateOnStartInputView`: without a physical keyboard, the on-screen keyboard comes back each time the keyboard is shown anew (a single injected key used to hide it for good in editors that report no touch) |
 | `input/bar/ui/IdleUi.kt`, `input/bar/KawaiiBarComponent.kt` | microphone pill in the toolbar; our own icon on the hide-keyboard button |
 | `input/keyboard/KeyAction.kt` | `SpaceHoldMoveAction`, `SpaceReleaseAction` |
@@ -178,13 +179,13 @@ Keep this list complete; it is what must be re-applied when merging upstream.
 | `input/keyboard/CustomGestureView.kt` | `onHoldMoveListener`: follow the finger after a long press; `VoiceDiagnostics.log` when a touch is lifted or cancelled (kept only while dictation runs) |
 | `input/keyboard/KeyView.kt`, `input/keyboard/TextKeyboard.kt` | microphone glyph and "Hold to talk" hint on the space bar; `NumbersTopRight` hint position |
 | `data/theme/ThemePreset.kt`, `ThemeManager.kt`, `ThemePrefs.kt` | `VoiceLight` / `VoiceDark` themes and the default look (key caps, radius, margins, hint position) |
-| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` and `keepDiagnostics` switches |
+| `input/keyboard/SpaceLongPressBehavior.kt`, `data/prefs/AppPrefs.kt` | `VoiceInput` behavior, made the default; `VoiceInput` preference category with the `voiceRefine` and `keepRecordings` and `keepDiagnostics` switches; `acceptAdbText` switch in *Advanced* |
 | `input/keyboard/CommonKeyActionListener.kt` | route long-press / release to `VoiceInputComponent`; ask its `onKeyAction()` before handling any key |
 | `.gitignore` | ignore `voice/` |
 | `.github/` | upstream's workflows and issue templates replaced by ours |
 | `app/src/main/java/.../utils/Const.kt` | repository and privacy policy URLs |
 | `app/src/main/res/drawable/ic_launcher_*`, `mipmap-*/ic_launcher*` | own launcher icon |
-| `app/src/main/res/values-*/strings.xml` | removed translated app names; `values-zh-rCN` has ours |
+| `app/src/main/res/values-*/strings.xml` | removed translated app names; `values-zh-rCN` has ours, and our strings in Chinese |
 | `app/licenses/libraries/` | entries for sherpa-onnx, ONNX Runtime, SenseVoice, Silero VAD |
 | `README.md` | replaced; the original is `docs/UPSTREAM_README.md` |
 | `app/src/main/play/`, `app/org.fcitx.fcitx5.android.yml` | removed (upstream's store listings) |
@@ -202,6 +203,18 @@ large one. Downloaded models live in the app's private storage, `files/voice-mod
 named `installed` is written last, so a directory that has it holds every file complete and
 verified; anything else in there is an unfinished download (`*.part`) that the next attempt
 continues. The directory is excluded from backups.
+
+## Text from adb
+
+`app/src/main/java/org/fcitx/fcitx5/android/input/adb/`. Lets a computer commit text into the
+focused field with `adb shell am broadcast` ([ADB_TEXT.md](ADB_TEXT.md)), so that scripts and
+agents driving a phone are not limited to what `input text` can type (ASCII, sent as key
+events that the pinyin engine composes).
+
+| File | Responsibility |
+|---|---|
+| `AdbText` | The text a broadcast carries: as is or as Base64-encoded UTF-8, exactly one, not empty, at most 100,000 characters. Pure Kotlin, unit-tested. |
+| `AdbTextReceiver` | Registered by the input method service while it runs, for `<applicationId>.COMMIT_TEXT`, exported but only to senders holding `android.permission.DUMP` (adb's shell; no installed app can). Does nothing unless `AppPrefs.advanced.acceptAdbText` is on (off by default). Drops unfinished pinyin, commits through `FcitxInputMethodService.commitText` and reports the outcome as the broadcast's result. Never logs the text. |
 
 ## App update
 

@@ -86,6 +86,7 @@ also looks right with the other built-in themes, Monet, and user themes.
 | Diagnostics row (settings) | `VoiceDiagnosticsPreference`, state from `VoiceDiagnostics` | nothing kept / how much is kept / exported / export failed |
 | Model row (settings) | `VoiceModelPreference`, state from `VoiceModels` | not on the phone / downloading / paused / failed (network, storage, verification) / installed |
 | App update settings | `AppUpdateFragment`, state from `AppUpdate` | statement of when the app asks github.com, installed version (not checked / checking / nothing newer / check failed), new version if one was found; entry in the main settings list, after *Advanced* |
+| Accept text from adb (settings) | `AppPrefs.advanced.acceptAdbText`, upstream switch row in *Advanced* | off (default) / on; the summary says what it allows and that no app on the phone can use it |
 | New version row (settings) | `AppUpdatePreference` | not downloaded / no package for this phone / downloading / paused / failed / downloaded / installing / not installed (cause) |
 
 Behaviour rules that are easy to get wrong:

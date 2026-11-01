@@ -64,6 +64,7 @@ import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreferenceProvider
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
+import org.fcitx.fcitx5.android.input.adb.AdbTextReceiver
 import org.fcitx.fcitx5.android.input.voice.VoiceDiagnostics
 import org.fcitx.fcitx5.android.input.voice.VoiceInput
 import org.fcitx.fcitx5.android.input.cursor.CursorRange
@@ -184,6 +185,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private val prefs = AppPrefs.getInstance()
     private val inlineSuggestions by prefs.keyboard.inlineSuggestions
     private val ignoreSystemCursor by prefs.advanced.ignoreSystemCursor
+    private val adbTextReceiver = AdbTextReceiver(this)
 
     private val recreateInputViewPrefs: Array<ManagedPreference<*>> = arrayOf(
         prefs.keyboard.expandKeypressArea,
@@ -272,6 +274,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         decorView = window.window!!.decorView
         contentView = decorView.findViewById(android.R.id.content)
         lastKnownConfig = resources.configuration
+        adbTextReceiver.register()
     }
 
     private fun handleFcitxEvent(event: FcitxEvent<*>) {
@@ -1186,6 +1189,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
     override fun onDestroy() {
         VoiceDiagnostics.log("service_destroy")
+        adbTextReceiver.unregister()
         recreateInputViewPrefs.forEach {
             it.unregisterOnChangeListener(recreateInputViewListener)
         }

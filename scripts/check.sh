@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local checks for code changes; CI runs the same. See docs/TESTING.md#verification-policy.
 #
-#   1. unit tests of the voice and update packages, and of our other additions
+#   1. unit tests of the voice, update and adb packages, and of our other additions
 #   2. debug build
 #   3. network use is limited to what docs/PRIVACY.md lists (scripts/check-privacy.sh)
 #
@@ -19,6 +19,7 @@ echo "== unit tests"
 ./gradlew :app:testDebugUnitTest --tests 'org.fcitx.fcitx5.android.input.voice.*' \
     --tests 'org.fcitx.fcitx5.android.update.*' \
     --tests 'org.fcitx.fcitx5.android.input.KeyboardModeOnShowTest' \
+    --tests 'org.fcitx.fcitx5.android.input.adb.*' \
     -PbuildABI="${ABI:-arm64-v8a}" --console=plain -q
 
 echo "== build"

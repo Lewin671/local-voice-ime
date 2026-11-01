@@ -11,6 +11,8 @@
     <string name="behavior">Behavior</string>
     <string name="advanced">Advanced</string>
     <string name="ignore_sys_cursor">Ignore system cursor position</string>
+    <string name="accept_adb_text">Accept text from adb</string>
+    <string name="accept_adb_text_summary">A computer connected over USB debugging can type text into the field you are editing (adb shell am broadcast, action COMMIT_TEXT). No app on the phone can.</string>
     <string name="hide_key_config">Hide hotkey configurations</string>
     <string name="_not_available_">(Not Available)</string>
     <string name="button_haptic_feedback">Haptic feedback on keypress</string>

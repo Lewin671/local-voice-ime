@@ -9,6 +9,8 @@
     <string name="behavior">行为</string>
     <string name="advanced">高级</string>
     <string name="ignore_sys_cursor">忽略系统光标位置</string>
+    <string name="accept_adb_text">接收来自 adb 的文字</string>
+    <string name="accept_adb_text_summary">通过 USB 调试连接的电脑可以向正在编辑的输入框输入文字（adb shell am broadcast，动作 COMMIT_TEXT）。手机上的应用都不能。</string>
     <string name="hide_key_config">隐藏快捷键配置</string>
     <string name="_not_available_">（不可用）</string>
     <string name="button_haptic_feedback">按键时振动</string>

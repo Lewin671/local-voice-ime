@@ -24,6 +24,8 @@ with spell check, clipboard history, symbol/emoji pickers and themes — all inh
   understood by the model as well).
 - Works fully offline. No account, no telemetry, no cloud API, no cost.
 - Dictation is disabled on password fields.
+- Optional: text typed on a computer goes into the field you are editing, over USB debugging
+  ([docs/ADB_TEXT.md](docs/ADB_TEXT.md)).
 
 ## Speech models
 
@@ -122,6 +124,7 @@ for signing.
 - [docs/PRIVACY.md](docs/PRIVACY.md) — privacy policy
 - [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — finding out why dictation stopped: the journal kept on request, and its export
 - [docs/TRAINING_DATA.md](docs/TRAINING_DATA.md) — keeping recordings to fine-tune a model, and the export format
+- [docs/ADB_TEXT.md](docs/ADB_TEXT.md) — typing text from a computer over adb
 - [NOTICE.md](NOTICE.md) — relationship to upstream, changes, third-party licenses
 - [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md) — the original fcitx5-android README
 

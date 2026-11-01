@@ -56,6 +56,9 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
             "keyboard_height_percent_base",
             KeyboardHeightPercentBase.DisplayMetrics
         )
+        val acceptAdbText = switch(
+            R.string.accept_adb_text, "accept_adb_text", false, R.string.accept_adb_text_summary
+        )
     }
 
     inner class Keyboard : ManagedPreferenceCategory(R.string.virtual_keyboard, sharedPreferences) {
