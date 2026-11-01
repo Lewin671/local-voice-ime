@@ -331,7 +331,8 @@ sleep 2
 settle
 text=$(field)
 expect "punctuation typed mid-utterance is written after the utterance, in place of its full stop" \
-    '[[ ${#text} -gt 10 && ( $text == *[!。]， || $text == *[!。], ) ]]' "field: '$text'"
+    '[[ ${#text} -gt 10 && ( $text == *， || $text == *, ) && $text != *。， && $text != *。, ]]' \
+    "field: '$text'"
 drain 45
 
 # a letter while dictating: typing takes over. The microphone goes off, what was said is written
@@ -395,9 +396,11 @@ tap_if_present "Stop listening"
 sleep 3
 settle
 text=$(field)
-stops=${text//[^。]/}
+# macOS's bash 3.2 gets bracket expressions with CJK characters wrong ([^。] keeps bytes of
+# other characters), so full stops are counted by removing them
+no_stops=${text//。/}
 expect "speech that resumes after a pause continues the sentence" \
-    '[[ $text == *9点*5点。 && ${#stops} -eq 1 ]]' "field: '$text'"
+    '[[ $text == *9点*5点。 && $(( ${#text} - ${#no_stops} )) -eq 1 ]]' "field: '$text'"
 # the sentence was rewritten where it stood; the cursor the editor then reports must be the one
 # the keyboard expects, or its next preview would look like the user moving the cursor
 adb logcat -d >"$work/log.txt" 2>/dev/null
