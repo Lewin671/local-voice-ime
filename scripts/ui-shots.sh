@@ -75,6 +75,24 @@ open_keyboard() {
 
 center() { python3 scripts/e2e/ui.py center "$work/ui.xml" "$1"; }
 
+# A cold decode can outlast a fixed delay on a real phone.
+wait_for_key() {
+    for _ in $(seq 20); do
+        dump_ui
+        center "$1" >/dev/null 2>&1 && return
+        sleep 0.5
+    done
+    echo "Timed out waiting for '$1'" >&2
+    return 1
+}
+
+tap() {
+    local point
+    point=$(center "$1") || return
+    adb shell input tap $point
+}
+
+
 shot() {
     adb exec-out screencap -p >"$out/$theme-$1.png"
     echo "$out/$theme-$1.png"
@@ -88,7 +106,7 @@ open_update() {
     adb shell input swipe 500 1500 500 500 200
     sleep 1
     dump_ui
-    adb shell input tap $(center "App update")
+    tap "App update"
     sleep 2
 }
 
@@ -98,7 +116,7 @@ open_recordings() {
     adb shell am start -W -n "$pkg/org.fcitx.fcitx5.android.ui.main.MainActivity" >/dev/null
     sleep 2
     dump_ui
-    adb shell input tap $(center "Voice input")
+    tap "Voice input"
     sleep 2
     adb shell input swipe 500 1500 500 300 200
     sleep 1
@@ -110,6 +128,7 @@ for theme in light dark; do
     adb shell pm grant "$pkg" android.permission.RECORD_AUDIO
     sleep 2
 
+    python3 scripts/e2e-symbols.py "$pkg" "$out" "$theme" --screenshots-only
     open_keyboard
     shot 1-keyboard
 
@@ -125,9 +144,9 @@ for theme in light dark; do
     adb shell input motionevent UP "$sx" $((top - 2 * (bottom - top)))
     sleep 2
 
-    # hands-free: the dictation strip while listening
-    dump_ui
-    adb shell input tap $(center "Voice input")
+    # hands-free: cancellation must finish before another session can start
+    wait_for_key "Voice input"
+    tap "Voice input"
     # the test recording lasts under 6 s, and listening ends with it
     sleep 2
     shot 4-dictation-listening
@@ -141,7 +160,7 @@ for theme in light dark; do
     # (needs a quiet room, or an emulator started with -no-audio)
     adb shell rm -f "$remote_wav"
     open_keyboard
-    adb shell input tap $(center "Voice input")
+    tap "Voice input"
     sleep 12
     shot 5-dictation-off-after-silence
     sleep 4
@@ -152,7 +171,7 @@ for theme in light dark; do
     sleep 2
     adb shell ime set "$ime" >/dev/null
     open_keyboard
-    adb shell input tap $(center "Voice input")
+    tap "Voice input"
     sleep 2
     shot 6-dictation-permission
 
@@ -164,11 +183,11 @@ for theme in light dark; do
     adb shell run-as "$pkg" mv "$tuned" "$tuned.aside" >/dev/null 2>&1 || true
     adb shell ime set "$ime" >/dev/null
     open_keyboard
-    adb shell input tap $(center "Voice input")
+    tap "Voice input"
     sleep 2
     shot 7-dictation-model-needed
     dump_ui
-    adb shell input tap $(center "Open settings")
+    tap "Open settings"
     sleep 3
     shot 8-settings-voice-input
     adb shell am force-stop "$pkg"
@@ -193,11 +212,11 @@ JSON
     adb shell run-as "$pkg" rm -rf files/voice-samples
     open_recordings
     shot 11-settings-recordings-off
-    adb shell input tap $(center "Keep what I dictate")
+    tap "Keep what I dictate"
     sleep 1
     shot 12-settings-recordings-question
     dump_ui
-    adb shell input tap $(center "KEEP RECORDINGS")
+    tap "KEEP RECORDINGS"
     sleep 1
     adb shell am force-stop "$pkg"
     adb shell ime set "$ime" >/dev/null
@@ -210,7 +229,7 @@ JSON
     open_recordings
     shot 13-settings-recordings-kept
     # back to how a fresh install is: switch off, nothing kept
-    adb shell input tap $(center "Keep what I dictate")
+    tap "Keep what I dictate"
     sleep 1
     adb shell run-as "$pkg" rm -rf files/voice-samples
 
@@ -218,7 +237,7 @@ JSON
     adb shell run-as "$pkg" rm -rf no_backup/voice-diagnostics
     open_recordings
     shot 14-settings-diagnostics-off
-    adb shell input tap $(center "Keep voice diagnostics")
+    tap "Keep voice diagnostics"
     sleep 1
     adb shell am force-stop "$pkg"
     adb shell ime set "$ime" >/dev/null
@@ -231,7 +250,7 @@ JSON
     open_recordings
     shot 15-settings-diagnostics-kept
     # back to how a fresh install is: switch off, nothing kept
-    adb shell input tap $(center "Keep voice diagnostics")
+    tap "Keep voice diagnostics"
     sleep 1
     adb shell run-as "$pkg" rm -rf no_backup/voice-diagnostics
     adb shell am force-stop "$pkg"

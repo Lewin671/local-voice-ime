@@ -78,7 +78,10 @@ class CommonKeyActionListener :
             }
         } else {
             // Other languages: commit preedit as-is
-            service.finishComposing()
+            // A voice preview is also composing text, but belongs to VoiceInput.onCommit.
+            if (clientPreeditCached.isNotEmpty() || inputPanelCached.preedit.isNotEmpty()) {
+                service.finishComposing()
+            }
         }
         reset()
     }

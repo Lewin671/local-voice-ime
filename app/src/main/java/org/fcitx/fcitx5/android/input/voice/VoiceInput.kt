@@ -173,14 +173,12 @@ object VoiceInput {
     }
 
     /** Typed while an utterance was being previewed, see [onCommit]. */
-    private val typedAhead = StringBuilder()
+    private val typedAhead = VoicePendingKeys()
 
     private fun insertTypedAhead(service: FcitxInputMethodService) {
-        if (typedAhead.isEmpty()) return
-        val text = typedAhead.toString()
-        typedAhead.clear()
+        if (typedAhead.isEmpty) return
         closeSentence()
-        editsFor(service).insertTyped(text)
+        typedAhead.flush { service.editorSerial }
     }
 
     private var refiningJobs = 0
@@ -549,6 +547,14 @@ object VoiceInput {
             if (undone) kept?.let(VoiceSamples::undone)
         }
 
+    /** Return/backspace must not detach a live preview and masquerade as a cursor move. */
+    fun onEditorKey(service: FcitxInputMethodService, action: () -> Unit): Boolean {
+        if (writing || current == null || !service.hasComposingText) return false
+        typedAhead.add(service.editorSerial, action)
+        closeSentence()
+        return true
+    }
+
     /**
      * The keyboard is about to commit [text] that was typed by hand (punctuation, a digit,
      * space). While dictation previews an utterance it waits until that is final: committing it
@@ -559,7 +565,7 @@ object VoiceInput {
     fun onCommit(service: FcitxInputMethodService, text: String): Boolean {
         if (writing || current == null) return false
         if (service.hasComposingText) {
-            typedAhead.append(text)
+            typedAhead.add(service.editorSerial) { editsFor(service).insertTyped(text) }
             return true
         }
         closeSentence()

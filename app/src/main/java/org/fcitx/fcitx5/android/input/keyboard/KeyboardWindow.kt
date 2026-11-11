@@ -24,6 +24,8 @@ import org.fcitx.fcitx5.android.input.dependency.theme
 import org.fcitx.fcitx5.android.input.picker.PickerWindow
 import org.fcitx.fcitx5.android.input.popup.PopupActionListener
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
+import org.fcitx.fcitx5.android.input.voice.SymbolKeyboard
+import org.fcitx.fcitx5.android.input.voice.SymbolSpaceReturn
 import org.fcitx.fcitx5.android.input.wm.EssentialWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
@@ -65,13 +67,23 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
 
     private lateinit var keyboardView: FrameLayout
 
+    private val symbolSpaceReturn = SymbolSpaceReturn()
+
     private val keyboards: HashMap<String, BaseKeyboard> by lazy {
         hashMapOf(
             TextKeyboard.Name to TextKeyboard(context, theme),
             NumberKeyboard.Name to NumberKeyboard(context, theme)
-        )
+        ).apply {
+            for (chinese in listOf(false, true)) for (more in listOf(false, true)) {
+                put(
+                    SymbolKeyboard.name(chinese, more),
+                    SymbolKeyboard(context, theme, chinese, more, symbolSpaceReturn)
+                )
+            }
+        }
     }
     private var currentKeyboardName = ""
+    private var inputMethodName = ""
     private var lastSymbolType: String by AppPrefs.getInstance().internal.lastSymbolLayout
 
     private val currentKeyboard: BaseKeyboard? get() = keyboards[currentKeyboardName]
@@ -112,18 +124,32 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
             keyboardView.apply { add(it, lParams(matchParent, matchParent)) }
             it.onAttach()
             it.onReturnDrawableUpdate(returnKeyDrawable.resourceId)
-            it.onInputMethodUpdate(fcitx.runImmediately { inputMethodEntryCached })
+            val ime = fcitx.runImmediately { inputMethodEntryCached }
+            inputMethodName = ime.uniqueName
+            it.onInputMethodUpdate(ime)
         }
     }
 
     fun switchLayout(to: String, remember: Boolean = true) {
-        val target = to.ifEmpty { lastSymbolType }
         ContextCompat.getMainExecutor(service).execute {
+            val requested = to.ifEmpty { lastSymbolType }
+            val target = when (requested) {
+                SymbolKeyboard.Name, SymbolKeyboard.MoreName -> SymbolKeyboard.name(
+                    SymbolKeyboard.usesChinese(fcitx.runImmediately { inputMethodEntryCached }),
+                    requested == SymbolKeyboard.MoreName
+                )
+                else -> requested
+            }
             if (keyboards.containsKey(target)) {
                 if (remember && target != TextKeyboard.Name) {
-                    lastSymbolType = target
+                    lastSymbolType = (keyboards[target] as? SymbolKeyboard)?.let {
+                        if (it.more) SymbolKeyboard.MoreName else SymbolKeyboard.Name
+                    } ?: target
                 }
                 if (target == currentKeyboardName) return@execute
+                if (currentKeyboard !is SymbolKeyboard || keyboards[target] !is SymbolKeyboard) {
+                    symbolSpaceReturn.reset()
+                }
                 detachCurrentLayout()
                 attachLayout(target)
                 if (windowManager.isAttached(this)) {
@@ -139,6 +165,7 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
     }
 
     override fun onStartInput(info: EditorInfo, capFlags: CapabilityFlags) {
+        symbolSpaceReturn.reset()
         val targetLayout = when (info.inputType and InputType.TYPE_MASK_CLASS) {
             InputType.TYPE_CLASS_NUMBER -> NumberKeyboard.Name
             InputType.TYPE_CLASS_PHONE -> NumberKeyboard.Name
@@ -149,6 +176,13 @@ class KeyboardWindow : InputWindow.SimpleInputWindow<KeyboardWindow>(), Essentia
 
     override fun onImeUpdate(ime: InputMethodEntry) {
         currentKeyboard?.onInputMethodUpdate(ime)
+        if (inputMethodName != ime.uniqueName) symbolSpaceReturn.reset()
+        inputMethodName = ime.uniqueName
+        (currentKeyboard as? SymbolKeyboard)?.let {
+            if (it.chinese != SymbolKeyboard.usesChinese(ime)) {
+                switchLayout(if (it.more) SymbolKeyboard.MoreName else SymbolKeyboard.Name)
+            }
+        }
     }
 
     override fun onPunctuationUpdate(mapping: Map<String, String>) {

@@ -307,6 +307,17 @@ const keys = (label) => `<div class="keys">
   <div class="row">${key(I.shift, 'alt w15')}${letters('zxcvbnm')}${key(I.back, 'alt w15')}</div>
   <div class="row">${key('?123', 'alt w15')}${key('，', 'alt')}${key(I.globe, 'alt')}<div class="key space">${I.mic}${label}</div>${key('。', 'alt')}${key(I.enter, 'accent w15')}</div>
 </div>`;
+const symbolLayouts = {"en-123": [["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"], ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""], [".", ",", "?", "!", "'"]], "en-more": [["[", "]", "{", "}", "#", "%", "^", "*", "+", "="], ["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"], [".", ",", "?", "!", "'"]], "zh-123": [["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"], ["-", "/", "：", "；", "（", "）", "¥", "@", "“", "”"], ["。", "，", "、", "？", "！", "."]], "zh-more": [["【", "】", "｛", "｝", "#", "%", "^", "*", "+", "="], ["_", "—", "\\", "｜", "～", "《", "》", "$", "&", "·"], ["…", "，", "^_^", "？", "！", "'"]]};
+const escapeKey = c => c.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+const symbolKeys = (name) => {
+  const rows = symbolLayouts[name];
+  const more = name.endsWith('more');
+  return `<div class="keys">
+    ${rows.slice(0, 2).map(r => `<div class="row">${r.map(c => key(escapeKey(c))).join('')}</div>`).join('')}
+    <div class="row">${key(more ? '123' : '#+=', 'alt w15')}${rows[2].map(c => `<div class="key ${c === '^_^' ? 'alt' : ''}" style="flex:${7 / rows[2].length}">${escapeKey(c)}</div>`).join('')}${key(I.back, 'alt w15')}</div>
+    <div class="row">${key('ABC', 'alt w15')}${key(I.globe, 'alt')}<div class="key space" style="flex:6">${I.mic}Hold to talk</div>${key(I.enter, 'accent w15')}</div>
+  </div>`;
+};
 const wave = (cls = 'live') => { const h = [8,14,10,22,16,30,24,40,28,48,36,54,44,56,42,52,34,46,26,38,20,28,14,20,10,14,8];
   return `<div class="wave ${cls}">${h.map((x, i) => `<i style="height:${x}px;animation-delay:${-(i * 83 % 700)}ms"></i>`).join('')}</div>`; };
 const status = (text, err) => `<div class="bar"><span class="chip"><span class="dot" ${err ? 'style="background:var(--error)"' : ''}></span>${text}</span><span class="grow"></span><span class="chip">${I.lock}On-device</span></div>`;
@@ -322,6 +333,11 @@ const strip = ({ label = '', error = false, live = false, pill = '' }) => `<div 
   ${pill === 'stop' ? `<span class="pill round">${I.stop}</span>` : pill === 'speak' ? `<span class="pill">${I.mic}Speak</span>` : pill ? `<span class="pill text">${pill}</span>` : ''}
   <span class="icon">${I.hide}</span></div>`;
 const S = [
+  ...Object.keys(symbolLayouts).map(name => ({
+    t: `${name.startsWith('zh') ? 'Simplified Pinyin' : 'English (US)'}: ${name.endsWith('more') ? '#+=' : '123'}`,
+    d: 'Exact symbol commits; after typing, space inserts a space and returns to letters. Hold space to talk. Hold ABC for the full symbol picker. The Chinese ^_^ key opens the emoticon picker.',
+    e: '<span class="caret"></span>', k: idleBar + symbolKeys(name)
+  })),
   { t: 'Keyboard', d: 'Key caps with a soft radius, hints in the corner, one accent key. The space bar carries a microphone glyph: it is the push-to-talk key, and reads "Hold to talk" until that has been done three times. The pill starts hands-free dictation.',
     e: '周五下午把报告发我<span class="caret"></span>', k: idleBar + keys('拼音') },
   { t: 'Typing pinyin', d: 'Candidates replace the toolbar; the first one is in the accent colour and is what space commits.',

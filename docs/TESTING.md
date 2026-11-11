@@ -115,6 +115,19 @@ When you fix a behaviour bug or add a rule, add a scenario for it.
 
 Compare them with the mockup as described in `docs/design/DESIGN.md`.
 
+`ui-shots.sh` also runs `scripts/e2e-symbols.py --screenshots-only` to capture `123` and `#+=` in Pinyin and
+English, in both themes (`<theme>-symbols-<zh|en>-<123|more>.png`, with XML and JSON evidence).
+Enable both Pinyin and English in the debug app's *Input Methods* list before running it.
+After installation, run `python3 scripts/e2e-symbols.py <package> <output-dir> light`
+without that flag for the interaction checks. It taps every literal key and compares the editor text exactly (including quote direction,
+full-width characters and currency), checks backspace, several symbols in a row, page changes,
+`ABC`, space with/without a preceding symbol, and the numeric/phone number pads. In light mode
+it also drives both variants during WAV-based hands-free dictation: page changes, digits,
+symbols, holding space, space returning to letters, return and backspace must keep listening.
+The existing hold-to-talk screenshots exercise the shared space gesture. Hold `ABC` opens
+the full symbol picker; Chinese `^_^` opens emoticons. Results are written to
+`<theme>-symbol-results.json`; assertion failures stop the interaction run.
+
 ### Manual checks worth doing on a real phone
 
 - Hold the space bar, speak, release: text is inserted; slide up before releasing: nothing is.

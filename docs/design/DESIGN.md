@@ -111,6 +111,8 @@ Behaviour rules that are easy to get wrong:
   Holding space does nothing while the microphone is on. (`VoiceKeys`, `VoiceInputComponent`)
 - Text typed while an utterance is still underlined is inserted after
   that utterance, once it is final: text can only be written at the cursor, where the preview is.
+  Return and backspace likewise wait behind the preview, in key order, before editing the
+  finalized text; they never turn a preview into an apparent cursor move (`VoicePendingKeys`).
   This is decided where text is committed (`VoiceInput.onCommit`), so it holds for every way of
   typing, and what is typed while dictating counts as part of the dictated run: earlier
   utterances can still be refined.
@@ -197,6 +199,63 @@ Behaviour rules that are easy to get wrong:
   their numbers (`0.10.0` is newer than `0.9.2`); anything not newer than the installed version
   is "nothing newer". Release notes are shown as plain text, four lines at most.
 - Every string on screen comes from `values/strings.xml`; wording in `mockup.html` is the source.
+
+## Symbol keyboard
+
+The letter keyboard's `?123` always opens the first of two iOS-style symbol pages. `#+=`
+opens the second page; `123` returns to the first; `ABC` returns to letters. Numeric and
+phone fields retain the existing number pad. Symbol keys use the letter keyboard's theme,
+key heights, gaps and backspace/return gestures. The bottom row is `ABC`, the optional
+language key, a wide microphone-labelled space bar, and return. Hold `ABC` to open the existing
+full symbol picker; it also remains available through the
+letter keyboard's comma/emoji menu and the number pad's `!?#` key. The Chinese second
+page's `^_^` opens the existing emoticon picker.
+
+Typing several digits or symbols stays on the current page, including across page changes.
+After at least one symbol or digit, a short tap on space inserts one literal space and
+returns to letters. Space before any symbol inserts a space and stays on the page. Returning
+to letters, changing the input method, or starting a new field resets that decision. Holding
+space and cursor swipes do not count as typing a space and retain the letter keyboard's voice
+and cursor behaviour. Changing pages and typing punctuation, digits, space, backspace and
+return leave hands-free dictation listening.
+
+The active input method chooses the variant: Simplified Pinyin uses Chinese punctuation;
+English uses US punctuation. Unlike the letter keyboard (whose labels come from the fcitx
+punctuation addon and whose keystrokes that addon converts), these keys commit the exact
+label through the existing literal commit path. The addon must never convert them again,
+even when Chinese punctuation is enabled or disabled. Existing composition is settled before
+the literal is inserted.
+
+### Rows and references
+
+The following are transcribed from Apple's **iOS 27.0 (24A434) system keyboard**, in an
+isolated iPhone 16 Pro simulator with English (US) and Simplified Chinese Pinyin QWERTY
+(the installed current runtime, satisfying iOS 17+). Both screenshots and the XCTest
+accessibility hierarchy were inspected. Public references:
+
+- [Apple's keyboard guide](https://support.apple.com/en-ie/guide/iphone/iph3c50f96e/27/ios/27)
+  documents the number/symbol pages, but does **not** enumerate their keys.
+- [Tech Savvy Life's iOS 18.3.2 screenshots](https://techsavvy.life/2025/03/25/the-best-way-to-type-numbers-on-iphone-plus-a-bonus-tip/)
+  corroborate the English first page. The other pages are confirmed directly against the
+  Apple runtime; no suitable current public Simplified Pinyin screenshot set was found.
+
+Each cell lists keys left to right, separated by spaces. The last row on all four pages is
+`ABC`, language (when enabled), space with the microphone/hint, return. This bottom row
+retains Android conventions; the symbol rows follow iOS. All quote keys are literal (no
+context-sensitive smart quotes). The full-width Chinese vertical bar is U+FF5C and tilde
+is U+FF5E; the Chinese brackets are U+3010/U+3011 and braces U+FF5B/U+FF5D.
+
+| Variant / page | Row 1 | Row 2 | Row 3 |
+|---|---|---|---|
+| English `123` | `1 2 3 4 5 6 7 8 9 0` | `- / : ; ( ) $ & @ "` | `#+= . , ? ! ' ⌫` |
+| English `#+=` | `[ ] { } # % ^ * + =` | `_ \ \| ~ < > € £ ¥ •` | `123 . , ? ! ' ⌫` |
+| Pinyin `123` | `1 2 3 4 5 6 7 8 9 0` | `- / ： ； （ ） ¥ @ “ ”` | `#+= 。 ， 、 ？ ！ . ⌫` |
+| Pinyin `#+=` | `【 】 ｛ ｝ # % ^ * + =` | `_ — \ ｜ ～ 《 》 $ & ·` | `123 … ， ^_^ ？ ！ ' ⌫` |
+
+The third row uses 15% for each function key and divides the remaining 70% equally among
+five English or six Chinese keys. The Chinese ellipsis key displays and commits one U+2026
+`…`, confirmed by tapping it and reading the Apple text field (rather than assuming a double
+`……`). The mockup shows all four pages in both themes.
 
 ## Accepting an implementation
 

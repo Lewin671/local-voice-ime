@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.inputmethod.EditorInfo
@@ -26,6 +27,7 @@ import org.fcitx.fcitx5.android.data.prefs.AppPrefs
  * *Settings → Voice input → Keep what I dictate* without going through the settings screen;
  * `--ez keep_diagnostics <bool>` does the same for *Keep voice diagnostics*;
  * `--ez private true` marks the field as one whose content is not to be remembered.
+ * `--es input_type number` / `--es input_type phone` selects those editor classes.
  *
  * While it is open, the broadcast `<package>.RESTART_INPUT` makes it restart input in the field,
  * as apps do that rebuild their text while the keyboard is up.
@@ -55,6 +57,10 @@ class TestInputActivity : Activity() {
                 .setValue(intent.getBooleanExtra(KEEP_DIAGNOSTICS, false))
         }
         field = EditText(this).apply {
+            when (intent.getStringExtra("input_type")) {
+                "number" -> inputType = InputType.TYPE_CLASS_NUMBER
+                "phone" -> inputType = InputType.TYPE_CLASS_PHONE
+            }
             contentDescription = "test-input"
             gravity = Gravity.TOP
             fitsSystemWindows = true
