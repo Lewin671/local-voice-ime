@@ -40,6 +40,8 @@ def adb(*args):
 # Make the debug keyboard current (other device scripts restore the previous one when they
 # finish) and restore whatever was current before; a no-op when ui-shots.sh already chose it.
 ime = f"{pkg}/org.fcitx.fcitx5.android.input.FcitxInputMethodService"
+# Read before force-stop below: stopping the current keyboard makes Android fall back to another.
+previous_ime = adb("shell", "settings", "get", "secure", "default_input_method").decode().strip()
 # A fresh install (e2e-scenarios.sh reinstalls) enables only English; add Pinyin.
 profile = f"/sdcard/Android/data/{pkg}/files/config/profile"
 if b"Name=pinyin" not in subprocess.run(["adb", "shell", "cat", profile], capture_output=True).stdout:
@@ -50,10 +52,9 @@ if b"Name=pinyin" not in subprocess.run(["adb", "shell", "cat", profile], captur
         f.flush()
         adb("shell", "am", "force-stop", pkg)
         adb("push", f.name, profile)
-previous_ime = adb("shell", "settings", "get", "secure", "default_input_method").decode().strip()
+adb("shell", "ime", "enable", ime)
+adb("shell", "ime", "set", ime)
 if previous_ime != ime:
-    adb("shell", "ime", "enable", ime)
-    adb("shell", "ime", "set", ime)
     atexit.register(lambda: subprocess.run(["adb", "shell", "ime", "set", previous_ime],
                                            stdout=subprocess.DEVNULL))
 
