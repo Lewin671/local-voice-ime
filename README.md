@@ -1,14 +1,61 @@
-# Local Voice IME
+<h1 align="center">Local Voice IME</h1>
 
-A privacy-first Android keyboard with **on-device voice dictation**.
+<p align="center">
+  <b>Speak. It types. Nothing leaves your phone.</b><br>
+  A free, open-source Android keyboard with on-device voice dictation<br>
+  for Mandarin, English, and both in one sentence.
+</p>
 
-Speak Mandarin, English, or a mix of both; the text appears with punctuation, and **what you say
-and type never leaves your phone**: recognition runs on the device. The app goes online only
-when you ask: to download a speech model, or to update itself.
+<p align="center">
+  <a href="https://github.com/Lewin671/local-voice-ime/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Lewin671/local-voice-ime?label=release&color=00695c"></a>
+  <a href="LICENSE"><img alt="License: LGPL-2.1-or-later" src="https://img.shields.io/badge/license-LGPL--2.1--or--later-00695c"></a>
+  <img alt="Android 6.0+, arm64" src="https://img.shields.io/badge/Android-6.0%2B%20%C2%B7%20arm64-00695c">
+</p>
 
-It is also a complete everyday keyboard: 26-key pinyin with sentence-level prediction, English
-with spell check, clipboard history, symbol/emoji pickers and themes — all inherited from
-[fcitx5-android](https://github.com/fcitx5-android/fcitx5-android), which this project is a fork of.
+<p align="center">
+  <a href="https://github.com/Lewin671/local-voice-ime/releases/latest"><b>Download the APK</b></a> ·
+  <a href="#get-started-in-three-steps">Get started</a> ·
+  <a href="#how-it-stays-private">How it stays private</a> ·
+  <a href="#build">Build from source</a>
+</p>
+
+https://github.com/user-attachments/assets/06ef0cf0-4aa2-4f6f-9a6b-575425f939cb
+
+<p align="center"><sub>
+  Recorded on a Pixel 3, a phone from 2018. The clips run in real time and are not retouched;
+  the voice is synthetic and was played into the keyboard's recognizer instead of the microphone.
+</sub></p>
+
+## Why this keyboard
+
+- **Private by construction.** Speech is recognized on the phone's CPU. There is no account, no
+  cloud API and no telemetry; the app goes online only when you tap a button to download a
+  speech model or an update. [Check it yourself](#how-it-stays-private).
+- **Talk the way you talk.** Mandarin, English, or both in one sentence, with punctuation and
+  numbers written out for you ("三点" → "3点", "fifty" → "50").
+- **Works anywhere.** Airplane mode, the subway, a plane: dictation needs no connection.
+- **A complete keyboard, not a voice add-on.** 26-key pinyin with sentence-level prediction,
+  English with spell check, clipboard history, an iOS-style symbol keyboard, emoji and themes,
+  inherited from [fcitx5-android](https://github.com/fcitx5-android/fcitx5-android), which
+  this project is a fork of.
+- **Free.** No subscription, no quota, no ads.
+
+## Get started in three steps
+
+1. **Install.** Get the APK from [Releases](https://github.com/Lewin671/local-voice-ime/releases/latest),
+   open it, and follow the setup screen to enable and select the keyboard.
+2. **Download the speech model.** In *Settings → Voice input*, download the standard model
+   (240 MB, once) and allow the microphone when asked.
+3. **Hold the space bar and talk.** Release to insert the text; slide up to cancel. Or tap the
+   microphone in the toolbar and keep talking, hands-free.
+
+| Download the model, once | Hold space and talk | Release: it is typed |
+|:---:|:---:|:---:|
+| <img src="docs/media/step-model.png" width="240" alt="Settings, Voice input: the standard speech model with its Download button"> | <img src="docs/media/step-talk.png" width="240" alt="The keyboard listening while the space bar is held; the words appear in the note as they are spoken"> | <img src="docs/media/step-typed.png" width="240" alt="The finished sentence in the note, with punctuation and the number written as a digit"> |
+
+Requirements: Android 6.0+, arm64. Dictation uses about 0.4 GB of memory while it runs, and the
+model is unloaded after a few idle minutes. If Pinyin is missing, add it under *Input Methods*
+in the app. Later versions install from *Settings → App update*, when you ask for them.
 
 ## Features
 
@@ -67,18 +114,6 @@ verified. The app never looks by itself.
 | Audio is not stored unless you ask for it | Samples live in memory for the utterance in progress only. Keeping recordings, to fine-tune a model on your own speech, is a switch that is off until you turn it on; they stay on the phone until you export or delete them ([docs/PRIVACY.md](docs/PRIVACY.md)) |
 
 Details: [docs/PRIVACY.md](docs/PRIVACY.md).
-
-## Install
-
-There is no store release yet. Build the APK (below) and install it with `adb install`, then:
-
-1. Open **Local Voice IME** and follow the setup screen to enable and select the keyboard.
-2. In the app, add **Pinyin** under *Input Methods* if it is not there already.
-3. The first time you use voice input, download the speech model (the keyboard takes you to
-   *Settings → Voice input*) and grant the microphone permission.
-
-Requirements: Android 6.0+, arm64. The model needs about 300 MB of RAM while dictating and is
-unloaded after a few idle minutes.
 
 ## Build
 
